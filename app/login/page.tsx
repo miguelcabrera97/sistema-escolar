@@ -1,24 +1,22 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { useRouter } from 'next/navigation'
 
 export default function LoginPage() {
+  const router = useRouter()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-  const router = useRouter()
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
-    setError('')
 
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
@@ -28,44 +26,64 @@ export default function LoginPage() {
 
       if (error) throw error
 
-      // Obtener el rol del usuario
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', data.user.id)
-        .single()
+      if (data.user) {
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', data.user.id)
+          .single()
 
-      // Redirigir según el rol
-      if (profile) {
-        router.push(`/${profile.role}`)
+        if (profileData) {
+          switch (profileData.role) {
+            case 'alumno':
+              router.push('/alumno')
+              break
+            case 'maestro':
+              router.push('/maestro')
+              break
+            case 'padre':
+              router.push('/padre')
+              break
+            case 'directivo':
+              router.push('/directivo')
+              break
+            default:
+              alert('Rol no reconocido')
+          }
+        }
       }
-    } catch (error: any) {
-      setError(error.message)
+    } catch (err) {
+      const error = err as Error
+      alert('Error al iniciar sesión: ' + error.message)
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-100">
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle>Sistema Escolar</CardTitle>
-          <CardDescription>Ingresa tus credenciales</CardDescription>
+          <CardTitle className="text-2xl text-center">Sistema Escolar</CardTitle>
+          <CardDescription className="text-center">
+            Inicia sesión para acceder al sistema
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
-              <Label htmlFor="email">Correo electrónico</Label>
+              <Label htmlFor="email">Correo Electrónico</Label>
               <Input
                 id="email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="tu@email.com"
+                placeholder="usuario@ejemplo.com"
                 required
+                disabled={loading}
               />
             </div>
+
             <div>
               <Label htmlFor="password">Contraseña</Label>
               <Input
@@ -75,15 +93,24 @@ export default function LoginPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
                 required
+                disabled={loading}
               />
             </div>
-            {error && (
-              <div className="text-sm text-red-500">{error}</div>
-            )}
+
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? 'Ingresando...' : 'Ingresar'}
+              {loading ? 'Iniciando sesión...' : 'Iniciar Sesión'}
             </Button>
           </form>
+
+          <div className="mt-6 text-sm text-gray-600">
+            <p className="font-semibold mb-2">Usuarios de prueba:</p>
+            <ul className="space-y-1 text-xs">
+              <li>Alumno: alumno@prueba.com / 123456</li>
+              <li>Maestro: maestro@prueba.com / 123456</li>
+              <li>Padre: padre@prueba.com / 123456</li>
+              <li>Directivo: directivo@prueba.com / 123456</li>
+            </ul>
+          </div>
         </CardContent>
       </Card>
     </div>

@@ -1,195 +1,317 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase' // ← CAMBIO AQUÍ
+import { supabase } from '@/lib/supabase'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Users, BookOpen, DollarSign, LogOut, Search } from 'lucide-react'
+import { Users, BookOpen, FileText, DollarSign } from 'lucide-react'
+
+interface Profile {
+  nombre: string
+  apellidos: string
+}
+
+interface Stats {
+  totalAlumnos: number
+  totalMaestros: number
+  totalCursos: number
+  totalTareas: number
+  ingresosDelMes: number
+  pagosPendientes: number
+}
+
+interface Curso {
+  id: string
+  nombre: string
+  grado: string
+  grupo: string
+  maestro_profiles: Profile
+}
+
+interface Pago {
+  id: string
+  concepto: string
+  monto: number
+  status: string
+  fecha_vencimiento: string
+  alumnos: {
+    matricula: string
+    profiles: Profile
+  }
+}
 
 export default function DirectivoDashboard() {
-  const [directivo, setDirectivo] = useState<any>(null)
-  const [alumnos, setAlumnos] = useState<any[]>([])
-  const [searchTerm, setSearchTerm] = useState('')
-  const [loading, setLoading] = useState(true)
   const router = useRouter()
-  // ← YA NO NECESITAS: const supabase = createClient()
+  const [stats, setStats] = useState<Stats>({
+    totalAlumnos: 0,
+    totalMaestros: 0,
+    totalCursos: 0,
+    totalTareas: 0,
+    ingresosDelMes: 0,
+    pagosPendientes: 0
+  })
+  const [cursos, setCursos] = useState<Curso[]>([])
+  const [pagosPendientes, setPagosPendientes] = useState<Pago[]>([])
+  const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    obtenerDatos()
-  }, [])
-
-  const obtenerDatos = async () => {
+  const obtenerDatos = useCallback(async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser() // ← usa supabase directamente
-      // resto del código...
+      const { data: { user } } = await supabase.auth.getUser()
       
       if (!user) {
         router.push('/login')
         return
       }
 
-      // Obtener datos del directivo
-      const { data: directivoData } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single()
-
-      setDirectivo(directivoData)
-
-      // Obtener todos los alumnos
-      const { data: alumnosData } = await supabase
+      const { count: alumnosCount } = await supabase
         .from('alumnos')
+        .select('*', { count: 'exact', head: true })
+
+      const { count: maestrosCount } = await supabase
+        .from('profiles')
+        .select('*', { count: 'exact', head: true })
+        .eq('role', 'maestro')
+
+      const { count: cursosCount } = await supabase
+        .from('cursos')
+        .select('*', { count: 'exact', head: true })
+
+      const { count: tareasCount } = await supabase
+        .from('tareas')
+        .select('*', { count: 'exact', head: true })
+
+      const inicioMes = new Date()
+      inicioMes.setDate(1)
+      inicioMes.setHours(0, 0, 0, 0)
+
+      const { data: pagosDelMes } = await supabase
+        .from('pagos')
+        .select('monto')
+        .eq('status', 'pagado')
+        .gte('fecha_pago', inicioMes.toISOString())
+
+      const ingresosDelMes = pagosDelMes?.reduce((sum, p) => sum + p.monto, 0) || 0
+
+      const { data: pagosPendientesData } = await supabase
+        .from('pagos')
+        .select('monto')
+        .in('status', ['pendiente', 'vencido'])
+
+      const totalPendiente = pagosPendientesData?.reduce((sum, p) => sum + p.monto, 0) || 0
+
+      setStats({
+        totalAlumnos: alumnosCount || 0,
+        totalMaestros: maestrosCount || 0,
+        totalCursos: cursosCount || 0,
+        totalTareas: tareasCount || 0,
+        ingresosDelMes,
+        pagosPendientes: totalPendiente
+      })
+
+      const { data: cursosData } = await supabase
+        .from('cursos')
+        .select(`
+          id,
+          nombre,
+          grado,
+          grupo,
+          maestro_profiles:profiles!cursos_maestro_id_fkey(nombre, apellidos)
+        `)
+        .order('grado', { ascending: true })
+        .limit(5)
+
+      if (cursosData) {
+        setCursos(cursosData)
+      }
+
+      const { data: pagosData } = await supabase
+        .from('pagos')
         .select(`
           *,
-          profiles (*),
-          inscripciones (count),
-          pagos (*)
+          alumnos (
+            matricula,
+            profiles (
+              nombre,
+              apellidos
+            )
+          )
         `)
-        .order('created_at', { ascending: false })
+        .in('status', ['pendiente', 'vencido'])
+        .order('fecha_vencimiento', { ascending: true })
+        .limit(5)
 
-      setAlumnos(alumnosData || [])
+      if (pagosData) {
+        setPagosPendientes(pagosData)
+      }
+
     } catch (error) {
-      console.error('Error:', error)
+      const err = error as Error
+      console.error('Error:', err)
+      alert('Error al cargar los datos: ' + err.message)
     } finally {
       setLoading(false)
     }
-  }
+  }, [router])
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut()
-    router.push('/login')
-  }
-
-  const alumnosFiltrados = alumnos.filter(alumno =>
-    alumno.profiles?.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    alumno.profiles?.apellidos.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    alumno.matricula.includes(searchTerm)
-  )
+  useEffect(() => {
+    obtenerDatos()
+  }, [obtenerDatos])
 
   if (loading) {
-    return <div className="flex items-center justify-center min-h-screen">Cargando...</div>
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Cargando...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
       <header className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8 flex justify-between items-center">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">
-              Panel Directivo - {directivo?.nombre} 🎓
-            </h1>
-            <p className="text-sm text-gray-500">Control escolar y administración</p>
+        <div className="max-w-7xl mx-auto px-4 py-6">
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">Panel de Directivo</h1>
+              <p className="text-gray-600">Vista general del sistema</p>
+            </div>
+            <Button variant="outline" onClick={() => {
+              supabase.auth.signOut()
+              router.push('/login')
+            }}>
+              Cerrar Sesión
+            </Button>
           </div>
-          <Button variant="ghost" onClick={handleLogout}>
-            <LogOut className="h-4 w-4 mr-2" />
-            Salir
-          </Button>
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
-        {/* Cards de resumen */}
-        <div className="grid gap-6 md:grid-cols-4 mb-8">
+      <main className="max-w-7xl mx-auto px-4 py-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Alumnos</CardTitle>
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{alumnos.length}</div>
-              <p className="text-xs text-muted-foreground">Alumnos activos</p>
+              <div className="text-2xl font-bold">{stats.totalAlumnos}</div>
+              <p className="text-xs text-muted-foreground">Inscritos actualmente</p>
             </CardContent>
           </Card>
 
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Cursos</CardTitle>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Maestros</CardTitle>
+              <Users className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.totalMaestros}</div>
+              <p className="text-xs text-muted-foreground">En la plataforma</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Cursos</CardTitle>
               <BookOpen className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">12</div>
-              <p className="text-xs text-muted-foreground">Cursos activos</p>
+              <div className="text-2xl font-bold">{stats.totalCursos}</div>
+              <p className="text-xs text-muted-foreground">Activos</p>
             </CardContent>
           </Card>
 
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Pagos Pendientes</CardTitle>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Tareas</CardTitle>
+              <FileText className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.totalTareas}</div>
+              <p className="text-xs text-muted-foreground">Creadas</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Ingresos del Mes</CardTitle>
               <DollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                ${alumnos.reduce((sum, a) => {
-                  const pendientes = a.pagos?.filter((p: any) => p.status === 'pendiente') || []
-                  return sum + pendientes.reduce((s: number, p: any) => s + parseFloat(p.monto), 0)
-                }, 0).toFixed(2)}
+                ${stats.ingresosDelMes.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
               </div>
-              <p className="text-xs text-muted-foreground">MXN por cobrar</p>
+              <p className="text-xs text-muted-foreground">MXN</p>
             </CardContent>
           </Card>
 
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Maestros</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Pagos Pendientes</CardTitle>
+              <DollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">8</div>
-              <p className="text-xs text-muted-foreground">Personal docente</p>
+              <div className="text-2xl font-bold text-red-600">
+                ${stats.pagosPendientes.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+              </div>
+              <p className="text-xs text-muted-foreground">Por cobrar</p>
             </CardContent>
           </Card>
         </div>
 
-        {/* Lista de alumnos */}
-        <Card>
-          <CardHeader>
-            <div className="flex justify-between items-center">
-              <div>
-                <CardTitle>Alumnos Registrados</CardTitle>
-                <CardDescription>Gestión de expedientes estudiantiles</CardDescription>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Cursos Recientes</CardTitle>
+              <CardDescription>Últimos cursos creados</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {cursos.map((curso) => (
+                  <div key={curso.id} className="flex items-center justify-between p-4 border rounded-lg">
+                    <div>
+                      <h3 className="font-semibold">{curso.nombre}</h3>
+                      <p className="text-sm text-gray-600">
+                        {curso.grado} {curso.grupo} - {curso.maestro_profiles.nombre} {curso.maestro_profiles.apellidos}
+                      </p>
+                    </div>
+                  </div>
+                ))}
               </div>
-              <Button>Nuevo Alumno</Button>
-            </div>
-            <div className="relative mt-4">
-              <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-              <Input
-                placeholder="Buscar por nombre o matrícula..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {alumnosFiltrados.map((alumno) => (
-                <div
-                  key={alumno.id}
-                  className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50"
-                >
-                  <div>
-                    <h3 className="font-semibold">
-                      {alumno.profiles?.nombre} {alumno.profiles?.apellidos}
-                    </h3>
-                    <p className="text-sm text-gray-500">
-                      Matrícula: {alumno.matricula} • {alumno.grado} {alumno.grupo}
-                    </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Pagos Pendientes</CardTitle>
+              <CardDescription>Próximos a vencer</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {pagosPendientes.map((pago) => (
+                  <div key={pago.id} className="flex items-center justify-between p-4 border rounded-lg">
+                    <div>
+                      <h3 className="font-semibold">{pago.concepto}</h3>
+                      <p className="text-sm text-gray-600">
+                        {pago.alumnos.profiles.nombre} {pago.alumnos.profiles.apellidos} - {pago.alumnos.matricula}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        Vence: {new Date(pago.fecha_vencimiento).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-bold">
+                        ${pago.monto.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex gap-2">
-                    <Button size="sm" variant="outline">Ver Expediente</Button>
-                    <Button size="sm" variant="outline">Pagos</Button>
-                    <Button size="sm">Editar</Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </main>
     </div>
   )

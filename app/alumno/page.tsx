@@ -1,191 +1,314 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { BookOpen, ClipboardList, FileText, LogOut } from 'lucide-react'
-import { useRouter } from 'next/navigation'
+import { Badge } from '@/components/ui/badge'
+import { BookOpen, FileText, Calendar, Award, User } from 'lucide-react'
+
+interface Profile {
+  nombre: string
+  apellidos: string
+}
+
+interface Alumno {
+  id: string
+  matricula: string
+  grado: string
+  grupo: string
+  profiles: Profile
+}
+
+interface Curso {
+  id: string
+  nombre: string
+  descripcion: string
+  maestro_profiles: Profile
+}
+
+interface Inscripcion {
+  cursos: Curso
+}
+
+interface Entrega {
+  id: string
+  status: string
+  calificacion: number | null
+  fecha_entrega: string | null
+}
+
+interface Tarea {
+  id: string
+  titulo: string
+  descripcion: string
+  fecha_vencimiento: string
+  puntos_maximos: number
+  entregas: Entrega[]
+}
+
+interface Pago {
+  id: string
+  concepto: string
+  monto: number
+  status: string
+  fecha_vencimiento: string
+}
 
 export default function AlumnoDashboard() {
-  const [alumno, setAlumno] = useState<any>(null)
-  const [tareas, setTareas] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
   const router = useRouter()
+  const [alumno, setAlumno] = useState<Alumno | null>(null)
+  const [cursos, setCursos] = useState<Curso[]>([])
+  const [tareas, setTareas] = useState<Tarea[]>([])
+  const [pagos, setPagos] = useState<Pago[]>([])
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    obtenerDatos()
+    cargarDatos()
   }, [])
 
-  const obtenerDatos = async () => {
+  const cargarDatos = async () => {
     try {
-      // Obtener usuario actual
       const { data: { user } } = await supabase.auth.getUser()
       
-      if (!user) return
+      if (!user) {
+        router.push('/login')
+        return
+      }
 
-// Obtener datos del alumno con inscripciones
-const { data: alumnoData } = await supabase
-  .from('alumnos')
-  .select(`
-    *,
-    profiles(*),
-    inscripciones (
-      curso_id
-    )
-  `)
-  .eq('user_id', user.id)
-  .single()
+      const { data: alumnoData } = await supabase
+        .from('alumnos')
+        .select('*, profiles(nombre, apellidos)')
+        .eq('user_id', user.id)
+        .single()
 
-setAlumno(alumnoData)
+      if (!alumnoData) {
+        alert('No se encontró información del alumno')
+        return
+      }
 
-// Obtener tareas del alumno (de sus cursos inscritos)
-const { data: tareasData } = await supabase
-  .from('tareas')
-  .select(`
-    id,
-    titulo,
-    descripcion,
-    fecha_entrega,
-    puntos_maximos,
-    cursos (
-      id,
-      nombre
-    ),
-    entregas (
-      id,
-      status,
-      calificacion,
-      fecha_entrega
-    )
-  `)
-  .in('curso_id', alumnoData?.inscripciones?.map((i: any) => i.curso_id) || [])
-  .order('fecha_entrega', { ascending: true })
+      setAlumno(alumnoData)
 
-setTareas(tareasData || [])
+      const { data: inscripcionesData } = await supabase
+        .from('inscripciones')
+        .select(`
+          cursos (
+            id,
+            nombre,
+            descripcion,
+            maestro_profiles:profiles!cursos_maestro_id_fkey(nombre, apellidos)
+          )
+        `)
+        .eq('alumno_id', alumnoData.id)
+
+      if (inscripcionesData) {
+        setCursos(inscripcionesData.map((i: Inscripcion) => i.cursos))
+      }
+
+      const { data: tareasData } = await supabase
+        .from('tareas')
+        .select(`
+          *,
+          entregas!entregas_tarea_id_fkey(id, status, calificacion, fecha_entrega)
+        `)
+        .in('curso_id', inscripcionesData?.map((i: Inscripcion) => i.cursos.id) || [])
+        .order('fecha_vencimiento', { ascending: true })
+
+      if (tareasData) {
+        const tareasConEntregas = tareasData.map(tarea => ({
+          ...tarea,
+          entregas: tarea.entregas?.filter((e: Entrega) => e.id) || []
+        }))
+        setTareas(tareasConEntregas)
+      }
+
+      const { data: pagosData } = await supabase
+        .from('pagos')
+        .select('*')
+        .eq('alumno_id', alumnoData.id)
+        .order('fecha_vencimiento', { ascending: true })
+
+      if (pagosData) {
+        setPagos(pagosData)
+      }
+
     } catch (error) {
-      console.error('Error:', error)
+      const err = error as Error
+      console.error('Error:', err)
+      alert('Error al cargar los datos: ' + err.message)
     } finally {
       setLoading(false)
     }
   }
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut()
-    router.push('/login')
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Cargando...</p>
+        </div>
+      </div>
+    )
   }
 
-  if (loading) {
-    return <div className="flex items-center justify-center min-h-screen">Cargando...</div>
-  }
+  const tareasPendientes = tareas.filter(t => {
+    const entrega = t.entregas.find(e => e.id)
+    return !entrega || entrega.status === 'pendiente'
+  })
+
+  const tareasCalificadas = tareas.filter(t => {
+    const entrega = t.entregas.find(e => e.id)
+    return entrega?.status === 'calificada'
+  })
+
+  const promedioGeneral = tareasCalificadas.length > 0
+    ? tareasCalificadas.reduce((sum, t) => {
+        const entrega = t.entregas.find(e => e.id)
+        return sum + (entrega?.calificacion || 0)
+      }, 0) / tareasCalificadas.length
+    : 0
+
+  const pagosPendientes = pagos.filter(p => p.status === 'pendiente' || p.status === 'vencido')
+  const totalAdeudo = pagosPendientes.reduce((sum, p) => sum + p.monto, 0)
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
       <header className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8 flex justify-between items-center">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">
-              Hola, {alumno?.profiles?.nombre} 👋
-            </h1>
-            <p className="text-sm text-gray-500">
-              Matrícula: {alumno?.matricula} | {alumno?.grado} {alumno?.grupo}
-            </p>
+        <div className="max-w-7xl mx-auto px-4 py-6">
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">
+                {alumno?.profiles.nombre} {alumno?.profiles.apellidos}
+              </h1>
+              <p className="text-gray-600">
+                Matrícula: {alumno?.matricula} - {alumno?.grado} {alumno?.grupo}
+              </p>
+            </div>
+            <Button variant="outline" onClick={() => {
+              supabase.auth.signOut()
+              router.push('/login')
+            }}>
+              Cerrar Sesión
+            </Button>
           </div>
-          <Button variant="ghost" onClick={handleLogout}>
-            <LogOut className="h-4 w-4 mr-2" />
-            Salir
-          </Button>
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
-        {/* Cards de resumen */}
-        <div className="grid gap-6 md:grid-cols-3 mb-8">
+      <main className="max-w-7xl mx-auto px-4 py-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Mis Cursos</CardTitle>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Cursos</CardTitle>
               <BookOpen className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">6</div>
-              <p className="text-xs text-muted-foreground">Cursos activos</p>
+              <div className="text-2xl font-bold">{cursos.length}</div>
+              <p className="text-xs text-muted-foreground">Inscritos este periodo</p>
             </CardContent>
           </Card>
 
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Tareas Pendientes</CardTitle>
-              <ClipboardList className="h-4 w-4 text-muted-foreground" />
+              <FileText className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">
-                {tareas.filter(t => t.entregas?.length === 0).length}
-              </div>
+              <div className="text-2xl font-bold">{tareasPendientes.length}</div>
               <p className="text-xs text-muted-foreground">Por entregar</p>
             </CardContent>
           </Card>
 
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Promedio General</CardTitle>
-              <FileText className="h-4 w-4 text-muted-foreground" />
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Promedio</CardTitle>
+              <Award className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">8.5</div>
-              <p className="text-xs text-muted-foreground">Último periodo</p>
+              <div className="text-2xl font-bold">{promedioGeneral.toFixed(1)}</div>
+              <p className="text-xs text-muted-foreground">General</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Pagos Pendientes</CardTitle>
+              <Calendar className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">${totalAdeudo.toFixed(2)}</div>
+              <p className="text-xs text-muted-foreground">{pagosPendientes.length} pendientes</p>
             </CardContent>
           </Card>
         </div>
 
-        {/* Lista de tareas */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Próximas Tareas</CardTitle>
-            <CardDescription>Tareas por entregar pronto</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {tareas.map((tarea) => (
-                <div
-                  key={tarea.id}
-                  className="flex items-center justify-between p-4 border rounded-lg"
-                >
-                  <div>
-                    <h3 className="font-semibold">{tarea.titulo}</h3>
-                    <p className="text-sm text-gray-500">{tarea.cursos?.nombre}</p>
-                    <p className="text-xs text-gray-400">
-                      Entrega: {new Date(tarea.fecha_entrega).toLocaleDateString()}
-                    </p>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Mis Cursos</CardTitle>
+              <CardDescription>Cursos en los que estás inscrito</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {cursos.map((curso) => (
+                  <div key={curso.id} className="flex items-center justify-between p-4 border rounded-lg">
+                    <div>
+                      <h3 className="font-semibold">{curso.nombre}</h3>
+                      <p className="text-sm text-gray-600">
+                        <User className="inline h-3 w-3 mr-1" />
+                        {curso.maestro_profiles.nombre} {curso.maestro_profiles.apellidos}
+                      </p>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    {tarea.entregas?.length > 0 ? (
-                      <>
-                        {tarea.entregas[0].status === 'calificada' ? (
-                          <Badge variant="default">
-                            Calificada: {tarea.entregas[0].calificacion}
-                          </Badge>
-                        ) : (
-                          <Badge variant="secondary">Entregada</Badge>
-                        )}
-                      </>
-                    ) : (
-                      <Badge variant="destructive">Pendiente</Badge>
-                    )}
-                    <Button 
-  size="sm"
-  onClick={() => router.push(`/alumno/tarea/${tarea.id}`)}
->
-  Ver detalles
-</Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Tareas Recientes</CardTitle>
+              <CardDescription>Tareas pendientes y próximas a vencer</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {tareasPendientes.slice(0, 5).map((tarea) => {
+                  const entrega = tarea.entregas.find(e => e.id)
+                  const vencida = new Date(tarea.fecha_vencimiento) < new Date()
+                  
+                  return (
+                    <div key={tarea.id} className="flex items-center justify-between p-4 border rounded-lg">
+                      <div className="flex-1">
+                        <h3 className="font-semibold">{tarea.titulo}</h3>
+                        <p className="text-sm text-gray-600">
+                          Vence: {new Date(tarea.fecha_vencimiento).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge variant={
+                          entrega?.status === 'calificada' ? 'default' :
+                          entrega?.status === 'entregada' ? 'secondary' :
+                          vencida ? 'destructive' : 'outline'
+                        }>
+                          {entrega?.status === 'calificada' ? 'Calificada' :
+                           entrega?.status === 'entregada' ? 'Entregada' :
+                           vencida ? 'Vencida' : 'Pendiente'}
+                        </Badge>
+                        <Button 
+                          size="sm" 
+                          onClick={() => router.push(`/alumno/tarea/${tarea.id}`)}
+                        >
+                          Ver
+                        </Button>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </main>
     </div>
   )

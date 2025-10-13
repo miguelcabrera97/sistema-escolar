@@ -25,27 +25,45 @@ export default function AlumnoDashboard() {
       
       if (!user) return
 
-      // Obtener datos del alumno
-      const { data: alumnoData } = await supabase
-        .from('alumnos')
-        .select('*, profiles(*)')
-        .eq('user_id', user.id)
-        .single()
+// Obtener datos del alumno con inscripciones
+const { data: alumnoData } = await supabase
+  .from('alumnos')
+  .select(`
+    *,
+    profiles(*),
+    inscripciones (
+      curso_id
+    )
+  `)
+  .eq('user_id', user.id)
+  .single()
 
-      setAlumno(alumnoData)
+setAlumno(alumnoData)
 
-      // Obtener tareas pendientes
-      const { data: tareasData } = await supabase
-        .from('tareas')
-        .select(`
-          *,
-          cursos(nombre),
-          entregas(status, calificacion)
-        `)
-        .order('fecha_entrega', { ascending: true })
-        .limit(5)
+// Obtener tareas del alumno (de sus cursos inscritos)
+const { data: tareasData } = await supabase
+  .from('tareas')
+  .select(`
+    id,
+    titulo,
+    descripcion,
+    fecha_entrega,
+    puntos_maximos,
+    cursos (
+      id,
+      nombre
+    ),
+    entregas (
+      id,
+      status,
+      calificacion,
+      fecha_entrega
+    )
+  `)
+  .in('curso_id', alumnoData?.inscripciones?.map((i: any) => i.curso_id) || [])
+  .order('fecha_entrega', { ascending: true })
 
-      setTareas(tareasData || [])
+setTareas(tareasData || [])
     } catch (error) {
       console.error('Error:', error)
     } finally {
@@ -156,7 +174,12 @@ export default function AlumnoDashboard() {
                     ) : (
                       <Badge variant="destructive">Pendiente</Badge>
                     )}
-                    <Button size="sm">Ver detalles</Button>
+                    <Button 
+  size="sm"
+  onClick={() => router.push(`/alumno/tarea/${tarea.id}`)}
+>
+  Ver detalles
+</Button>
                   </div>
                 </div>
               ))}

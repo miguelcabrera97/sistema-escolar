@@ -135,35 +135,32 @@ export default function PagosPadre() {
   }
 
   const handlePagar = async (pagoId: string) => {
-    setProcesando(pagoId)
-    try {
-      const response = await fetch('/api/create-payment-session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pagoId })
-      })
+  setProcesando(pagoId)
+  try {
+    const response = await fetch('/api/create-payment-session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pagoId })
+    })
 
-      const { sessionId, error } = await response.json()
+    const data = await response.json()
 
-      if (error) {
-        throw new Error(error)
-      }
-
-      const stripe = await stripePromise
-      if (!stripe) throw new Error('Stripe no se cargó correctamente')
-
-      const { error: stripeError } = await stripe.redirectToCheckout({ sessionId })
-
-      if (stripeError) {
-        throw stripeError
-      }
-    } catch (error: any) {
-      console.error('Error:', error)
-      alert('Error al procesar el pago: ' + error.message)
-    } finally {
-      setProcesando(null)
+    if (data.error) {
+      throw new Error(data.error)
     }
+
+    // Redirigir directamente a la URL de Stripe
+    if (data.url) {
+      window.location.href = data.url
+    } else {
+      throw new Error('No se recibió URL de pago')
+    }
+  } catch (error: any) {
+    console.error('Error:', error)
+    alert('Error al procesar el pago: ' + error.message)
+    setProcesando(null)
   }
+}
 
   if (loading) {
     return (
@@ -192,7 +189,7 @@ export default function PagosPadre() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 py-8 space-y-6">
-        {/* Debug Info */}
+        {/* Debug Info 
         {Object.keys(debugInfo).length > 0 && (
           <Card className="border-blue-200 bg-blue-50">
             <CardHeader>
@@ -204,7 +201,7 @@ export default function PagosPadre() {
               </pre>
             </CardContent>
           </Card>
-        )}
+        )}*/}
 
         <div className="flex justify-between items-center">
           <div>

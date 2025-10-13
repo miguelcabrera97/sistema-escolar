@@ -291,14 +291,14 @@ export default function TareaDetalle() {
                     Tu entrega:
                   </h4>
                   
-                    href={entrega.archivo_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 text-blue-600 hover:underline"
-                  >
-                    <FileText className="h-4 w-4" />
-                    Ver archivo entregado
-                  </a>
+                    <Button
+  variant="link"
+  onClick={() => window.open(entrega.archivo_url || '', '_blank')}
+  className="inline-flex items-center gap-2 p-0 h-auto"
+>
+  <FileText className="h-4 w-4" />
+  Ver archivo entregado
+</Button>
                 </div>
               )}
 

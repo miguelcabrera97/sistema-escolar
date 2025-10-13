@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { DollarSign, FileText, User, LogOut } from 'lucide-react'
+import { CreditCard } from 'lucide-react'
 
 export default function PadreDashboard() {
   const [padre, setPadre] = useState<any>(null)
@@ -202,7 +203,11 @@ export default function PadreDashboard() {
                         <CardTitle>Estado de Cuenta</CardTitle>
                         <CardDescription>Pagos y adeudos</CardDescription>
                       </div>
-                      <Button>Realizar Pago</Button>
+                      <div className='flex justify-between'>
+                        <Button>Realizar Pago</Button>
+                        <Button onClick={() => router.push('/padre/pagos')}> <CreditCard className="h-4 w-4 mr-2" />Ver Pagos</Button>
+                      </div>
+                      
                     </div>
                   </CardHeader>
                   <CardContent>

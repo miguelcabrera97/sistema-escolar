@@ -174,17 +174,22 @@ export default function DirectivoDashboard() {
       <header className="bg-white shadow">
         <div className="max-w-7xl mx-auto px-4 py-6">
           <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">Panel de Directivo</h1>
-              <p className="text-gray-600">Vista general del sistema</p>
-            </div>
-            <Button variant="outline" onClick={() => {
-              supabase.auth.signOut()
-              router.push('/login')
-            }}>
-              Cerrar Sesión
-            </Button>
-          </div>
+  <div>
+    <h1 className="text-3xl font-bold text-gray-900">Panel de Directivo</h1>
+    <p className="text-gray-600">Vista general del sistema</p>
+  </div>
+  <div className="flex gap-2">
+    <Button onClick={() => router.push('/directivo/pagos')}>
+      Gestionar Pagos
+    </Button>
+    <Button variant="outline" onClick={() => {
+      supabase.auth.signOut()
+      router.push('/login')
+    }}>
+      Cerrar Sesion
+    </Button>
+  </div>
+</div>
         </div>
       </header>
 

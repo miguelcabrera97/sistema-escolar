@@ -179,16 +179,19 @@ export default function DirectivoDashboard() {
     <p className="text-gray-600">Vista general del sistema</p>
   </div>
   <div className="flex gap-2">
-    <Button onClick={() => router.push('/directivo/pagos')}>
-      Gestionar Pagos
-    </Button>
-    <Button variant="outline" onClick={() => {
-      supabase.auth.signOut()
-      router.push('/login')
-    }}>
-      Cerrar Sesion
-    </Button>
-  </div>
+  <Button onClick={() => router.push('/directivo/alumnos')}>
+    Ver Alumnos
+  </Button>
+  <Button onClick={() => router.push('/directivo/pagos')}>
+    Gestionar Pagos
+  </Button>
+  <Button variant="outline" onClick={() => {
+    supabase.auth.signOut()
+    router.push('/login')
+  }}>
+    Cerrar Sesion
+  </Button>
+</div>
 </div>
         </div>
       </header>

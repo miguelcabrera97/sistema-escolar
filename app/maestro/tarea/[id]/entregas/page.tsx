@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -8,15 +8,53 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
-import { ArrowLeft, FileText, CheckCircle, Clock, AlertCircle } from 'lucide-react'
+import { ArrowLeft, CheckCircle, Clock, AlertCircle } from 'lucide-react'
+
+interface Profile {
+  nombre: string
+  apellidos: string
+}
+
+interface Curso {
+  id: string
+  nombre: string
+  grado: string
+  grupo: string
+}
+
+interface Tarea {
+  id: string
+  titulo: string
+  descripcion: string
+  fecha_vencimiento: string
+  puntos_maximos: number
+  cursos: Curso
+}
+
+interface Alumno {
+  id: string
+  matricula: string
+  profiles: Profile
+}
+
+interface Entrega {
+  id: string
+  status: string
+  calificacion: number | null
+  retroalimentacion: string | null
+  fecha_entrega: string | null
+  archivo_url: string | null
+  comentarios: string | null
+  alumnos: Alumno
+}
 
 export default function EntregasTarea() {
   const params = useParams()
   const router = useRouter()
   const tareaId = params.id as string
 
-  const [tarea, setTarea] = useState<any>(null)
-  const [entregas, setEntregas] = useState<any[]>([])
+  const [tarea, setTarea] = useState<Tarea | null>(null)
+  const [entregas, setEntregas] = useState<Entrega[]>([])
   const [loading, setLoading] = useState(true)
   const [calificando, setCalificando] = useState<string | null>(null)
   const [formCalificar, setFormCalificar] = useState({
@@ -24,23 +62,11 @@ export default function EntregasTarea() {
     retroalimentacion: ''
   })
 
-  useEffect(() => {
-    cargarDatos()
-  }, [tareaId])
-
-  const cargarDatos = async () => {
+  const cargarDatos = useCallback(async () => {
     try {
       const { data: tareaData } = await supabase
         .from('tareas')
-        .select(`
-          *,
-          cursos (
-            id,
-            nombre,
-            grado,
-            grupo
-          )
-        `)
+        .select('*, cursos (id, nombre, grado, grupo)')
         .eq('id', tareaId)
         .single()
 
@@ -65,13 +91,18 @@ export default function EntregasTarea() {
       setEntregas(entregasData || [])
 
     } catch (error) {
-      console.error('Error:', error)
+      const err = error as Error
+      console.error('Error:', err)
     } finally {
       setLoading(false)
     }
-  }
+  }, [tareaId])
 
-  const iniciarCalificacion = (entrega: any) => {
+  useEffect(() => {
+    cargarDatos()
+  }, [cargarDatos])
+
+  const iniciarCalificacion = (entrega: Entrega) => {
     setCalificando(entrega.id)
     setFormCalificar({
       calificacion: entrega.calificacion?.toString() || '',
@@ -87,6 +118,8 @@ export default function EntregasTarea() {
   const guardarCalificacion = async (entregaId: string) => {
     try {
       const calificacion = parseInt(formCalificar.calificacion)
+
+      if (!tarea) return
 
       if (isNaN(calificacion) || calificacion < 0 || calificacion > tarea.puntos_maximos) {
         alert(`La calificación debe estar entre 0 y ${tarea.puntos_maximos}`)
@@ -108,7 +141,8 @@ export default function EntregasTarea() {
       setCalificando(null)
       await cargarDatos()
 
-    } catch (error: any) {
+    } catch (err) {
+      const error = err as Error
       console.error('Error:', error)
       alert('Error al guardar la calificación: ' + error.message)
     }
@@ -134,7 +168,7 @@ export default function EntregasTarea() {
 
   const promedio = entregas
     .filter(e => e.calificacion !== null)
-    .reduce((sum, e) => sum + e.calificacion, 0) / (entregas.filter(e => e.calificacion !== null).length || 1)
+    .reduce((sum, e) => sum + (e.calificacion || 0), 0) / (entregas.filter(e => e.calificacion !== null).length || 1)
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -193,7 +227,6 @@ export default function EntregasTarea() {
           <CardContent>
             {entregas.length === 0 ? (
               <div className="text-center py-12 text-gray-500">
-                <FileText className="h-16 w-16 mx-auto mb-4 text-gray-300" />
                 <p>Aún no hay entregas para esta tarea</p>
               </div>
             ) : (
@@ -213,7 +246,7 @@ export default function EntregasTarea() {
                         </p>
                       </div>
                       <div className="flex items-center gap-3">
-                        {entrega.status === 'calificada' && (
+                        {entrega.status === 'calificada' && tarea && (
                           <div className="text-right">
                             <div className="text-2xl font-bold text-green-600">
                               {entrega.calificacion}/{tarea.puntos_maximos}
@@ -242,21 +275,20 @@ export default function EntregasTarea() {
                       <div className="p-4 space-y-3">
                         <div className="text-sm text-gray-600">
                           <span className="font-medium">Entregado:</span>{' '}
-                          {new Date(entrega.fecha_entrega).toLocaleString('es-MX')}
+                          {entrega.fecha_entrega ? new Date(entrega.fecha_entrega).toLocaleString('es-MX') : 'N/A'}
                         </div>
 
                         {entrega.archivo_url && (
-  <div>
-    <Button
-      variant="link"
-      onClick={() => window.open(entrega.archivo_url, '_blank')}
-      className="inline-flex items-center gap-2 p-0 h-auto"
-    >
-      <FileText className="h-4 w-4" />
-      Ver archivo entregado
-    </Button>
-  </div>
-)}
+                          <div>
+                            <Button
+                              variant="link"
+                              onClick={() => window.open(entrega.archivo_url || '', '_blank')}
+                              className="inline-flex items-center gap-2 p-0 h-auto"
+                            >
+                              Ver archivo entregado
+                            </Button>
+                          </div>
+                        )}
 
                         {entrega.comentarios && (
                           <div className="p-3 bg-gray-50 rounded">
@@ -272,13 +304,13 @@ export default function EntregasTarea() {
                             <div className="grid grid-cols-2 gap-4">
                               <div>
                                 <Label htmlFor={`cal-${entrega.id}`}>
-                                  Calificación (0-{tarea.puntos_maximos})
+                                  Calificación (0-{tarea?.puntos_maximos})
                                 </Label>
                                 <Input
                                   id={`cal-${entrega.id}`}
                                   type="number"
                                   min="0"
-                                  max={tarea.puntos_maximos}
+                                  max={tarea?.puntos_maximos}
                                   value={formCalificar.calificacion}
                                   onChange={(e) => setFormCalificar({
                                     ...formCalificar,
@@ -292,77 +324,3 @@ export default function EntregasTarea() {
                             <div>
                               <Label htmlFor={`retro-${entrega.id}`}>
                                 Retroalimentación
-                              </Label>
-                              <textarea
-                                id={`retro-${entrega.id}`}
-                                value={formCalificar.retroalimentacion}
-                                onChange={(e) => setFormCalificar({
-                                  ...formCalificar,
-                                  retroalimentacion: e.target.value
-                                })}
-                                placeholder="Escribe tu retroalimentación para el alumno..."
-                                className="w-full mt-1 px-3 py-2 border rounded-md min-h-[100px]"
-                              />
-                            </div>
-
-                            <div className="flex gap-2">
-                              <Button
-                                onClick={() => guardarCalificacion(entrega.id)}
-                                className="flex-1"
-                              >
-                                Guardar Calificación
-                              </Button>
-                              <Button
-                                variant="outline"
-                                onClick={cancelarCalificacion}
-                              >
-                                Cancelar
-                              </Button>
-                            </div>
-                          </div>
-                        ) : (
-                          <>
-                            {entrega.retroalimentacion && (
-                              <div className="p-3 bg-blue-50 rounded">
-                                <div className="text-xs font-medium text-blue-600 mb-1">
-                                  Tu retroalimentación:
-                                </div>
-                                <p className="text-sm text-gray-700">
-                                  {entrega.retroalimentacion}
-                                </p>
-                              </div>
-                            )}
-
-                            <div className="flex gap-2">
-                              {entrega.status === 'entregada' && (
-                                <Button
-                                  size="sm"
-                                  onClick={() => iniciarCalificacion(entrega)}
-                                >
-                                  Calificar
-                                </Button>
-                              )}
-                              {entrega.status === 'calificada' && (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => iniciarCalificacion(entrega)}
-                                >
-                                  Editar Calificación
-                                </Button>
-                              )}
-                            </div>
-                          </>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </main>
-    </div>
-  )
-}

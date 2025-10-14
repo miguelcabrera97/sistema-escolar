@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -9,82 +9,100 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { ArrowLeft } from 'lucide-react'
 
+interface Curso {
+  id: string
+  nombre: string
+  grado: string
+  grupo: string
+}
+
 export default function CrearTarea() {
   const router = useRouter()
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
+  const [cursos, setCursos] = useState<Curso[]>([])
+  const [loading, setLoading] = useState(true)
+  const [submitting, setSubmitting] = useState(false)
   
   const [formData, setFormData] = useState({
     curso_id: '',
     titulo: '',
     descripcion: '',
-    fecha_entrega: '',
-    puntos_maximos: 100
+    fecha_vencimiento: '',
+    puntos_maximos: ''
   })
 
-  const [cursos, setCursos] = useState<any[]>([])
-
-  // Cargar cursos del maestro
-  useState(() => {
-    const cargarCursos = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-
-      const { data: maestroData } = await supabase
-        .from('maestros')
-        .select('id')
-        .eq('user_id', user.id)
-        .single()
-
-      if (maestroData) {
-        const { data: cursosData } = await supabase
-          .from('cursos')
-          .select('id, nombre, grado, grupo')
-          .eq('maestro_id', maestroData.id)
-
-        setCursos(cursosData || [])
-      }
-    }
+  useEffect(() => {
     cargarCursos()
-  })
+  }, [])
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
-    setError('')
-
+  const cargarCursos = async () => {
     try {
-      // Validar campos
-      if (!formData.curso_id || !formData.titulo || !formData.fecha_entrega) {
-        throw new Error('Por favor completa todos los campos obligatorios')
+      const { data: { user } } = await supabase.auth.getUser()
+      
+      if (!user) {
+        router.push('/login')
+        return
       }
 
-      // Insertar tarea
-      const { error: insertError } = await supabase
-        .from('tareas')
-        .insert({
-          curso_id: formData.curso_id,
-          titulo: formData.titulo,
-          descripcion: formData.descripcion,
-          fecha_entrega: formData.fecha_entrega,
-          puntos_maximos: formData.puntos_maximos
-        })
+      const { data: cursosData } = await supabase
+        .from('cursos')
+        .select('id, nombre, grado, grupo')
+        .eq('maestro_id', user.id)
+        .order('nombre')
 
-      if (insertError) throw insertError
-
-      // Redirigir al dashboard
-      router.push('/maestro')
-    } catch (err: any) {
-      setError(err.message)
+      if (cursosData) {
+        setCursos(cursosData)
+      }
+    } catch (error) {
+      const err = error as Error
+      console.error('Error:', err)
     } finally {
       setLoading(false)
     }
   }
 
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setSubmitting(true)
+
+    try {
+      const { error } = await supabase
+        .from('tareas')
+        .insert({
+          curso_id: formData.curso_id,
+          titulo: formData.titulo,
+          descripcion: formData.descripcion,
+          fecha_vencimiento: formData.fecha_vencimiento,
+          puntos_maximos: parseInt(formData.puntos_maximos)
+        })
+
+      if (error) throw error
+
+      alert('Tarea creada exitosamente')
+      router.push('/maestro')
+    } catch (err) {
+      const error = err as Error
+      console.error('Error:', error)
+      alert('Error al crear la tarea: ' + error.message)
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Cargando...</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white shadow">
-        <div className="max-w-4xl mx-auto px-4 py-4">
+        <div className="max-w-7xl mx-auto px-4 py-4">
           <Button variant="ghost" onClick={() => router.back()}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Volver
@@ -92,25 +110,25 @@ export default function CrearTarea() {
         </div>
       </header>
 
-      <main className="max-w-4xl mx-auto px-4 py-8">
+      <main className="max-w-2xl mx-auto px-4 py-8">
         <Card>
           <CardHeader>
             <CardTitle>Crear Nueva Tarea</CardTitle>
             <CardDescription>
-              Completa la información de la tarea para tus alumnos
+              Completa el formulario para crear una nueva tarea para tus alumnos
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Seleccionar curso */}
+            <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <Label htmlFor="curso">Curso *</Label>
+                <Label htmlFor="curso">Curso</Label>
                 <select
                   id="curso"
                   value={formData.curso_id}
                   onChange={(e) => setFormData({ ...formData, curso_id: e.target.value })}
                   className="w-full mt-1 px-3 py-2 border rounded-md"
                   required
+                  disabled={submitting}
                 >
                   <option value="">Selecciona un curso</option>
                   {cursos.map((curso) => (
@@ -121,77 +139,71 @@ export default function CrearTarea() {
                 </select>
               </div>
 
-              {/* Título */}
               <div>
-                <Label htmlFor="titulo">Título de la tarea *</Label>
+                <Label htmlFor="titulo">Título</Label>
                 <Input
                   id="titulo"
                   value={formData.titulo}
                   onChange={(e) => setFormData({ ...formData, titulo: e.target.value })}
-                  placeholder="Ej: Ejercicios de álgebra"
+                  placeholder="Ej: Tarea de Matemáticas Unidad 3"
                   required
+                  disabled={submitting}
                 />
               </div>
 
-              {/* Descripción */}
               <div>
                 <Label htmlFor="descripcion">Descripción</Label>
                 <textarea
                   id="descripcion"
                   value={formData.descripcion}
                   onChange={(e) => setFormData({ ...formData, descripcion: e.target.value })}
-                  placeholder="Describe la tarea en detalle..."
+                  placeholder="Describe la tarea y los objetivos..."
                   className="w-full mt-1 px-3 py-2 border rounded-md min-h-[120px]"
-                />
-              </div>
-
-              {/* Fecha de entrega */}
-              <div>
-                <Label htmlFor="fecha">Fecha de entrega *</Label>
-                <Input
-                  id="fecha"
-                  type="date"
-                  value={formData.fecha_entrega}
-                  onChange={(e) => setFormData({ ...formData, fecha_entrega: e.target.value })}
-                  min={new Date().toISOString().split('T')[0]}
                   required
+                  disabled={submitting}
                 />
               </div>
 
-              {/* Puntos máximos */}
-              <div>
-                <Label htmlFor="puntos">Puntos máximos</Label>
-                <Input
-                  id="puntos"
-                  type="number"
-                  value={formData.puntos_maximos}
-                  onChange={(e) => setFormData({ ...formData, puntos_maximos: parseInt(e.target.value) })}
-                  min={1}
-                  max={200}
-                />
-              </div>
-
-              {error && (
-                <div className="p-3 bg-red-50 border border-red-200 rounded text-red-600 text-sm">
-                  {error}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="fecha">Fecha de Vencimiento</Label>
+                  <Input
+                    id="fecha"
+                    type="date"
+                    value={formData.fecha_vencimiento}
+                    onChange={(e) => setFormData({ ...formData, fecha_vencimiento: e.target.value })}
+                    required
+                    disabled={submitting}
+                  />
                 </div>
-              )}
 
-              <div className="flex gap-3">
-                <Button
-                  type="button"
-                  variant="outline"
+                <div>
+                  <Label htmlFor="puntos">Puntos Máximos</Label>
+                  <Input
+                    id="puntos"
+                    type="number"
+                    min="1"
+                    max="100"
+                    value={formData.puntos_maximos}
+                    onChange={(e) => setFormData({ ...formData, puntos_maximos: e.target.value })}
+                    placeholder="100"
+                    required
+                    disabled={submitting}
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-2">
+                <Button type="submit" disabled={submitting} className="flex-1">
+                  {submitting ? 'Creando...' : 'Crear Tarea'}
+                </Button>
+                <Button 
+                  type="button" 
+                  variant="outline" 
                   onClick={() => router.back()}
-                  className="flex-1"
+                  disabled={submitting}
                 >
                   Cancelar
-                </Button>
-                <Button
-                  type="submit"
-                  disabled={loading}
-                  className="flex-1"
-                >
-                  {loading ? 'Creando...' : 'Crear Tarea'}
                 </Button>
               </div>
             </form>

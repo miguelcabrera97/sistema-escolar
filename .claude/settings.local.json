@@ -1,0 +1,8 @@
+{
+  "enabledMcpjsonServers": [
+    "memory",
+    "DeepGraph Next.js MCP",
+    "supabase"
+  ],
+  "enableAllProjectMcpServers": true
+}

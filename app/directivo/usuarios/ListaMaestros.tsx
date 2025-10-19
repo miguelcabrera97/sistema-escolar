@@ -5,9 +5,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { obtenerMaestros } from '@/app/actions/usuarios-actions'
-import { Loader2, GraduationCap, Pencil } from 'lucide-react'
+import { obtenerMaestros, desactivarMaestro, reactivarMaestro } from '@/app/actions/usuarios-actions'
+import { Loader2, GraduationCap, Pencil, Trash2, RefreshCw } from 'lucide-react'
 import { DialogoEditarMaestro } from './DialogoEditarMaestro'
+import { DialogoConfirmarEliminacion } from './DialogoConfirmarEliminacion'
 
 interface Maestro {
   id: string
@@ -15,13 +16,17 @@ interface Maestro {
   apellidos: string
   email: string
   telefono: string | null
+  activo: boolean
 }
 
 export function ListaMaestros() {
   const [maestros, setMaestros] = useState<Maestro[]>([])
   const [loading, setLoading] = useState(true)
   const [maestroEditar, setMaestroEditar] = useState<Maestro | null>(null)
-  const [dialogoAbierto, setDialogoAbierto] = useState(false)
+  const [dialogoEditarAbierto, setDialogoEditarAbierto] = useState(false)
+  const [maestroEliminar, setMaestroEliminar] = useState<Maestro | null>(null)
+  const [dialogoEliminarAbierto, setDialogoEliminarAbierto] = useState(false)
+  const [loadingEliminar, setLoadingEliminar] = useState(false)
 
   const cargarMaestros = async () => {
     setLoading(true)
@@ -40,7 +45,50 @@ export function ListaMaestros() {
 
   const handleEditar = (maestro: Maestro) => {
     setMaestroEditar(maestro)
-    setDialogoAbierto(true)
+    setDialogoEditarAbierto(true)
+  }
+
+  const handleEliminar = (maestro: Maestro) => {
+    setMaestroEliminar(maestro)
+    setDialogoEliminarAbierto(true)
+  }
+
+  const handleConfirmarEliminar = async () => {
+    if (!maestroEliminar) return
+
+    setLoadingEliminar(true)
+    try {
+      const result = await desactivarMaestro(maestroEliminar.id)
+
+      if (result.success) {
+        alert('Maestro desactivado exitosamente')
+        setDialogoEliminarAbierto(false)
+        cargarMaestros()
+      } else {
+        alert('Error: ' + result.error)
+      }
+    } catch (error) {
+      console.error('Error:', error)
+      alert('Error al desactivar maestro')
+    } finally {
+      setLoadingEliminar(false)
+    }
+  }
+
+  const handleReactivar = async (maestro: Maestro) => {
+    try {
+      const result = await reactivarMaestro(maestro.id)
+
+      if (result.success) {
+        alert('Maestro reactivado exitosamente')
+        cargarMaestros()
+      } else {
+        alert('Error: ' + result.error)
+      }
+    } catch (error) {
+      console.error('Error:', error)
+      alert('Error al reactivar maestro')
+    }
   }
 
   const handleSuccess = () => {
@@ -92,7 +140,7 @@ export function ListaMaestros() {
                 </TableHeader>
                 <TableBody>
                   {maestros.map((maestro) => (
-                    <TableRow key={maestro.id}>
+                    <TableRow key={maestro.id} className={!maestro.activo ? 'opacity-60' : ''}>
                       <TableCell className="font-medium">
                         {maestro.nombre} {maestro.apellidos}
                       </TableCell>
@@ -103,16 +151,38 @@ export function ListaMaestros() {
                         {maestro.telefono || '-'}
                       </TableCell>
                       <TableCell>
-                        <Badge variant="default">Activo</Badge>
+                        <Badge variant={maestro.activo ? 'default' : 'secondary'}>
+                          {maestro.activo ? 'Activo' : 'Inactivo'}
+                        </Badge>
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleEditar(maestro)}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleEditar(maestro)}
+                            disabled={!maestro.activo}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          {maestro.activo ? (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleEliminar(maestro)}
+                            >
+                              <Trash2 className="h-4 w-4 text-red-600" />
+                            </Button>
+                          ) : (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleReactivar(maestro)}
+                            >
+                              <RefreshCw className="h-4 w-4 text-green-600" />
+                            </Button>
+                          )}
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -125,9 +195,18 @@ export function ListaMaestros() {
 
       <DialogoEditarMaestro
         maestro={maestroEditar}
-        open={dialogoAbierto}
-        onOpenChange={setDialogoAbierto}
+        open={dialogoEditarAbierto}
+        onOpenChange={setDialogoEditarAbierto}
         onSuccess={handleSuccess}
+      />
+
+      <DialogoConfirmarEliminacion
+        open={dialogoEliminarAbierto}
+        onOpenChange={setDialogoEliminarAbierto}
+        onConfirm={handleConfirmarEliminar}
+        titulo="¿Eliminar maestro?"
+        descripcion={`¿Estás seguro de que deseas desactivar al maestro ${maestroEliminar?.nombre} ${maestroEliminar?.apellidos}? Esta acción no eliminará los datos permanentemente, pero el maestro no podrá acceder al sistema.`}
+        loading={loadingEliminar}
       />
     </>
   )

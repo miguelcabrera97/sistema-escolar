@@ -267,7 +267,8 @@ export async function obtenerAlumnos() {
           nombre,
           apellidos,
           email,
-          telefono
+          telefono,
+          activo
         )
       `)
       .order('matricula')
@@ -598,6 +599,260 @@ export async function obtenerMaestroPorId(maestroId: string) {
       success: false,
       error: error instanceof Error ? error.message : 'Error desconocido',
       data: null
+    }
+  }
+}
+
+/**
+ * Desactivar un alumno (soft delete)
+ * Solo puede ser ejecutado por usuarios con rol 'directivo'
+ */
+export async function desactivarAlumno(alumnoId: string) {
+  try {
+    const supabase = await createServerSupabaseClient()
+
+    // Verificar que el usuario sea directivo
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user) {
+      return { success: false, error: 'No autenticado' }
+    }
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single()
+
+    if (profile?.role !== 'directivo') {
+      return { success: false, error: 'No autorizado. Solo directivos pueden desactivar alumnos.' }
+    }
+
+    // Verificar que el alumno exista
+    const { data: existingAlumno } = await supabase
+      .from('alumnos')
+      .select('user_id')
+      .eq('id', alumnoId)
+      .single()
+
+    if (!existingAlumno) {
+      return { success: false, error: 'Alumno no encontrado' }
+    }
+
+    // Marcar perfil como inactivo
+    const { error: profileError } = await supabase
+      .from('profiles')
+      .update({ activo: false })
+      .eq('id', existingAlumno.user_id)
+
+    if (profileError) {
+      return { success: false, error: 'Error al desactivar alumno: ' + profileError.message }
+    }
+
+    // Revalidar las páginas
+    revalidatePath('/directivo/alumnos')
+    revalidatePath('/directivo/usuarios')
+    revalidatePath('/directivo')
+
+    return {
+      success: true,
+      message: 'Alumno desactivado exitosamente'
+    }
+
+  } catch (error) {
+    console.error('Error al desactivar alumno:', error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Error desconocido'
+    }
+  }
+}
+
+/**
+ * Desactivar un maestro (soft delete)
+ * Solo puede ser ejecutado por usuarios con rol 'directivo'
+ */
+export async function desactivarMaestro(maestroId: string) {
+  try {
+    const supabase = await createServerSupabaseClient()
+
+    // Verificar que el usuario sea directivo
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user) {
+      return { success: false, error: 'No autenticado' }
+    }
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single()
+
+    if (profile?.role !== 'directivo') {
+      return { success: false, error: 'No autorizado. Solo directivos pueden desactivar maestros.' }
+    }
+
+    // Verificar que el maestro exista y tenga rol de maestro
+    const { data: existingMaestro } = await supabase
+      .from('profiles')
+      .select('id, role')
+      .eq('id', maestroId)
+      .single()
+
+    if (!existingMaestro) {
+      return { success: false, error: 'Maestro no encontrado' }
+    }
+
+    if (existingMaestro.role !== 'maestro') {
+      return { success: false, error: 'El usuario no es un maestro' }
+    }
+
+    // Marcar perfil como inactivo
+    const { error: profileError } = await supabase
+      .from('profiles')
+      .update({ activo: false })
+      .eq('id', maestroId)
+
+    if (profileError) {
+      return { success: false, error: 'Error al desactivar maestro: ' + profileError.message }
+    }
+
+    // Revalidar las páginas
+    revalidatePath('/directivo/usuarios')
+    revalidatePath('/directivo')
+
+    return {
+      success: true,
+      message: 'Maestro desactivado exitosamente'
+    }
+
+  } catch (error) {
+    console.error('Error al desactivar maestro:', error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Error desconocido'
+    }
+  }
+}
+
+/**
+ * Reactivar un alumno
+ * Solo puede ser ejecutado por usuarios con rol 'directivo'
+ */
+export async function reactivarAlumno(alumnoId: string) {
+  try {
+    const supabase = await createServerSupabaseClient()
+
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user) {
+      return { success: false, error: 'No autenticado' }
+    }
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single()
+
+    if (profile?.role !== 'directivo') {
+      return { success: false, error: 'No autorizado' }
+    }
+
+    const { data: existingAlumno } = await supabase
+      .from('alumnos')
+      .select('user_id')
+      .eq('id', alumnoId)
+      .single()
+
+    if (!existingAlumno) {
+      return { success: false, error: 'Alumno no encontrado' }
+    }
+
+    const { error: profileError } = await supabase
+      .from('profiles')
+      .update({ activo: true })
+      .eq('id', existingAlumno.user_id)
+
+    if (profileError) {
+      return { success: false, error: 'Error al reactivar alumno: ' + profileError.message }
+    }
+
+    revalidatePath('/directivo/alumnos')
+    revalidatePath('/directivo/usuarios')
+    revalidatePath('/directivo')
+
+    return {
+      success: true,
+      message: 'Alumno reactivado exitosamente'
+    }
+
+  } catch (error) {
+    console.error('Error al reactivar alumno:', error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Error desconocido'
+    }
+  }
+}
+
+/**
+ * Reactivar un maestro
+ * Solo puede ser ejecutado por usuarios con rol 'directivo'
+ */
+export async function reactivarMaestro(maestroId: string) {
+  try {
+    const supabase = await createServerSupabaseClient()
+
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user) {
+      return { success: false, error: 'No autenticado' }
+    }
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single()
+
+    if (profile?.role !== 'directivo') {
+      return { success: false, error: 'No autorizado' }
+    }
+
+    const { data: existingMaestro } = await supabase
+      .from('profiles')
+      .select('id, role')
+      .eq('id', maestroId)
+      .single()
+
+    if (!existingMaestro || existingMaestro.role !== 'maestro') {
+      return { success: false, error: 'Maestro no encontrado' }
+    }
+
+    const { error: profileError } = await supabase
+      .from('profiles')
+      .update({ activo: true })
+      .eq('id', maestroId)
+
+    if (profileError) {
+      return { success: false, error: 'Error al reactivar maestro: ' + profileError.message }
+    }
+
+    revalidatePath('/directivo/usuarios')
+    revalidatePath('/directivo')
+
+    return {
+      success: true,
+      message: 'Maestro reactivado exitosamente'
+    }
+
+  } catch (error) {
+    console.error('Error al reactivar maestro:', error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Error desconocido'
     }
   }
 }

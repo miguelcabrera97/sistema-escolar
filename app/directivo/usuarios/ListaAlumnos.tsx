@@ -5,9 +5,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { obtenerAlumnos } from '@/app/actions/usuarios-actions'
-import { Loader2, Users, Pencil } from 'lucide-react'
+import { obtenerAlumnos, desactivarAlumno, reactivarAlumno } from '@/app/actions/usuarios-actions'
+import { Loader2, Users, Pencil, Trash2, RefreshCw } from 'lucide-react'
 import { DialogoEditarAlumno } from './DialogoEditarAlumno'
+import { DialogoConfirmarEliminacion } from './DialogoConfirmarEliminacion'
 
 interface Alumno {
   id: string
@@ -20,6 +21,7 @@ interface Alumno {
     apellidos: string
     email: string
     telefono: string | null
+    activo: boolean
   }
 }
 
@@ -27,7 +29,10 @@ export function ListaAlumnos() {
   const [alumnos, setAlumnos] = useState<Alumno[]>([])
   const [loading, setLoading] = useState(true)
   const [alumnoEditar, setAlumnoEditar] = useState<Alumno | null>(null)
-  const [dialogoAbierto, setDialogoAbierto] = useState(false)
+  const [dialogoEditarAbierto, setDialogoEditarAbierto] = useState(false)
+  const [alumnoEliminar, setAlumnoEliminar] = useState<Alumno | null>(null)
+  const [dialogoEliminarAbierto, setDialogoEliminarAbierto] = useState(false)
+  const [loadingEliminar, setLoadingEliminar] = useState(false)
 
   const cargarAlumnos = async () => {
     setLoading(true)
@@ -46,7 +51,50 @@ export function ListaAlumnos() {
 
   const handleEditar = (alumno: Alumno) => {
     setAlumnoEditar(alumno)
-    setDialogoAbierto(true)
+    setDialogoEditarAbierto(true)
+  }
+
+  const handleEliminar = (alumno: Alumno) => {
+    setAlumnoEliminar(alumno)
+    setDialogoEliminarAbierto(true)
+  }
+
+  const handleConfirmarEliminar = async () => {
+    if (!alumnoEliminar) return
+
+    setLoadingEliminar(true)
+    try {
+      const result = await desactivarAlumno(alumnoEliminar.id)
+
+      if (result.success) {
+        alert('Alumno desactivado exitosamente')
+        setDialogoEliminarAbierto(false)
+        cargarAlumnos()
+      } else {
+        alert('Error: ' + result.error)
+      }
+    } catch (error) {
+      console.error('Error:', error)
+      alert('Error al desactivar alumno')
+    } finally {
+      setLoadingEliminar(false)
+    }
+  }
+
+  const handleReactivar = async (alumno: Alumno) => {
+    try {
+      const result = await reactivarAlumno(alumno.id)
+
+      if (result.success) {
+        alert('Alumno reactivado exitosamente')
+        cargarAlumnos()
+      } else {
+        alert('Error: ' + result.error)
+      }
+    } catch (error) {
+      console.error('Error:', error)
+      alert('Error al reactivar alumno')
+    }
   }
 
   const handleSuccess = () => {
@@ -95,12 +143,13 @@ export function ListaAlumnos() {
                     <TableHead>Grupo</TableHead>
                     <TableHead>Email</TableHead>
                     <TableHead>Teléfono</TableHead>
+                    <TableHead>Estado</TableHead>
                     <TableHead className="text-right">Acciones</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {alumnos.map((alumno) => (
-                    <TableRow key={alumno.id}>
+                    <TableRow key={alumno.id} className={!alumno.profiles.activo ? 'opacity-60' : ''}>
                       <TableCell className="font-medium">
                         <Badge variant="outline">{alumno.matricula}</Badge>
                       </TableCell>
@@ -115,14 +164,39 @@ export function ListaAlumnos() {
                       <TableCell className="text-sm text-gray-600">
                         {alumno.profiles.telefono || '-'}
                       </TableCell>
+                      <TableCell>
+                        <Badge variant={alumno.profiles.activo ? 'default' : 'secondary'}>
+                          {alumno.profiles.activo ? 'Activo' : 'Inactivo'}
+                        </Badge>
+                      </TableCell>
                       <TableCell className="text-right">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleEditar(alumno)}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleEditar(alumno)}
+                            disabled={!alumno.profiles.activo}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          {alumno.profiles.activo ? (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleEliminar(alumno)}
+                            >
+                              <Trash2 className="h-4 w-4 text-red-600" />
+                            </Button>
+                          ) : (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleReactivar(alumno)}
+                            >
+                              <RefreshCw className="h-4 w-4 text-green-600" />
+                            </Button>
+                          )}
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -135,9 +209,18 @@ export function ListaAlumnos() {
 
       <DialogoEditarAlumno
         alumno={alumnoEditar}
-        open={dialogoAbierto}
-        onOpenChange={setDialogoAbierto}
+        open={dialogoEditarAbierto}
+        onOpenChange={setDialogoEditarAbierto}
         onSuccess={handleSuccess}
+      />
+
+      <DialogoConfirmarEliminacion
+        open={dialogoEliminarAbierto}
+        onOpenChange={setDialogoEliminarAbierto}
+        onConfirm={handleConfirmarEliminar}
+        titulo="¿Eliminar alumno?"
+        descripcion={`¿Estás seguro de que deseas desactivar al alumno ${alumnoEliminar?.profiles.nombre} ${alumnoEliminar?.profiles.apellidos}? Esta acción no eliminará los datos permanentemente, pero el alumno no podrá acceder al sistema.`}
+        loading={loadingEliminar}
       />
     </>
   )

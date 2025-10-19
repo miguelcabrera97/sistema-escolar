@@ -14,6 +14,8 @@ Este documento explica cómo usar la funcionalidad de gestión de usuarios (alum
 
 - ✅ **Agregar Alumnos**: Crear nuevos alumnos con toda su información
 - ✅ **Agregar Maestros**: Crear nuevos maestros en el sistema
+- ✅ **Editar Alumnos**: Modificar información existente de alumnos
+- ✅ **Editar Maestros**: Modificar información existente de maestros
 - ✅ **Ver Lista de Alumnos**: Tabla con todos los alumnos registrados
 - ✅ **Ver Lista de Maestros**: Tabla con todos los maestros registrados
 - ✅ **Validación de Permisos**: Solo directivos pueden acceder
@@ -118,6 +120,44 @@ La tabla muestra:
 - **Email**: Correo electrónico
 - **Teléfono**: Número de contacto (o "-" si no tiene)
 - **Estado**: Badge con estado "Activo"
+- **Acciones**: Botón de edición para modificar datos
+
+## Editar Usuarios Existentes
+
+### Editar un Alumno
+
+1. En la lista de alumnos, haz clic en el botón de edición (icono de lápiz) en la fila del alumno
+2. Se abrirá un diálogo con la información actual del alumno
+3. Modifica los campos que necesites:
+   - Nombre y apellidos
+   - Matrícula (debe ser única)
+   - Grado y grupo
+   - Email
+   - Teléfono
+   - Fecha de nacimiento
+4. Haz clic en "Guardar Cambios"
+5. El sistema validará los datos y actualizará la información
+6. La lista se actualizará automáticamente
+
+**Validaciones en Edición:**
+- ✅ La matrícula no puede estar en uso por otro alumno
+- ✅ Todos los campos requeridos deben estar completos
+- ✅ Solo directivos pueden editar
+
+### Editar un Maestro
+
+1. En la lista de maestros, haz clic en el botón de edición (icono de lápiz) en la fila del maestro
+2. Se abrirá un diálogo con la información actual del maestro
+3. Modifica los campos que necesites:
+   - Nombre y apellidos
+   - Email
+   - Teléfono
+   - Especialidad
+4. Haz clic en "Guardar Cambios"
+5. El sistema actualizará la información
+6. La lista se actualizará automáticamente
+
+**Nota:** No se puede cambiar la contraseña desde el diálogo de edición. Para cambiar contraseñas, se debe usar la funcionalidad de reseteo de contraseña de Supabase.
 
 ## Archivos del Sistema
 
@@ -132,19 +172,33 @@ crearAlumno(data: CrearAlumnoData): Promise<Result>
 // Crear nuevo maestro
 crearMaestro(data: CrearMaestroData): Promise<Result>
 
+// Editar alumno existente
+editarAlumno(data: EditarAlumnoData): Promise<Result>
+
+// Editar maestro existente
+editarMaestro(data: EditarMaestroData): Promise<Result>
+
 // Obtener lista de alumnos
 obtenerAlumnos(): Promise<Result>
 
 // Obtener lista de maestros
 obtenerMaestros(): Promise<Result>
+
+// Obtener alumno por ID
+obtenerAlumnoPorId(alumnoId: string): Promise<Result>
+
+// Obtener maestro por ID
+obtenerMaestroPorId(maestroId: string): Promise<Result>
 ```
 
 ### Componentes
 
 - **`FormularioAlumno.tsx`**: Formulario para agregar alumnos
 - **`FormularioMaestro.tsx`**: Formulario para agregar maestros
-- **`ListaAlumnos.tsx`**: Tabla de alumnos registrados
-- **`ListaMaestros.tsx`**: Tabla de maestros registrados
+- **`DialogoEditarAlumno.tsx`**: Modal para editar alumnos
+- **`DialogoEditarMaestro.tsx`**: Modal para editar maestros
+- **`ListaAlumnos.tsx`**: Tabla de alumnos con botones de edición
+- **`ListaMaestros.tsx`**: Tabla de maestros con botones de edición
 
 ### Página Principal
 

@@ -4,8 +4,10 @@ import { useEffect, useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { obtenerMaestros } from '@/app/actions/usuarios-actions'
-import { Loader2, GraduationCap } from 'lucide-react'
+import { Loader2, GraduationCap, Pencil } from 'lucide-react'
+import { DialogoEditarMaestro } from './DialogoEditarMaestro'
 
 interface Maestro {
   id: string
@@ -18,6 +20,8 @@ interface Maestro {
 export function ListaMaestros() {
   const [maestros, setMaestros] = useState<Maestro[]>([])
   const [loading, setLoading] = useState(true)
+  const [maestroEditar, setMaestroEditar] = useState<Maestro | null>(null)
+  const [dialogoAbierto, setDialogoAbierto] = useState(false)
 
   const cargarMaestros = async () => {
     setLoading(true)
@@ -34,6 +38,15 @@ export function ListaMaestros() {
     cargarMaestros()
   }, [])
 
+  const handleEditar = (maestro: Maestro) => {
+    setMaestroEditar(maestro)
+    setDialogoAbierto(true)
+  }
+
+  const handleSuccess = () => {
+    cargarMaestros()
+  }
+
   if (loading) {
     return (
       <Card>
@@ -45,58 +58,77 @@ export function ListaMaestros() {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <GraduationCap className="h-5 w-5" />
-          Lista de Maestros
-        </CardTitle>
-        <CardDescription>
-          {maestros.length} maestro{maestros.length !== 1 ? 's' : ''} registrado{maestros.length !== 1 ? 's' : ''}
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        {maestros.length === 0 ? (
-          <div className="text-center py-12">
-            <GraduationCap className="h-12 w-12 mx-auto text-gray-300 mb-4" />
-            <p className="text-gray-500">No hay maestros registrados</p>
-            <p className="text-sm text-gray-400 mt-2">
-              Usa el formulario de arriba para agregar el primer maestro
-            </p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Nombre Completo</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Teléfono</TableHead>
-                  <TableHead>Estado</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {maestros.map((maestro) => (
-                  <TableRow key={maestro.id}>
-                    <TableCell className="font-medium">
-                      {maestro.nombre} {maestro.apellidos}
-                    </TableCell>
-                    <TableCell className="text-sm text-gray-600">
-                      {maestro.email}
-                    </TableCell>
-                    <TableCell className="text-sm text-gray-600">
-                      {maestro.telefono || '-'}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="default">Activo</Badge>
-                    </TableCell>
+    <>
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <GraduationCap className="h-5 w-5" />
+            Lista de Maestros
+          </CardTitle>
+          <CardDescription>
+            {maestros.length} maestro{maestros.length !== 1 ? 's' : ''} registrado{maestros.length !== 1 ? 's' : ''}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {maestros.length === 0 ? (
+            <div className="text-center py-12">
+              <GraduationCap className="h-12 w-12 mx-auto text-gray-300 mb-4" />
+              <p className="text-gray-500">No hay maestros registrados</p>
+              <p className="text-sm text-gray-400 mt-2">
+                Usa el formulario de arriba para agregar el primer maestro
+              </p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Nombre Completo</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Teléfono</TableHead>
+                    <TableHead>Estado</TableHead>
+                    <TableHead className="text-right">Acciones</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+                </TableHeader>
+                <TableBody>
+                  {maestros.map((maestro) => (
+                    <TableRow key={maestro.id}>
+                      <TableCell className="font-medium">
+                        {maestro.nombre} {maestro.apellidos}
+                      </TableCell>
+                      <TableCell className="text-sm text-gray-600">
+                        {maestro.email}
+                      </TableCell>
+                      <TableCell className="text-sm text-gray-600">
+                        {maestro.telefono || '-'}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="default">Activo</Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleEditar(maestro)}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <DialogoEditarMaestro
+        maestro={maestroEditar}
+        open={dialogoAbierto}
+        onOpenChange={setDialogoAbierto}
+        onSuccess={handleSuccess}
+      />
+    </>
   )
 }

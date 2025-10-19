@@ -4,8 +4,10 @@ import { useEffect, useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { obtenerAlumnos } from '@/app/actions/usuarios-actions'
-import { Loader2, Users } from 'lucide-react'
+import { Loader2, Users, Pencil } from 'lucide-react'
+import { DialogoEditarAlumno } from './DialogoEditarAlumno'
 
 interface Alumno {
   id: string
@@ -24,6 +26,8 @@ interface Alumno {
 export function ListaAlumnos() {
   const [alumnos, setAlumnos] = useState<Alumno[]>([])
   const [loading, setLoading] = useState(true)
+  const [alumnoEditar, setAlumnoEditar] = useState<Alumno | null>(null)
+  const [dialogoAbierto, setDialogoAbierto] = useState(false)
 
   const cargarAlumnos = async () => {
     setLoading(true)
@@ -40,6 +44,15 @@ export function ListaAlumnos() {
     cargarAlumnos()
   }, [])
 
+  const handleEditar = (alumno: Alumno) => {
+    setAlumnoEditar(alumno)
+    setDialogoAbierto(true)
+  }
+
+  const handleSuccess = () => {
+    cargarAlumnos()
+  }
+
   if (loading) {
     return (
       <Card>
@@ -51,62 +64,81 @@ export function ListaAlumnos() {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Users className="h-5 w-5" />
-          Lista de Alumnos
-        </CardTitle>
-        <CardDescription>
-          {alumnos.length} alumno{alumnos.length !== 1 ? 's' : ''} registrado{alumnos.length !== 1 ? 's' : ''}
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        {alumnos.length === 0 ? (
-          <div className="text-center py-12">
-            <Users className="h-12 w-12 mx-auto text-gray-300 mb-4" />
-            <p className="text-gray-500">No hay alumnos registrados</p>
-            <p className="text-sm text-gray-400 mt-2">
-              Usa el formulario de arriba para agregar el primer alumno
-            </p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Matrícula</TableHead>
-                  <TableHead>Nombre Completo</TableHead>
-                  <TableHead>Grado</TableHead>
-                  <TableHead>Grupo</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Teléfono</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {alumnos.map((alumno) => (
-                  <TableRow key={alumno.id}>
-                    <TableCell className="font-medium">
-                      <Badge variant="outline">{alumno.matricula}</Badge>
-                    </TableCell>
-                    <TableCell>
-                      {alumno.profiles.nombre} {alumno.profiles.apellidos}
-                    </TableCell>
-                    <TableCell>{alumno.grado}°</TableCell>
-                    <TableCell>{alumno.grupo}</TableCell>
-                    <TableCell className="text-sm text-gray-600">
-                      {alumno.profiles.email}
-                    </TableCell>
-                    <TableCell className="text-sm text-gray-600">
-                      {alumno.profiles.telefono || '-'}
-                    </TableCell>
+    <>
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Users className="h-5 w-5" />
+            Lista de Alumnos
+          </CardTitle>
+          <CardDescription>
+            {alumnos.length} alumno{alumnos.length !== 1 ? 's' : ''} registrado{alumnos.length !== 1 ? 's' : ''}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {alumnos.length === 0 ? (
+            <div className="text-center py-12">
+              <Users className="h-12 w-12 mx-auto text-gray-300 mb-4" />
+              <p className="text-gray-500">No hay alumnos registrados</p>
+              <p className="text-sm text-gray-400 mt-2">
+                Usa el formulario de arriba para agregar el primer alumno
+              </p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Matrícula</TableHead>
+                    <TableHead>Nombre Completo</TableHead>
+                    <TableHead>Grado</TableHead>
+                    <TableHead>Grupo</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Teléfono</TableHead>
+                    <TableHead className="text-right">Acciones</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+                </TableHeader>
+                <TableBody>
+                  {alumnos.map((alumno) => (
+                    <TableRow key={alumno.id}>
+                      <TableCell className="font-medium">
+                        <Badge variant="outline">{alumno.matricula}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        {alumno.profiles.nombre} {alumno.profiles.apellidos}
+                      </TableCell>
+                      <TableCell>{alumno.grado}°</TableCell>
+                      <TableCell>{alumno.grupo}</TableCell>
+                      <TableCell className="text-sm text-gray-600">
+                        {alumno.profiles.email}
+                      </TableCell>
+                      <TableCell className="text-sm text-gray-600">
+                        {alumno.profiles.telefono || '-'}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleEditar(alumno)}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <DialogoEditarAlumno
+        alumno={alumnoEditar}
+        open={dialogoAbierto}
+        onOpenChange={setDialogoAbierto}
+        onSuccess={handleSuccess}
+      />
+    </>
   )
 }

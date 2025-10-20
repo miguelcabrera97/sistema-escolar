@@ -26,7 +26,7 @@ interface Tarea {
   id: string
   titulo: string
   descripcion: string
-  fecha_vencimiento: string
+  fecha_entrega: string
   puntos_maximos: number
   cursos: Curso
 }

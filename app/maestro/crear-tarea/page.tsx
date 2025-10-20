@@ -26,7 +26,7 @@ export default function CrearTarea() {
     curso_id: '',
     titulo: '',
     descripcion: '',
-    fecha_vencimiento: '',
+    fecha_entrega: '',
     puntos_maximos: ''
   })
 
@@ -71,7 +71,7 @@ export default function CrearTarea() {
           curso_id: formData.curso_id,
           titulo: formData.titulo,
           descripcion: formData.descripcion,
-          fecha_vencimiento: formData.fecha_vencimiento,
+          fecha_entrega: formData.fecha_entrega,
           puntos_maximos: parseInt(formData.puntos_maximos)
         })
 
@@ -166,12 +166,12 @@ export default function CrearTarea() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="fecha">Fecha de Vencimiento</Label>
+                  <Label htmlFor="fecha">Fecha de Entrega</Label>
                   <Input
                     id="fecha"
                     type="date"
-                    value={formData.fecha_vencimiento}
-                    onChange={(e) => setFormData({ ...formData, fecha_vencimiento: e.target.value })}
+                    value={formData.fecha_entrega}
+                    onChange={(e) => setFormData({ ...formData, fecha_entrega: e.target.value })}
                     required
                     disabled={submitting}
                   />

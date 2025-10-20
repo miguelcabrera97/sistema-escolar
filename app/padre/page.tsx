@@ -56,7 +56,7 @@ export default function PadreDashboard() {
               concepto,
               monto,
               status,
-              fecha_vencimiento
+              fecha_entrega
             )
           )
         `)
@@ -228,7 +228,7 @@ export default function PadreDashboard() {
                             <div className="flex-1">
                               <p className="font-medium">{pago.concepto}</p>
                               <p className="text-sm text-gray-500">
-                                Vencimiento: {new Date(pago.fecha_vencimiento).toLocaleDateString('es-MX')}
+                                Vencimiento: {new Date(pago.fecha_entrega).toLocaleDateString('es-MX')}
                               </p>
                             </div>
                             <div className="flex items-center gap-3">

@@ -1,6 +1,6 @@
 # Progreso del Proyecto - Sistema Escolar
 
-**Fecha de actualización:** 19 de Octubre, 2025
+**Fecha de actualización:** 20 de Octubre, 2025
 **Versión de Next.js:** 15.5.4
 **Estado:** En Desarrollo Activo
 
@@ -157,12 +157,12 @@ Sistema de gestión escolar completo construido con Next.js 15 que permite la ad
 
 ### 📋 Planificadas
 
+- [ ] Exportación de boletas en PDF (Próxima a implementar)
 - [ ] Reportes y estadísticas avanzadas
 - [ ] Chat/mensajería entre usuarios
 - [ ] Calendario escolar
 - [ ] Asistencia
 - [ ] Biblioteca de recursos
-- [ ] Exportación de boletas en PDF
 - [ ] Historial de calificaciones por períodos
 
 ---
@@ -173,6 +173,10 @@ Sistema de gestión escolar completo construido con Next.js 15 que permite la ad
 
 ```
 sistema-escolar/
+├── scripts/
+│   ├── seed-database.ts      # Script para llenar BD con datos de prueba
+│   ├── clean-database.ts     # Script para limpiar toda la BD
+│   └── README.md            # Documentación de scripts
 ├── app/
 │   ├── actions/              # Server Actions
 │   │   ├── usuarios-actions.ts
@@ -209,6 +213,8 @@ sistema-escolar/
 │   ├── auth-helpers.ts      # Helpers de autenticación
 │   └── utils.ts
 ├── middleware.ts            # Middleware de autenticación
+├── DATOS-PRUEBA.md          # Credenciales y datos de prueba
+├── PROGRESO-PROYECTO.md     # Estado general del proyecto (este archivo)
 └── docs/
     ├── AUTHENTICATION.md
     ├── GESTION-USUARIOS.md
@@ -633,15 +639,16 @@ CREATE TABLE alumnos (
 ```sql
 CREATE TABLE tareas (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  maestro_id UUID REFERENCES profiles(id),
+  curso_id UUID REFERENCES cursos(id),
   titulo TEXT NOT NULL,
   descripcion TEXT,
-  fecha_limite TIMESTAMP,
-  grado TEXT,
-  grupo TEXT,
+  fecha_entrega TIMESTAMP,
+  puntos_maximos NUMERIC NOT NULL,
   created_at TIMESTAMP DEFAULT NOW()
 );
 ```
+
+**Nota:** El campo `fecha_entrega` representa la fecha límite de entrega de la tarea.
 
 #### Tabla: `entregas`
 ```sql
@@ -802,27 +809,31 @@ CREATE TABLE entregas (
 - **Componentes UI:** 40+
 - **Roles Implementados:** 4
 - **Tablas de BD:** 8+
-- **Commits:** 15+
-- **Documentación:** 7 archivos .md
+- **Scripts de BD:** 2 (seed, clean)
+- **Commits:** 20+
+- **Documentación:** 9 archivos .md
 
 ### Última Actualización
 
-**Fecha:** 19 de Octubre, 2025
-**Última característica implementada:** Sistema de búsqueda y filtros para usuarios
+**Fecha:** 20 de Octubre, 2025
+**Última característica implementada:** Scripts de seed y limpieza de base de datos
 **Funcionalidades recientes:**
-- ✅ Sistema de calificaciones completo
-- ✅ Sistema de gestión de cursos
-- ✅ Búsqueda y filtros en listas
-- ✅ Accesos rápidos en dashboards
+- ✅ Script de seed con datos de prueba realistas
+- ✅ Script de limpieza de base de datos
+- ✅ Corrección de nombres de columnas en toda la aplicación
+- ✅ Sistema completamente funcional con datos de prueba
+- ✅ Documentación de credenciales y datos de prueba
 
 ### Estado de Compilación
 
-✅ **Build exitoso** - Última verificación: 19/10/2025
+✅ **Build exitoso** - Última verificación: 20/10/2025
 ✅ **Sin errores de TypeScript**
 ✅ **Sin errores de ESLint** (modo ignorado temporalmente)
 ✅ **Todas las rutas funcionando**
 ✅ **Sistema de calificaciones operativo**
 ✅ **Sistema de cursos operativo**
+✅ **Scripts de BD funcionando**
+✅ **Datos de prueba cargados correctamente**
 
 ---
 
@@ -862,7 +873,23 @@ npm run start
 
 # Linting
 npm run lint
+
+# Scripts de Base de Datos
+npm run seed    # Llenar BD con datos de prueba
+npm run clean   # Limpiar toda la BD (requiere confirmación)
 ```
+
+### Datos de Prueba
+
+El sistema incluye un script de seed que crea automáticamente:
+- **1 Directivo** (directora@escuela.edu / 123456)
+- **6 Maestros** (carlos.martinez@escuela.edu / 123456, etc.)
+- **20 Alumnos** distribuidos en 3°A, 3°B, 4°A, 5°A
+- **5 Padres** vinculados a alumnos
+- **9 Cursos** con inscripciones automáticas
+- **Tareas** listas para ser creadas por maestros
+
+Ver `DATOS-PRUEBA.md` para lista completa de credenciales.
 
 ---
 

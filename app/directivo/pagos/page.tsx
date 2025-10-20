@@ -28,7 +28,7 @@ interface Pago {
   concepto: string
   monto: number
   status: string
-  fecha_vencimiento: string
+  fecha_entrega: string
   alumnos: Alumno
 }
 
@@ -45,7 +45,7 @@ export default function DirectivoPagos() {
     concepto: '',
     descripcion: '',
     monto: '',
-    fecha_vencimiento: ''
+    fecha_entrega: ''
   })
 
   useEffect(() => {
@@ -91,7 +91,7 @@ export default function DirectivoPagos() {
           concepto: formData.concepto,
           descripcion: formData.descripcion || null,
           monto: parseFloat(formData.monto),
-          fecha_vencimiento: formData.fecha_vencimiento,
+          fecha_entrega: formData.fecha_entrega,
           status: 'pendiente'
         })
 
@@ -104,7 +104,7 @@ export default function DirectivoPagos() {
         concepto: '',
         descripcion: '',
         monto: '',
-        fecha_vencimiento: ''
+        fecha_entrega: ''
       })
       await cargarDatos()
     } catch (error) {
@@ -214,8 +214,8 @@ export default function DirectivoPagos() {
                     <Label>Fecha de Vencimiento</Label>
                     <Input
                       type="date"
-                      value={formData.fecha_vencimiento}
-                      onChange={(e) => setFormData({ ...formData, fecha_vencimiento: e.target.value })}
+                      value={formData.fecha_entrega}
+                      onChange={(e) => setFormData({ ...formData, fecha_entrega: e.target.value })}
                       required
                       disabled={creando}
                     />
@@ -260,7 +260,7 @@ export default function DirectivoPagos() {
                         {pago.alumnos.profiles.nombre} {pago.alumnos.profiles.apellidos} - {pago.alumnos.matricula}
                       </p>
                       <p className="text-xs text-gray-500">
-                        Vence: {new Date(pago.fecha_vencimiento).toLocaleDateString('es-MX')}
+                        Vence: {new Date(pago.fecha_entrega).toLocaleDateString('es-MX')}
                       </p>
                     </div>
                     <div className="text-right">

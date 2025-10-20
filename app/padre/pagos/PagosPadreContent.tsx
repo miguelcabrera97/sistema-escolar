@@ -26,7 +26,7 @@ interface Pago {
   descripcion: string | null
   monto: number
   status: string
-  fecha_vencimiento: string
+  fecha_entrega: string
   fecha_pago: string | null
   metodo_pago: string | null
   alumnos: Alumno
@@ -82,7 +82,7 @@ export default function PagosPadreContent() {
             )
           `)
           .in('alumno_id', alumnosData.map(a => a.id))
-          .order('fecha_vencimiento', { ascending: true })
+          .order('fecha_entrega', { ascending: true })
 
         if (pagosData) {
           setPagos(pagosData)
@@ -243,7 +243,7 @@ export default function PagosPadreContent() {
                             {pago.alumnos.profiles.nombre} {pago.alumnos.profiles.apellidos} - {pago.alumnos.matricula}
                           </p>
                           <p className="text-xs text-gray-500">
-                            Vence: {new Date(pago.fecha_vencimiento).toLocaleDateString('es-MX')}
+                            Vence: {new Date(pago.fecha_entrega).toLocaleDateString('es-MX')}
                           </p>
                           {pago.descripcion && (
                             <p className="text-xs text-gray-500 mt-1">{pago.descripcion}</p>

@@ -25,7 +25,7 @@ interface Tarea {
   id: string
   titulo: string
   descripcion: string
-  fecha_vencimiento: string
+  fecha_entrega: string
   puntos_maximos: number
   cursos: Curso
 }
@@ -204,7 +204,7 @@ export default function TareaDetalle() {
     )
   }
 
-  const vencida = tarea ? new Date(tarea.fecha_vencimiento) < new Date() : false
+  const vencida = tarea ? new Date(tarea.fecha_entrega) < new Date() : false
   const puedeEntregar = !entrega || (entrega.status !== 'calificada')
 
   return (
@@ -248,7 +248,7 @@ export default function TareaDetalle() {
             <div className="flex gap-6 text-sm">
               <div className="flex items-center gap-2">
                 <Calendar className="h-4 w-4 text-gray-500" />
-                <span>Vencimiento: {tarea ? new Date(tarea.fecha_vencimiento).toLocaleDateString() : ''}</span>
+                <span>Vencimiento: {tarea ? new Date(tarea.fecha_entrega).toLocaleDateString() : ''}</span>
               </div>
               <div className="flex items-center gap-2">
                 <Award className="h-4 w-4 text-gray-500" />

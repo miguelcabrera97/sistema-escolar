@@ -43,7 +43,7 @@ interface Tarea {
   id: string
   titulo: string
   descripcion: string
-  fecha_vencimiento: string
+  fecha_entrega: string
   puntos_maximos: number
   entregas: Entrega[]
 }
@@ -53,7 +53,7 @@ interface Pago {
   concepto: string
   monto: number
   status: string
-  fecha_vencimiento: string
+  fecha_entrega: string
 }
 
 export default function AlumnoDashboard() {
@@ -113,7 +113,7 @@ export default function AlumnoDashboard() {
           entregas!entregas_tarea_id_fkey(id, status, calificacion, fecha_entrega)
         `)
         .in('curso_id', inscripcionesData?.map((i: Inscripcion) => i.cursos.id) || [])
-        .order('fecha_vencimiento', { ascending: true })
+        .order('fecha_entrega', { ascending: true })
 
       if (tareasData) {
         const tareasConEntregas = tareasData.map(tarea => ({
@@ -127,7 +127,7 @@ export default function AlumnoDashboard() {
         .from('pagos')
         .select('*')
         .eq('alumno_id', alumnoData.id)
-        .order('fecha_vencimiento', { ascending: true })
+        .order('fecha_entrega', { ascending: true })
 
       if (pagosData) {
         setPagos(pagosData)
@@ -278,14 +278,14 @@ export default function AlumnoDashboard() {
               <div className="space-y-4">
                 {tareasPendientes.slice(0, 5).map((tarea) => {
                   const entrega = tarea.entregas.find(e => e.id)
-                  const vencida = new Date(tarea.fecha_vencimiento) < new Date()
+                  const vencida = new Date(tarea.fecha_entrega) < new Date()
                   
                   return (
                     <div key={tarea.id} className="flex items-center justify-between p-4 border rounded-lg">
                       <div className="flex-1">
                         <h3 className="font-semibold">{tarea.titulo}</h3>
                         <p className="text-sm text-gray-600">
-                          Vence: {new Date(tarea.fecha_vencimiento).toLocaleDateString()}
+                          Vence: {new Date(tarea.fecha_entrega).toLocaleDateString()}
                         </p>
                       </div>
                       <div className="flex items-center gap-2">

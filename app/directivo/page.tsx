@@ -34,7 +34,7 @@ interface Pago {
   concepto: string
   monto: number
   status: string
-  fecha_vencimiento: string
+  fecha_entrega: string
   alumnos: {
     matricula: string
     profiles: Profile
@@ -138,7 +138,7 @@ export default function DirectivoDashboard() {
           )
         `)
         .in('status', ['pendiente', 'vencido'])
-        .order('fecha_vencimiento', { ascending: true })
+        .order('fecha_entrega', { ascending: true })
         .limit(5)
 
       if (pagosData) {
@@ -309,10 +309,14 @@ export default function DirectivoDashboard() {
                     <div>
                       <h3 className="font-semibold">{pago.concepto}</h3>
                       <p className="text-sm text-gray-600">
-                        {pago.alumnos.profiles.nombre} {pago.alumnos.profiles.apellidos} - {pago.alumnos.matricula}
+                        {pago.alumnos?.profiles ? (
+                          `${pago.alumnos.profiles.nombre} ${pago.alumnos.profiles.apellidos} - ${pago.alumnos.matricula}`
+                        ) : (
+                          'Alumno no disponible'
+                        )}
                       </p>
                       <p className="text-xs text-gray-500">
-                        Vence: {new Date(pago.fecha_vencimiento).toLocaleDateString()}
+                        Vence: {new Date(pago.fecha_entrega).toLocaleDateString()}
                       </p>
                     </div>
                     <div className="text-right">

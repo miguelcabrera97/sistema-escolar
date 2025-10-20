@@ -105,10 +105,10 @@ export default function LoginPage() {
           <div className="mt-6 text-sm text-gray-600">
             <p className="font-semibold mb-2">Usuarios de prueba:</p>
             <ul className="space-y-1 text-xs">
-              <li>Alumno: alumno@prueba.com / 123456</li>
-              <li>Maestro: maestro@prueba.com / 123456</li>
-              <li>Padre: padre@prueba.com / 123456</li>
-              <li>Directivo: directivo@prueba.com / 123456</li>
+              <li>Alumno: juan.perez@estudiante.edu / 123456</li>
+              <li>Maestro: carlos.martinez@escuela.edu / 123456</li>
+              <li>Padre: jorge.perez@padre.com / 123456</li>
+              <li>Directivo: directora@escuela.edu / 123456</li>
             </ul>
           </div>
         </CardContent>

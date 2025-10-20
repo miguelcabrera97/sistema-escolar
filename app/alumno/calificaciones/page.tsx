@@ -41,7 +41,7 @@ interface Tarea {
   id: string
   titulo: string
   descripcion: string
-  fecha_vencimiento: string
+  fecha_entrega: string
   puntos_maximos: number
   curso_id: string
   entregas: Entrega[]
@@ -123,7 +123,7 @@ export default function CalificacionesAlumno() {
             )
           `)
           .eq('curso_id', curso.id)
-          .order('fecha_vencimiento', { ascending: false })
+          .order('fecha_entrega', { ascending: false })
 
         if (tareasData) {
           // Filtrar solo las entregas del alumno actual
@@ -286,7 +286,7 @@ export default function CalificacionesAlumno() {
                           <TableRow key={tarea.id}>
                             <TableCell className="font-medium">{tarea.titulo}</TableCell>
                             <TableCell>
-                              {new Date(tarea.fecha_vencimiento).toLocaleDateString('es-MX')}
+                              {new Date(tarea.fecha_entrega).toLocaleDateString('es-MX')}
                             </TableCell>
                             <TableCell>
                               {entrega?.fecha_entrega

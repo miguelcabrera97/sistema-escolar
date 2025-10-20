@@ -26,7 +26,7 @@ interface Curso {
 interface Tarea {
   id: string
   titulo: string
-  fecha_vencimiento: string
+  fecha_entrega: string
   puntos_maximos: number
   cursos: {
     nombre: string
@@ -76,7 +76,7 @@ export default function MaestroDashboard() {
         .select(`
           id,
           titulo,
-          fecha_vencimiento,
+          fecha_entrega,
           puntos_maximos,
           cursos (
             nombre,
@@ -85,7 +85,7 @@ export default function MaestroDashboard() {
           )
         `)
         .in('curso_id', cursosData?.map(c => c.id) || [])
-        .order('fecha_vencimiento', { ascending: true })
+        .order('fecha_entrega', { ascending: true })
         .limit(5)
 
       if (tareasData) {
@@ -234,7 +234,7 @@ export default function MaestroDashboard() {
                           {tarea.cursos.nombre} - {tarea.cursos.grado} {tarea.cursos.grupo}
                         </p>
                         <p className="text-xs text-gray-500">
-                          Vence: {new Date(tarea.fecha_vencimiento).toLocaleDateString()}
+                          Fecha: {new Date(tarea.fecha_entrega).toLocaleDateString()}
                         </p>
                       </div>
                       <Button 

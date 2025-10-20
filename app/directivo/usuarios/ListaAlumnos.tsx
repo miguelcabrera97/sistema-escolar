@@ -1,12 +1,14 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { obtenerAlumnos, desactivarAlumno, reactivarAlumno } from '@/app/actions/usuarios-actions'
-import { Loader2, Users, Pencil, Trash2, RefreshCw } from 'lucide-react'
+import { Loader2, Users, Pencil, Trash2, RefreshCw, Search, Filter, X } from 'lucide-react'
 import { DialogoEditarAlumno } from './DialogoEditarAlumno'
 import { DialogoConfirmarEliminacion } from './DialogoConfirmarEliminacion'
 
@@ -33,6 +35,12 @@ export function ListaAlumnos() {
   const [alumnoEliminar, setAlumnoEliminar] = useState<Alumno | null>(null)
   const [dialogoEliminarAbierto, setDialogoEliminarAbierto] = useState(false)
   const [loadingEliminar, setLoadingEliminar] = useState(false)
+
+  // Estados para búsqueda y filtros
+  const [busqueda, setBusqueda] = useState('')
+  const [filtroGrado, setFiltroGrado] = useState<string>('todos')
+  const [filtroGrupo, setFiltroGrupo] = useState<string>('todos')
+  const [filtroEstado, setFiltroEstado] = useState<string>('todos')
 
   const cargarAlumnos = async () => {
     setLoading(true)
@@ -101,6 +109,63 @@ export function ListaAlumnos() {
     cargarAlumnos()
   }
 
+  // Filtrar y buscar alumnos
+  const alumnosFiltrados = useMemo(() => {
+    let resultado = alumnos
+
+    // Filtrar por búsqueda (matrícula o nombre)
+    if (busqueda.trim() !== '') {
+      const busquedaLower = busqueda.toLowerCase()
+      resultado = resultado.filter(alumno =>
+        alumno.matricula.toLowerCase().includes(busquedaLower) ||
+        alumno.profiles.nombre.toLowerCase().includes(busquedaLower) ||
+        alumno.profiles.apellidos.toLowerCase().includes(busquedaLower) ||
+        `${alumno.profiles.nombre} ${alumno.profiles.apellidos}`.toLowerCase().includes(busquedaLower)
+      )
+    }
+
+    // Filtrar por grado
+    if (filtroGrado !== 'todos') {
+      resultado = resultado.filter(alumno => alumno.grado === filtroGrado)
+    }
+
+    // Filtrar por grupo
+    if (filtroGrupo !== 'todos') {
+      resultado = resultado.filter(alumno => alumno.grupo === filtroGrupo)
+    }
+
+    // Filtrar por estado
+    if (filtroEstado !== 'todos') {
+      const activo = filtroEstado === 'activo'
+      resultado = resultado.filter(alumno => alumno.profiles.activo === activo)
+    }
+
+    return resultado
+  }, [alumnos, busqueda, filtroGrado, filtroGrupo, filtroEstado])
+
+  // Obtener grados únicos
+  const gradosDisponibles = useMemo(() => {
+    const grados = new Set(alumnos.map(a => a.grado))
+    return Array.from(grados).sort()
+  }, [alumnos])
+
+  // Obtener grupos únicos
+  const gruposDisponibles = useMemo(() => {
+    const grupos = new Set(alumnos.map(a => a.grupo))
+    return Array.from(grupos).sort()
+  }, [alumnos])
+
+  // Limpiar filtros
+  const limpiarFiltros = () => {
+    setBusqueda('')
+    setFiltroGrado('todos')
+    setFiltroGrupo('todos')
+    setFiltroEstado('todos')
+  }
+
+  // Verificar si hay filtros activos
+  const hayFiltrosActivos = busqueda !== '' || filtroGrado !== 'todos' || filtroGrupo !== 'todos' || filtroEstado !== 'todos'
+
   if (loading) {
     return (
       <Card>
@@ -120,10 +185,87 @@ export function ListaAlumnos() {
             Lista de Alumnos
           </CardTitle>
           <CardDescription>
-            {alumnos.length} alumno{alumnos.length !== 1 ? 's' : ''} registrado{alumnos.length !== 1 ? 's' : ''}
+            {alumnosFiltrados.length} de {alumnos.length} alumno{alumnos.length !== 1 ? 's' : ''}
           </CardDescription>
         </CardHeader>
         <CardContent>
+          {/* Barra de búsqueda y filtros */}
+          <div className="space-y-4 mb-6">
+            {/* Búsqueda */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Input
+                placeholder="Buscar por matrícula o nombre..."
+                value={busqueda}
+                onChange={(e) => setBusqueda(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+
+            {/* Filtros */}
+            <div className="flex flex-wrap gap-4 items-end">
+              <div className="flex-1 min-w-[150px]">
+                <label className="text-sm font-medium text-gray-700 mb-1 block">
+                  Grado
+                </label>
+                <Select value={filtroGrado} onValueChange={setFiltroGrado}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Todos los grados" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos los grados</SelectItem>
+                    {gradosDisponibles.map(grado => (
+                      <SelectItem key={grado} value={grado}>{grado}°</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex-1 min-w-[150px]">
+                <label className="text-sm font-medium text-gray-700 mb-1 block">
+                  Grupo
+                </label>
+                <Select value={filtroGrupo} onValueChange={setFiltroGrupo}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Todos los grupos" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos los grupos</SelectItem>
+                    {gruposDisponibles.map(grupo => (
+                      <SelectItem key={grupo} value={grupo}>{grupo}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex-1 min-w-[150px]">
+                <label className="text-sm font-medium text-gray-700 mb-1 block">
+                  Estado
+                </label>
+                <Select value={filtroEstado} onValueChange={setFiltroEstado}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Todos los estados" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos</SelectItem>
+                    <SelectItem value="activo">Activos</SelectItem>
+                    <SelectItem value="inactivo">Inactivos</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {hayFiltrosActivos && (
+                <Button
+                  variant="outline"
+                  onClick={limpiarFiltros}
+                  className="gap-2"
+                >
+                  <X className="h-4 w-4" />
+                  Limpiar filtros
+                </Button>
+              )}
+            </div>
+          </div>
           {alumnos.length === 0 ? (
             <div className="text-center py-12">
               <Users className="h-12 w-12 mx-auto text-gray-300 mb-4" />
@@ -131,6 +273,21 @@ export function ListaAlumnos() {
               <p className="text-sm text-gray-400 mt-2">
                 Usa el formulario de arriba para agregar el primer alumno
               </p>
+            </div>
+          ) : alumnosFiltrados.length === 0 ? (
+            <div className="text-center py-12">
+              <Filter className="h-12 w-12 mx-auto text-gray-300 mb-4" />
+              <p className="text-gray-500">No se encontraron resultados</p>
+              <p className="text-sm text-gray-400 mt-2">
+                Intenta ajustar los filtros de búsqueda
+              </p>
+              <Button
+                variant="outline"
+                onClick={limpiarFiltros}
+                className="mt-4"
+              >
+                Limpiar filtros
+              </Button>
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -148,7 +305,7 @@ export function ListaAlumnos() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {alumnos.map((alumno) => (
+                  {alumnosFiltrados.map((alumno) => (
                     <TableRow key={alumno.id} className={!alumno.profiles.activo ? 'opacity-60' : ''}>
                       <TableCell className="font-medium">
                         <Badge variant="outline">{alumno.matricula}</Badge>

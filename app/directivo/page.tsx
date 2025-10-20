@@ -179,6 +179,9 @@ export default function DirectivoDashboard() {
     <p className="text-gray-600">Vista general del sistema</p>
   </div>
   <div className="flex gap-2">
+  <Button onClick={() => router.push('/directivo/cursos')}>
+    Gestionar Cursos
+  </Button>
   <Button onClick={() => router.push('/directivo/usuarios')}>
     Gestionar Usuarios
   </Button>

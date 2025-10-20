@@ -1,12 +1,14 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { obtenerMaestros, desactivarMaestro, reactivarMaestro } from '@/app/actions/usuarios-actions'
-import { Loader2, GraduationCap, Pencil, Trash2, RefreshCw } from 'lucide-react'
+import { Loader2, GraduationCap, Pencil, Trash2, RefreshCw, Search, Filter, X } from 'lucide-react'
 import { DialogoEditarMaestro } from './DialogoEditarMaestro'
 import { DialogoConfirmarEliminacion } from './DialogoConfirmarEliminacion'
 
@@ -27,6 +29,10 @@ export function ListaMaestros() {
   const [maestroEliminar, setMaestroEliminar] = useState<Maestro | null>(null)
   const [dialogoEliminarAbierto, setDialogoEliminarAbierto] = useState(false)
   const [loadingEliminar, setLoadingEliminar] = useState(false)
+
+  // Estados para búsqueda y filtros
+  const [busqueda, setBusqueda] = useState('')
+  const [filtroEstado, setFiltroEstado] = useState<string>('todos')
 
   const cargarMaestros = async () => {
     setLoading(true)
@@ -95,6 +101,39 @@ export function ListaMaestros() {
     cargarMaestros()
   }
 
+  // Filtrar y buscar maestros
+  const maestrosFiltrados = useMemo(() => {
+    let resultado = maestros
+
+    // Filtrar por búsqueda (nombre o email)
+    if (busqueda.trim() !== '') {
+      const busquedaLower = busqueda.toLowerCase()
+      resultado = resultado.filter(maestro =>
+        maestro.nombre.toLowerCase().includes(busquedaLower) ||
+        maestro.apellidos.toLowerCase().includes(busquedaLower) ||
+        `${maestro.nombre} ${maestro.apellidos}`.toLowerCase().includes(busquedaLower) ||
+        maestro.email.toLowerCase().includes(busquedaLower)
+      )
+    }
+
+    // Filtrar por estado
+    if (filtroEstado !== 'todos') {
+      const activo = filtroEstado === 'activo'
+      resultado = resultado.filter(maestro => maestro.activo === activo)
+    }
+
+    return resultado
+  }, [maestros, busqueda, filtroEstado])
+
+  // Limpiar filtros
+  const limpiarFiltros = () => {
+    setBusqueda('')
+    setFiltroEstado('todos')
+  }
+
+  // Verificar si hay filtros activos
+  const hayFiltrosActivos = busqueda !== '' || filtroEstado !== 'todos'
+
   if (loading) {
     return (
       <Card>
@@ -114,10 +153,53 @@ export function ListaMaestros() {
             Lista de Maestros
           </CardTitle>
           <CardDescription>
-            {maestros.length} maestro{maestros.length !== 1 ? 's' : ''} registrado{maestros.length !== 1 ? 's' : ''}
+            {maestrosFiltrados.length} de {maestros.length} maestro{maestros.length !== 1 ? 's' : ''}
           </CardDescription>
         </CardHeader>
         <CardContent>
+          {/* Barra de búsqueda y filtros */}
+          <div className="space-y-4 mb-6">
+            {/* Búsqueda */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Input
+                placeholder="Buscar por nombre o email..."
+                value={busqueda}
+                onChange={(e) => setBusqueda(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+
+            {/* Filtros */}
+            <div className="flex flex-wrap gap-4 items-end">
+              <div className="flex-1 min-w-[200px]">
+                <label className="text-sm font-medium text-gray-700 mb-1 block">
+                  Estado
+                </label>
+                <Select value={filtroEstado} onValueChange={setFiltroEstado}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Todos los estados" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos</SelectItem>
+                    <SelectItem value="activo">Activos</SelectItem>
+                    <SelectItem value="inactivo">Inactivos</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {hayFiltrosActivos && (
+                <Button
+                  variant="outline"
+                  onClick={limpiarFiltros}
+                  className="gap-2"
+                >
+                  <X className="h-4 w-4" />
+                  Limpiar filtros
+                </Button>
+              )}
+            </div>
+          </div>
           {maestros.length === 0 ? (
             <div className="text-center py-12">
               <GraduationCap className="h-12 w-12 mx-auto text-gray-300 mb-4" />
@@ -125,6 +207,21 @@ export function ListaMaestros() {
               <p className="text-sm text-gray-400 mt-2">
                 Usa el formulario de arriba para agregar el primer maestro
               </p>
+            </div>
+          ) : maestrosFiltrados.length === 0 ? (
+            <div className="text-center py-12">
+              <Filter className="h-12 w-12 mx-auto text-gray-300 mb-4" />
+              <p className="text-gray-500">No se encontraron resultados</p>
+              <p className="text-sm text-gray-400 mt-2">
+                Intenta ajustar los filtros de búsqueda
+              </p>
+              <Button
+                variant="outline"
+                onClick={limpiarFiltros}
+                className="mt-4"
+              >
+                Limpiar filtros
+              </Button>
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -139,7 +236,7 @@ export function ListaMaestros() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {maestros.map((maestro) => (
+                  {maestrosFiltrados.map((maestro) => (
                     <TableRow key={maestro.id} className={!maestro.activo ? 'opacity-60' : ''}>
                       <TableCell className="font-medium">
                         {maestro.nombre} {maestro.apellidos}

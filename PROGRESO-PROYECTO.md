@@ -1,6 +1,6 @@
 # Progreso del Proyecto - Sistema Escolar
 
-**Fecha de actualización:** 18 de Octubre, 2025
+**Fecha de actualización:** 19 de Octubre, 2025
 **Versión de Next.js:** 15.5.4
 **Estado:** En Desarrollo Activo
 
@@ -35,8 +35,9 @@ Sistema de gestión escolar completo construido con Next.js 15 que permite la ad
 - ✅ Plataforma de pagos integrada
 - ✅ Dashboards personalizados por rol
 - ✅ Autenticación y autorización robusta
+- ✅ Sistema de calificaciones completo
+- ✅ Sistema de gestión de cursos
 - 🚧 Comunicación entre padres y maestros
-- 🚧 Sistema de calificaciones
 - 🚧 Reportes y estadísticas
 
 ---
@@ -89,10 +90,10 @@ Sistema de gestión escolar completo construido con Next.js 15 que permite la ad
 - [x] Diálogos de confirmación para acciones destructivas
 
 #### 3. Dashboards por Rol
-- [x] Dashboard de Alumno
+- [x] Dashboard de Alumno (con acceso rápido a calificaciones)
 - [x] Dashboard de Maestro
-- [x] Dashboard de Padre
-- [x] Dashboard de Directivo
+- [x] Dashboard de Padre (con acceso rápido a calificaciones de hijos)
+- [x] Dashboard de Directivo (con acceso a gestión de cursos)
 
 #### 4. Sistema de Tareas
 - [x] Creación de tareas por maestros
@@ -108,29 +109,61 @@ Sistema de gestión escolar completo construido con Next.js 15 que permite la ad
 - [x] Webhook de Stripe para confirmación
 - [x] Sesiones de pago seguras
 
-#### 6. Componentes UI
+#### 6. Sistema de Calificaciones
+- [x] Calificación de entregas por maestros
+- [x] Vista de calificaciones para alumnos
+- [x] Vista de calificaciones para padres (con selector de hijos)
+- [x] Cálculo de promedios por curso
+- [x] Cálculo de promedio general
+- [x] Retroalimentación de maestros
+- [x] Badges de rendimiento con colores
+- [x] Estadísticas detalladas
+
+#### 7. Sistema de Gestión de Cursos
+- [x] CRUD completo de cursos
+- [x] Asignación de maestros a cursos
+- [x] Inscripción masiva de alumnos
+- [x] Desinscripción individual de alumnos
+- [x] Vista de alumnos disponibles vs inscritos
+- [x] Búsqueda en tiempo real de alumnos
+- [x] Validaciones de maestros activos
+- [x] Protección contra eliminación con tareas
+
+#### 8. Búsqueda y Filtros
+- [x] Búsqueda de alumnos por matrícula/nombre
+- [x] Búsqueda de maestros por nombre/email
+- [x] Filtros por grado, grupo y estado (alumnos)
+- [x] Filtro por estado (maestros)
+- [x] Limpieza rápida de filtros
+- [x] Contador de resultados filtrados
+
+#### 9. Componentes UI
 - [x] Sistema de componentes reutilizables (shadcn/ui)
 - [x] Cards, Tables, Buttons, Badges
 - [x] Dialogs modales
 - [x] Forms con validación
 - [x] Loading states
 - [x] Empty states
+- [x] Tabs para navegación
+- [x] Checkboxes para selección múltiple
+- [x] Selects con búsqueda
 
 ### 🚧 En Progreso
 
-- [ ] Búsqueda y filtros en listas de usuarios
 - [ ] Exportación de datos (CSV/Excel)
 - [ ] Importación masiva de usuarios
 - [ ] Sistema de notificaciones
+- [ ] Gráficas de rendimiento
 
 ### 📋 Planificadas
 
-- [ ] Sistema de calificaciones
-- [ ] Reportes y estadísticas
+- [ ] Reportes y estadísticas avanzadas
 - [ ] Chat/mensajería entre usuarios
 - [ ] Calendario escolar
 - [ ] Asistencia
 - [ ] Biblioteca de recursos
+- [ ] Exportación de boletas en PDF
+- [ ] Historial de calificaciones por períodos
 
 ---
 
@@ -142,9 +175,11 @@ Sistema de gestión escolar completo construido con Next.js 15 que permite la ad
 sistema-escolar/
 ├── app/
 │   ├── actions/              # Server Actions
-│   │   └── usuarios-actions.ts
+│   │   ├── usuarios-actions.ts
+│   │   └── cursos-actions.ts
 │   ├── alumno/              # Rutas del alumno
 │   │   ├── page.tsx
+│   │   ├── calificaciones/
 │   │   └── tarea/[id]/
 │   ├── maestro/             # Rutas del maestro
 │   │   ├── page.tsx
@@ -152,9 +187,11 @@ sistema-escolar/
 │   │   └── tarea/[id]/entregas/
 │   ├── padre/               # Rutas del padre
 │   │   ├── page.tsx
+│   │   ├── calificaciones/
 │   │   └── pagos/
 │   ├── directivo/           # Rutas del directivo
 │   │   ├── page.tsx
+│   │   ├── cursos/          # Gestión de cursos
 │   │   ├── alumnos/
 │   │   ├── pagos/
 │   │   └── usuarios/
@@ -175,6 +212,8 @@ sistema-escolar/
 └── docs/
     ├── AUTHENTICATION.md
     ├── GESTION-USUARIOS.md
+    ├── SISTEMA-CALIFICACIONES.md
+    ├── SISTEMA-GESTION-CURSOS.md
     └── EJEMPLO-USO-MIDDLEWARE.md
 ```
 
@@ -197,12 +236,14 @@ sistema-escolar/
 **Permisos:**
 - Ver tareas asignadas
 - Entregar tareas
+- Ver calificaciones y promedios
+- Ver retroalimentación de maestros
 - Ver su información personal
-- Ver calendario de actividades
 
 **Rutas accesibles:**
 - `/alumno`
 - `/alumno/tarea/[id]`
+- `/alumno/calificaciones`
 
 ### 2. Maestro (maestro)
 **Descripción:** Profesor que imparte clases
@@ -210,7 +251,8 @@ sistema-escolar/
 **Permisos:**
 - Crear tareas para grupos/grados
 - Ver entregas de alumnos
-- Calificar tareas
+- Calificar tareas y proporcionar retroalimentación
+- Ver estadísticas de entregas
 - Ver lista de alumnos asignados
 
 **Rutas accesibles:**
@@ -223,26 +265,32 @@ sistema-escolar/
 
 **Permisos:**
 - Ver información de sus hijos
+- Ver calificaciones de sus hijos
+- Selector para múltiples hijos
 - Realizar pagos
 - Ver historial de pagos
-- Comunicarse con maestros
 
 **Rutas accesibles:**
 - `/padre`
 - `/padre/pagos`
+- `/padre/calificaciones`
 
 ### 4. Directivo (directivo)
 **Descripción:** Administrador del sistema escolar
 
 **Permisos:**
 - CRUD completo de usuarios (alumnos, maestros)
+- CRUD completo de cursos
+- Asignación de maestros a cursos
+- Inscripción masiva de alumnos a cursos
 - Ver todos los pagos
-- Ver lista de todos los alumnos
+- Ver lista de todos los alumnos con búsqueda y filtros
 - Gestión completa del sistema
 
 **Rutas accesibles:**
 - `/directivo`
 - `/directivo/alumnos`
+- `/directivo/cursos`
 - `/directivo/pagos`
 - `/directivo/usuarios`
 
@@ -259,6 +307,8 @@ sistema-escolar/
 - Lista de tareas pendientes
 - Botón para ver detalles de cada tarea
 - Indicadores de estado de entregas
+- Tarjeta de promedio con acceso rápido a calificaciones
+- Estadísticas de tareas y cursos
 
 ### Dashboard de Maestro
 
@@ -276,6 +326,8 @@ sistema-escolar/
 
 **Características:**
 - Información de hijos matriculados
+- Selector de múltiples hijos
+- Tarjeta de calificaciones con acceso rápido
 - Acceso a pagos pendientes
 - Botón de crear sesión de pago
 - Historial de transacciones
@@ -285,10 +337,12 @@ sistema-escolar/
 **Archivo:** `app/directivo/page.tsx`
 
 **Características:**
+- Acceso a gestión de cursos
 - Acceso a gestión de usuarios
 - Ver lista completa de alumnos
 - Administración de pagos
 - Estadísticas generales del sistema
+- Botones de acceso rápido a todas las funcionalidades
 
 ---
 
@@ -614,18 +668,7 @@ CREATE TABLE entregas (
 
 ### Prioridad Alta 🔴
 
-1. **Búsqueda y Filtros**
-   - Buscar alumnos por matrícula/nombre
-   - Filtrar por grado, grupo, estado
-   - Paginación de resultados
-
-2. **Sistema de Calificaciones**
-   - Calificar entregas de tareas
-   - Promedios por materia
-   - Boletas de calificaciones
-   - Reportes para padres
-
-3. **Notificaciones**
+1. **Notificaciones**
    - Notificaciones en tiempo real
    - Email para eventos importantes
    - Recordatorios de tareas
@@ -633,53 +676,55 @@ CREATE TABLE entregas (
 
 ### Prioridad Media 🟡
 
-4. **Exportación de Datos**
+2. **Exportación de Datos**
    - Exportar listas a CSV/Excel
+   - Exportar boletas en PDF
    - Reportes personalizados
    - Historial de movimientos
 
-5. **Importación Masiva**
+3. **Importación Masiva**
    - Subir CSV con múltiples alumnos
    - Validación de datos
    - Preview antes de importar
 
-6. **Perfil de Usuario**
+4. **Perfil de Usuario**
    - Fotos de perfil
    - Editar información personal
    - Cambiar contraseña
    - Configuración de preferencias
 
-7. **Asignación de Cursos**
-   - Asignar maestros a materias
-   - Vincular alumnos a cursos
+5. **Gestión Avanzada de Cursos**
    - Horarios de clases
+   - Aulas asignadas
+   - Capacidad máxima por curso
 
 ### Prioridad Baja 🟢
 
-8. **Chat/Mensajería**
+6. **Chat/Mensajería**
    - Comunicación padre-maestro
    - Mensajes del directivo
    - Notificaciones de nuevos mensajes
 
-9. **Calendario Escolar**
+7. **Calendario Escolar**
    - Eventos escolares
    - Días festivos
    - Sincronización con Google Calendar
 
-10. **Biblioteca de Recursos**
-    - Subir materiales didácticos
-    - Compartir recursos entre maestros
-    - Acceso de alumnos a materiales
+8. **Biblioteca de Recursos**
+   - Subir materiales didácticos
+   - Compartir recursos entre maestros
+   - Acceso de alumnos a materiales
 
-11. **Asistencia**
-    - Registro de asistencia diaria
-    - Reportes de inasistencias
-    - Notificaciones a padres
+9. **Asistencia**
+   - Registro de asistencia diaria
+   - Reportes de inasistencias
+   - Notificaciones a padres
 
-12. **Estadísticas y Analytics**
-    - Dashboard de métricas
+10. **Estadísticas y Analytics**
+    - Dashboard de métricas avanzadas
     - Gráficas de rendimiento
     - Reportes ejecutivos para directivos
+    - Análisis predictivo de rendimiento
 
 ---
 
@@ -703,18 +748,48 @@ CREATE TABLE entregas (
 - Estructura de Server Actions
 - Manejo de errores
 
-### 3. EJEMPLO-USO-MIDDLEWARE.md
+### 3. SISTEMA-CALIFICACIONES.md
+**Contenido:**
+- Sistema completo de calificaciones
+- Funcionalidades por rol (maestros, alumnos, padres)
+- Calificación de entregas
+- Vista de calificaciones con promedios
+- Cálculo de promedios por curso y general
+- Retroalimentación de maestros
+- Badges de rendimiento
+- Flujos de trabajo
+
+### 4. SISTEMA-GESTION-CURSOS.md
+**Contenido:**
+- CRUD completo de cursos
+- Asignación de maestros
+- Inscripción masiva de alumnos
+- Desinscripción individual
+- Vista de alumnos disponibles vs inscritos
+- Búsqueda y filtrado
+- Server Actions
+- Validaciones y reglas de negocio
+
+### 5. EJEMPLO-USO-MIDDLEWARE.md
 **Contenido:**
 - 10 ejemplos prácticos del middleware
 - Casos de uso comunes
 - Patrones de implementación
 
-### 4. README.md
+### 6. README.md
 **Contenido:**
 - Instalación del proyecto
 - Configuración de variables de entorno
 - Scripts disponibles
 - Stack tecnológico
+
+### 7. PROGRESO-PROYECTO.md (este archivo)
+**Contenido:**
+- Estado general del proyecto
+- Funcionalidades implementadas
+- Arquitectura del sistema
+- Próximas funcionalidades
+- Changelog completo
 
 ---
 
@@ -722,25 +797,32 @@ CREATE TABLE entregas (
 
 ### Métricas de Desarrollo
 
-- **Total de Rutas:** 17
-- **Server Actions:** 12+
-- **Componentes UI:** 30+
+- **Total de Rutas:** 22+
+- **Server Actions:** 21+
+- **Componentes UI:** 40+
 - **Roles Implementados:** 4
-- **Tablas de BD:** 5+
-- **Commits:** 10+
+- **Tablas de BD:** 8+
+- **Commits:** 15+
+- **Documentación:** 7 archivos .md
 
 ### Última Actualización
 
-**Fecha:** 18 de Octubre, 2025
-**Última característica implementada:** Sistema completo de soft delete para usuarios
-**Última corrección de bugs:** Manejo de campos nulos en fechas y teléfonos
+**Fecha:** 19 de Octubre, 2025
+**Última característica implementada:** Sistema de búsqueda y filtros para usuarios
+**Funcionalidades recientes:**
+- ✅ Sistema de calificaciones completo
+- ✅ Sistema de gestión de cursos
+- ✅ Búsqueda y filtros en listas
+- ✅ Accesos rápidos en dashboards
 
 ### Estado de Compilación
 
-✅ **Build exitoso** - Última verificación: 18/10/2025
+✅ **Build exitoso** - Última verificación: 19/10/2025
 ✅ **Sin errores de TypeScript**
 ✅ **Sin errores de ESLint** (modo ignorado temporalmente)
 ✅ **Todas las rutas funcionando**
+✅ **Sistema de calificaciones operativo**
+✅ **Sistema de cursos operativo**
 
 ---
 
@@ -795,6 +877,44 @@ Para reportar bugs o solicitar funcionalidades:
 
 ## Changelog Reciente
 
+### v0.5.0 - Búsqueda y Filtros + UX Improvements (19/10/2025)
+- ✅ Sistema de búsqueda en tiempo real para alumnos
+- ✅ Sistema de búsqueda en tiempo real para maestros
+- ✅ Filtros múltiples: grado, grupo, estado (alumnos)
+- ✅ Filtro por estado (maestros)
+- ✅ Botón de limpiar filtros
+- ✅ Contador de resultados filtrados
+- ✅ Empty state para "sin resultados"
+- ✅ Acceso rápido a calificaciones desde dashboard de alumno
+- ✅ Acceso rápido a calificaciones desde dashboard de padre
+- ✅ Acceso rápido a gestión de cursos desde dashboard de directivo
+- ✅ Mejoras en UX de las tarjetas clicables
+
+### v0.4.0 - Sistemas de Calificaciones y Cursos (19/10/2025)
+
+**Sistema de Calificaciones:**
+- ✅ Calificación de entregas por maestros con retroalimentación
+- ✅ Vista de calificaciones para alumnos organizada por curso
+- ✅ Vista de calificaciones para padres con selector de hijos
+- ✅ Cálculo automático de promedios por curso
+- ✅ Cálculo automático de promedio general ponderado
+- ✅ Badges de rendimiento con colores (verde, amarillo, rojo)
+- ✅ Estadísticas detalladas (tareas calificadas, cursos, promedios)
+- ✅ Documentación completa en SISTEMA-CALIFICACIONES.md
+
+**Sistema de Gestión de Cursos:**
+- ✅ CRUD completo de cursos
+- ✅ Asignación de maestros activos a cursos
+- ✅ Inscripción masiva de alumnos con checkboxes
+- ✅ Desinscripción individual de alumnos
+- ✅ Vista con tabs: Disponibles vs Inscritos
+- ✅ Búsqueda en tiempo real de alumnos para inscribir
+- ✅ Validaciones: maestros activos, unicidad de inscripciones
+- ✅ Protección contra eliminación de cursos con tareas
+- ✅ Componente Checkbox creado
+- ✅ Server Actions completas (9 acciones)
+- ✅ Documentación completa en SISTEMA-GESTION-CURSOS.md
+
 ### v0.3.0 - Sistema de Soft Delete (18/10/2025)
 - ✅ Implementado soft delete para alumnos
 - ✅ Implementado soft delete para maestros
@@ -824,4 +944,5 @@ Para reportar bugs o solicitar funcionalidades:
 
 **Proyecto:** Sistema Escolar
 **Desarrollado con:** Next.js 15 + Supabase + Stripe
-**Última actualización:** 18 de Octubre, 2025
+**Última actualización:** 19 de Octubre, 2025
+**Versión actual:** v0.5.0

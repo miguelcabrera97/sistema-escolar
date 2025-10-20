@@ -6,8 +6,7 @@ import { supabase } from '@/lib/supabase'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { DollarSign, FileText, User, LogOut } from 'lucide-react'
-import { CreditCard } from 'lucide-react'
+import { DollarSign, FileText, User, LogOut, CreditCard, Award } from 'lucide-react'
 
 export default function PadreDashboard() {
   const [padre, setPadre] = useState<any>(null)
@@ -172,14 +171,17 @@ export default function PadreDashboard() {
                     </CardContent>
                   </Card>
 
-                  <Card>
+                  <Card
+                    className="cursor-pointer hover:bg-gray-50 transition-colors"
+                    onClick={() => router.push('/padre/calificaciones')}
+                  >
                     <CardHeader className="flex flex-row items-center justify-between pb-2">
-                      <CardTitle className="text-sm font-medium">Promedio</CardTitle>
-                      <FileText className="h-4 w-4 text-muted-foreground" />
+                      <CardTitle className="text-sm font-medium">Calificaciones</CardTitle>
+                      <Award className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                      <div className="text-2xl font-bold">8.5</div>
-                      <p className="text-xs text-muted-foreground">Último periodo</p>
+                      <div className="text-2xl font-bold">Ver Boleta</div>
+                      <p className="text-xs text-muted-foreground">Consultar calificaciones</p>
                     </CardContent>
                   </Card>
 

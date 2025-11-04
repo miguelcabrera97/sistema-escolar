@@ -3,6 +3,12 @@
 import { createServerSupabaseClient } from '@/lib/supabase-server'
 import { revalidatePath } from 'next/cache'
 
+// Tipo para teléfonos de emergencia
+export interface TelefonoEmergencia {
+  nombre: string
+  numero: string
+}
+
 // Tipos para los formularios
 export interface CrearAlumnoData {
   email: string
@@ -14,6 +20,10 @@ export interface CrearAlumnoData {
   grupo: string
   fecha_nacimiento?: string
   telefono?: string
+  curp?: string
+  nombre_tutor?: string
+  informacion_medica?: string
+  telefonos_emergencia?: TelefonoEmergencia[]
 }
 
 export interface CrearMaestroData {
@@ -22,6 +32,14 @@ export interface CrearMaestroData {
   nombre: string
   apellidos: string
   especialidad?: string
+  telefono?: string
+}
+
+export interface CrearAuxiliarData {
+  email: string
+  password: string
+  nombre: string
+  apellidos: string
   telefono?: string
 }
 
@@ -35,6 +53,10 @@ export interface EditarAlumnoData {
   fecha_nacimiento?: string
   telefono?: string
   email: string
+  curp?: string
+  nombre_tutor?: string
+  informacion_medica?: string
+  telefonos_emergencia?: TelefonoEmergencia[]
 }
 
 export interface EditarMaestroData {
@@ -128,7 +150,11 @@ export async function crearAlumno(data: CrearAlumnoData) {
         matricula: data.matricula,
         grado: data.grado,
         grupo: data.grupo,
-        fecha_nacimiento: data.fecha_nacimiento || null
+        fecha_nacimiento: data.fecha_nacimiento || null,
+        curp: data.curp || null,
+        nombre_tutor: data.nombre_tutor || null,
+        informacion_medica: data.informacion_medica || null,
+        telefonos_emergencia: data.telefonos_emergencia || []
       })
 
     if (alumnoError) {
@@ -147,6 +173,85 @@ export async function crearAlumno(data: CrearAlumnoData) {
 
   } catch (error) {
     console.error('Error al crear alumno:', error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Error desconocido'
+    }
+  }
+}
+
+/**
+ * Crear un nuevo auxiliar de calificaciones en el sistema
+ * Solo puede ser ejecutado por usuarios con rol 'directivo'
+ */
+export async function crearAuxiliar(data: CrearAuxiliarData) {
+  try {
+    const supabase = await createServerSupabaseClient()
+
+    // Verificar que el usuario sea directivo
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user) {
+      return { success: false, error: 'No autenticado' }
+    }
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single()
+
+    if (profile?.role !== 'directivo') {
+      return { success: false, error: 'No autorizado. Solo directivos pueden crear auxiliares.' }
+    }
+
+    // Crear usuario en Supabase Auth
+    const { data: authData, error: authError } = await supabase.auth.signUp({
+      email: data.email,
+      password: data.password,
+      options: {
+        data: {
+          nombre: data.nombre,
+          apellidos: data.apellidos,
+          role: 'auxiliar_calificaciones'
+        }
+      }
+    })
+
+    if (authError || !authData.user) {
+      return { success: false, error: authError?.message || 'Error al crear usuario' }
+    }
+
+    const userId = authData.user.id
+
+    // Crear perfil
+    const { error: profileError } = await supabase
+      .from('profiles')
+      .insert({
+        id: userId,
+        nombre: data.nombre,
+        apellidos: data.apellidos,
+        email: data.email,
+        role: 'auxiliar_calificaciones',
+        telefono: data.telefono || null
+      })
+
+    if (profileError) {
+      return { success: false, error: 'Error al crear perfil: ' + profileError.message }
+    }
+
+    // Revalidar las páginas que muestran usuarios
+    revalidatePath('/directivo/usuarios')
+    revalidatePath('/directivo')
+
+    return {
+      success: true,
+      message: 'Auxiliar de calificaciones creado exitosamente',
+      userId
+    }
+
+  } catch (error) {
+    console.error('Error al crear auxiliar:', error)
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Error desconocido'
@@ -290,6 +395,51 @@ export async function obtenerAlumnos() {
 }
 
 /**
+ * Obtener lista de todos los auxiliares de calificaciones (para directivo)
+ */
+export async function obtenerAuxiliares() {
+  try {
+    const supabase = await createServerSupabaseClient()
+
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user) {
+      return { success: false, error: 'No autenticado', data: [] }
+    }
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single()
+
+    if (profile?.role !== 'directivo') {
+      return { success: false, error: 'No autorizado', data: [] }
+    }
+
+    const { data: auxiliares, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('role', 'auxiliar_calificaciones')
+      .order('apellidos')
+
+    if (error) {
+      return { success: false, error: error.message, data: [] }
+    }
+
+    return { success: true, data: auxiliares || [] }
+
+  } catch (error) {
+    console.error('Error al obtener auxiliares:', error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Error desconocido',
+      data: []
+    }
+  }
+}
+
+/**
  * Obtener lista de todos los maestros (para directivo)
  */
 export async function obtenerMaestros() {
@@ -404,7 +554,11 @@ export async function editarAlumno(data: EditarAlumnoData) {
         matricula: data.matricula,
         grado: data.grado,
         grupo: data.grupo,
-        fecha_nacimiento: data.fecha_nacimiento || null
+        fecha_nacimiento: data.fecha_nacimiento || null,
+        curp: data.curp || null,
+        nombre_tutor: data.nombre_tutor || null,
+        informacion_medica: data.informacion_medica || null,
+        telefonos_emergencia: data.telefonos_emergencia || []
       })
       .eq('id', data.id)
 

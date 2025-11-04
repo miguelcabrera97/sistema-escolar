@@ -66,9 +66,7 @@ interface CalificacionPorCurso {
     calificacion: number
     puntos_maximos: number
   }>
-  promedio: number
   totalTareas: number
-  tareasCalificadas: number
 }
 
 export default function DirectivoAlumnos() {
@@ -151,9 +149,7 @@ export default function DirectivoAlumnos() {
             calificacionesPorCurso.set(cursoId, {
               curso: entrega.tareas.cursos,
               entregas: [],
-              promedio: 0,
-              totalTareas: 0,
-              tareasCalificadas: 0
+              totalTareas: 0
             })
           }
 
@@ -164,16 +160,8 @@ export default function DirectivoAlumnos() {
               calificacion: entrega.calificacion,
               puntos_maximos: entrega.tareas.puntos_maximos
             })
-            cursoCalif.tareasCalificadas++
           }
           cursoCalif.totalTareas++
-        })
-
-        calificacionesPorCurso.forEach((cursoCalif) => {
-          if (cursoCalif.tareasCalificadas > 0) {
-            const suma = cursoCalif.entregas.reduce((acc, e) => acc + e.calificacion, 0)
-            cursoCalif.promedio = suma / cursoCalif.tareasCalificadas
-          }
         })
 
         setCalificaciones(Array.from(calificacionesPorCurso.values()))
@@ -192,7 +180,7 @@ export default function DirectivoAlumnos() {
     }
 
     const busquedaLower = busqueda.toLowerCase()
-    const filtrados = alumnos.filter(alumno => 
+    const filtrados = alumnos.filter(alumno =>
       alumno.matricula.toLowerCase().includes(busquedaLower) ||
       alumno.profiles.nombre.toLowerCase().includes(busquedaLower) ||
       alumno.profiles.apellidos.toLowerCase().includes(busquedaLower) ||
@@ -200,12 +188,6 @@ export default function DirectivoAlumnos() {
       alumno.grupo.toLowerCase().includes(busquedaLower)
     )
     setAlumnosFiltrados(filtrados)
-  }
-
-  const calcularPromedioGeneral = () => {
-    if (calificaciones.length === 0) return 0
-    const suma = calificaciones.reduce((acc, c) => acc + c.promedio, 0)
-    return suma / calificaciones.length
   }
 
   if (loading) {
@@ -400,48 +382,23 @@ export default function DirectivoAlumnos() {
                         </div>
                       ) : (
                         <>
-                          {/* Promedio General */}
-                          <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
-                            <CardContent className="pt-6">
-                              <div className="text-center">
-                                <p className="text-sm text-gray-600 mb-2">Promedio General</p>
-                                <div className="text-5xl font-bold text-blue-600">
-                                  {calcularPromedioGeneral().toFixed(1)}
-                                </div>
-                                <p className="text-xs text-gray-500 mt-2">
-                                  {calificaciones.length} materias cursadas
-                                </p>
-                              </div>
-                            </CardContent>
-                          </Card>
-
                           {/* Calificaciones por Materia */}
                           <div className="space-y-4">
                             {calificaciones.map((calificacion, index) => (
                               <Card key={index}>
                                 <CardHeader>
-                                  <div className="flex items-center justify-between">
-                                    <div className="flex-1">
-                                      <CardTitle className="text-lg flex items-center gap-2">
-                                        <BookOpen className="h-5 w-5" />
-                                        {calificacion.curso.nombre}
-                                      </CardTitle>
-                                      <CardDescription>
-                                        Maestro: {calificacion.curso.maestro_profiles.nombre} {calificacion.curso.maestro_profiles.apellidos}
-                                      </CardDescription>
-                                    </div>
-                                    <div className="text-center">
-                                      <div className="text-3xl font-bold text-green-600">
-                                        {calificacion.promedio.toFixed(1)}
-                                      </div>
-                                      <p className="text-xs text-gray-500">Promedio</p>
-                                    </div>
-                                  </div>
+                                  <CardTitle className="text-lg flex items-center gap-2">
+                                    <BookOpen className="h-5 w-5" />
+                                    {calificacion.curso.nombre}
+                                  </CardTitle>
+                                  <CardDescription>
+                                    Maestro: {calificacion.curso.maestro_profiles.nombre} {calificacion.curso.maestro_profiles.apellidos}
+                                  </CardDescription>
                                 </CardHeader>
                                 <CardContent>
                                   <div className="space-y-2">
                                     <p className="text-sm text-gray-600 mb-3">
-                                      {calificacion.tareasCalificadas} de {calificacion.totalTareas} tareas calificadas
+                                      {calificacion.entregas.length} de {calificacion.totalTareas} tareas calificadas
                                     </p>
                                     <div className="space-y-2">
                                       {calificacion.entregas.map((entrega, idx) => (

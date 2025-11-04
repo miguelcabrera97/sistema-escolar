@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import { getCurrentUser } from './supabase-server'
 
-export type UserRole = 'alumno' | 'maestro' | 'padre' | 'directivo'
+export type UserRole = 'alumno' | 'maestro' | 'padre' | 'directivo' | 'auxiliar_calificaciones'
 
 interface AuthCheck {
   user: any
@@ -30,6 +30,7 @@ export async function requireAuth(allowedRoles?: UserRole[]): Promise<AuthCheck>
         maestro: '/maestro',
         padre: '/padre',
         directivo: '/directivo',
+        auxiliar_calificaciones: '/auxiliar',
       }
 
       const redirectPath = roleRedirects[userRole] || '/login'
@@ -49,6 +50,7 @@ export function getDashboardPath(role: UserRole): string {
     maestro: '/maestro',
     padre: '/padre',
     directivo: '/directivo',
+    auxiliar_calificaciones: '/auxiliar',
   }
 
   return dashboards[role] || '/login'

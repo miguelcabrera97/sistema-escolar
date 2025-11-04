@@ -26,14 +26,14 @@ interface Tarea {
   id: string
   titulo: string
   descripcion: string
-  fecha_entrega: string
+  fecha_vencimiento: string
   puntos_maximos: number
   cursos: Curso
 }
 
+// NOTA: Solo incluimos nombre y apellidos - SIN información de contacto
 interface Alumno {
   id: string
-  matricula: string
   profiles: Profile
 }
 
@@ -48,7 +48,7 @@ interface Entrega {
   alumnos: Alumno
 }
 
-export default function EntregasTarea() {
+export default function AuxiliarEntregasTarea() {
   const params = useParams()
   const router = useRouter()
   const tareaId = params.id as string
@@ -64,6 +64,7 @@ export default function EntregasTarea() {
 
   const cargarDatos = useCallback(async () => {
     try {
+      // Obtener información de la tarea
       const { data: tareaData } = await supabase
         .from('tareas')
         .select('*, cursos (id, nombre, grado, grupo)')
@@ -72,9 +73,10 @@ export default function EntregasTarea() {
 
       setTarea(tareaData)
 
+      // Obtener entregas - SOLO con nombre y apellidos (sin matrícula ni contacto)
       const { data: entregasData } = await supabase
         .from('entregas')
-        .select('*, alumnos (id, matricula, profiles (nombre, apellidos))')
+        .select('id, status, calificacion, retroalimentacion, fecha_entrega, archivo_url, comentarios, alumnos (id, profiles (nombre, apellidos))')
         .eq('tarea_id', tareaId)
         .order('fecha_entrega', { ascending: false })
 
@@ -108,7 +110,7 @@ export default function EntregasTarea() {
       const calificacion = parseInt(formCalificar.calificacion)
       if (!tarea) return
       if (isNaN(calificacion) || calificacion < 0 || calificacion > tarea.puntos_maximos) {
-        alert(`La calificacion debe estar entre 0 y ${tarea.puntos_maximos}`)
+        alert(`La calificación debe estar entre 0 y ${tarea.puntos_maximos}`)
         return
       }
 
@@ -122,12 +124,12 @@ export default function EntregasTarea() {
         .eq('id', entregaId)
 
       if (error) throw error
-      alert('Calificacion guardada exitosamente')
+      alert('Calificación guardada exitosamente')
       setCalificando(null)
       await cargarDatos()
     } catch (error) {
       console.error('Error:', error)
-      alert('Error al guardar la calificacion')
+      alert('Error al guardar la calificación')
     }
   }
 
@@ -164,7 +166,7 @@ export default function EntregasTarea() {
         <Card>
           <CardHeader>
             <CardTitle className="text-2xl">{tarea?.titulo}</CardTitle>
-            <CardDescription>{tarea?.cursos?.nombre} - {tarea?.cursos?.grado} {tarea?.cursos?.grupo}</CardDescription>
+            <CardDescription>{tarea?.cursos?.nombre} - {tarea?.cursos?.grado}° {tarea?.cursos?.grupo}</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -191,6 +193,9 @@ export default function EntregasTarea() {
         <Card>
           <CardHeader>
             <CardTitle>Entregas de Alumnos</CardTitle>
+            <CardDescription className="text-yellow-600">
+              ⚠️ Acceso restringido: Solo puedes ver nombres para fines de calificación
+            </CardDescription>
           </CardHeader>
           <CardContent>
             {entregas.length === 0 ? (
@@ -203,14 +208,15 @@ export default function EntregasTarea() {
                   <div key={entrega.id} className="border rounded-lg overflow-hidden">
                     <div className="p-4 bg-gray-50 flex items-center justify-between">
                       <div>
+                        {/* SOLO nombre y apellidos - SIN matrícula ni información de contacto */}
                         <h3 className="font-semibold">{entrega.alumnos?.profiles?.nombre} {entrega.alumnos?.profiles?.apellidos}</h3>
-                        <p className="text-sm text-gray-500">Matricula: {entrega.alumnos?.matricula}</p>
+                        <p className="text-xs text-gray-400">Información de contacto restringida</p>
                       </div>
                       <div className="flex items-center gap-3">
                         {entrega.status === 'calificada' && tarea && (
                           <div className="text-right">
                             <div className="text-2xl font-bold text-green-600">{entrega.calificacion}/{tarea.puntos_maximos}</div>
-                            <div className="text-xs text-gray-500">Calificacion</div>
+                            <div className="text-xs text-gray-500">Calificación</div>
                           </div>
                         )}
                         <Badge variant={entrega.status === 'calificada' ? 'default' : entrega.status === 'entregada' ? 'secondary' : 'destructive'}>
@@ -245,12 +251,22 @@ export default function EntregasTarea() {
                         {calificando === entrega.id ? (
                           <div className="p-4 bg-blue-50 rounded-lg space-y-4">
                             <div>
-                              <Label>Calificacion (0-{tarea?.puntos_maximos})</Label>
-                              <Input type="number" min="0" max={tarea?.puntos_maximos} value={formCalificar.calificacion} onChange={(e) => setFormCalificar({ ...formCalificar, calificacion: e.target.value })} />
+                              <Label>Calificación (0-{tarea?.puntos_maximos})</Label>
+                              <Input
+                                type="number"
+                                min="0"
+                                max={tarea?.puntos_maximos}
+                                value={formCalificar.calificacion}
+                                onChange={(e) => setFormCalificar({ ...formCalificar, calificacion: e.target.value })}
+                              />
                             </div>
                             <div>
-                              <Label>Retroalimentacion</Label>
-                              <textarea value={formCalificar.retroalimentacion} onChange={(e) => setFormCalificar({ ...formCalificar, retroalimentacion: e.target.value })} className="w-full mt-1 px-3 py-2 border rounded-md min-h-[100px]" />
+                              <Label>Retroalimentación</Label>
+                              <textarea
+                                value={formCalificar.retroalimentacion}
+                                onChange={(e) => setFormCalificar({ ...formCalificar, retroalimentacion: e.target.value })}
+                                className="w-full mt-1 px-3 py-2 border rounded-md min-h-[100px]"
+                              />
                             </div>
                             <div className="flex gap-2">
                               <Button onClick={() => guardarCalificacion(entrega.id)} className="flex-1">Guardar</Button>
@@ -261,7 +277,7 @@ export default function EntregasTarea() {
                           <>
                             {entrega.retroalimentacion && (
                               <div className="p-3 bg-blue-50 rounded">
-                                <div className="text-xs font-medium text-blue-600 mb-1">Tu retroalimentacion:</div>
+                                <div className="text-xs font-medium text-blue-600 mb-1">Retroalimentación:</div>
                                 <p className="text-sm text-gray-700">{entrega.retroalimentacion}</p>
                               </div>
                             )}

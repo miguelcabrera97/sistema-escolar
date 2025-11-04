@@ -82,6 +82,7 @@ export async function middleware(request: NextRequest) {
       maestro: ['/maestro'],
       padre: ['/padre'],
       directivo: ['/directivo'],
+      auxiliar_calificaciones: ['/auxiliar'],
     }
 
     const currentPath = request.nextUrl.pathname

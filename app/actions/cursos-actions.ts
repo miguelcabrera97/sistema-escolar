@@ -70,6 +70,82 @@ export async function crearCurso(data: CrearCursoData): Promise<Result> {
   }
 }
 
+// ===== OBTENER CURSOS DEL AUXILIAR =====
+
+export async function obtenerCursosAuxiliar(auxiliarId: string): Promise<Result> {
+  try {
+    const supabase = await createServerSupabaseClient()
+
+    // Verificar que el usuario sea auxiliar de calificaciones
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', auxiliarId)
+      .single()
+
+    if (profile?.role !== 'auxiliar_calificaciones') {
+      return { success: false, error: 'Solo auxiliares pueden usar esta función' }
+    }
+
+    // Obtener cursos asignados al auxiliar
+    const { data: cursosAsignados, error } = await supabase
+      .from('curso_auxiliares')
+      .select(`
+        curso_id,
+        cursos (
+          id,
+          nombre,
+          descripcion,
+          grado,
+          grupo,
+          maestro_id,
+          created_at
+        )
+      `)
+      .eq('auxiliar_id', auxiliarId)
+
+    if (error) {
+      console.error('Error al obtener cursos del auxiliar:', error)
+      return { success: false, error: error.message }
+    }
+
+    // Extraer solo los datos del curso
+    const cursos = cursosAsignados?.map(ca => ca.cursos).filter(c => c !== null) || []
+
+    // Obtener información de los maestros
+    if (cursos.length > 0) {
+      const maestroIds = cursos.map(c => c.maestro_id).filter(Boolean)
+
+      if (maestroIds.length > 0) {
+        const { data: maestros } = await supabase
+          .from('profiles')
+          .select('id, nombre, apellidos')
+          .in('id', maestroIds)
+
+        // Combinar información
+        const cursosConMaestro = cursos.map(curso => {
+          const maestro = maestros?.find(m => m.id === curso.maestro_id)
+          return {
+            ...curso,
+            maestro: maestro ? {
+              id: maestro.id,
+              nombre: maestro.nombre,
+              apellidos: maestro.apellidos
+            } : null
+          }
+        })
+
+        return { success: true, data: cursosConMaestro }
+      }
+    }
+
+    return { success: true, data: cursos }
+  } catch (error) {
+    console.error('Error general:', error)
+    return { success: false, error: 'Error al obtener cursos del auxiliar' }
+  }
+}
+
 // ===== OBTENER CURSOS =====
 
 export async function obtenerCursos(): Promise<Result> {

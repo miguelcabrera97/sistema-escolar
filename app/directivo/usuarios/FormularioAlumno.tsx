@@ -6,8 +6,9 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { crearAlumno, type CrearAlumnoData } from '@/app/actions/usuarios-actions'
-import { Loader2 } from 'lucide-react'
+import { Textarea } from '@/components/ui/textarea'
+import { crearAlumno, type CrearAlumnoData, type TelefonoEmergencia } from '@/app/actions/usuarios-actions'
+import { Loader2, Plus, X } from 'lucide-react'
 
 interface FormularioAlumnoProps {
   onSuccess?: () => void
@@ -24,15 +25,30 @@ export function FormularioAlumno({ onSuccess }: FormularioAlumnoProps) {
     grado: '',
     grupo: '',
     fecha_nacimiento: '',
-    telefono: ''
+    telefono: '',
+    curp: '',
+    nombre_tutor: '',
+    informacion_medica: '',
+    telefonos_emergencia: []
   })
+  const [telefonosEmergencia, setTelefonosEmergencia] = useState<TelefonoEmergencia[]>([
+    { nombre: '', numero: '' }
+  ])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
 
     try {
-      const result = await crearAlumno(formData)
+      // Filtrar teléfonos de emergencia que tengan al menos nombre o número
+      const telefonosValidos = telefonosEmergencia.filter(
+        tel => tel.nombre.trim() !== '' || tel.numero.trim() !== ''
+      )
+
+      const result = await crearAlumno({
+        ...formData,
+        telefonos_emergencia: telefonosValidos
+      })
 
       if (result.success) {
         alert('Alumno creado exitosamente')
@@ -46,8 +62,13 @@ export function FormularioAlumno({ onSuccess }: FormularioAlumnoProps) {
           grado: '',
           grupo: '',
           fecha_nacimiento: '',
-          telefono: ''
+          telefono: '',
+          curp: '',
+          nombre_tutor: '',
+          informacion_medica: '',
+          telefonos_emergencia: []
         })
+        setTelefonosEmergencia([{ nombre: '', numero: '' }])
         onSuccess?.()
       } else {
         alert('Error: ' + result.error)
@@ -62,6 +83,20 @@ export function FormularioAlumno({ onSuccess }: FormularioAlumnoProps) {
 
   const handleChange = (field: keyof CrearAlumnoData, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }))
+  }
+
+  const agregarTelefonoEmergencia = () => {
+    setTelefonosEmergencia(prev => [...prev, { nombre: '', numero: '' }])
+  }
+
+  const eliminarTelefonoEmergencia = (index: number) => {
+    setTelefonosEmergencia(prev => prev.filter((_, i) => i !== index))
+  }
+
+  const actualizarTelefonoEmergencia = (index: number, field: 'nombre' | 'numero', value: string) => {
+    setTelefonosEmergencia(prev =>
+      prev.map((tel, i) => i === index ? { ...tel, [field]: value } : tel)
+    )
   }
 
   return (
@@ -208,6 +243,99 @@ export function FormularioAlumno({ onSuccess }: FormularioAlumnoProps) {
                 disabled={loading}
               />
             </div>
+
+            {/* CURP */}
+            <div className="space-y-2">
+              <Label htmlFor="curp">CURP</Label>
+              <Input
+                id="curp"
+                value={formData.curp}
+                onChange={(e) => handleChange('curp', e.target.value.toUpperCase())}
+                placeholder="AAAA000000HDFAAA00"
+                maxLength={18}
+                disabled={loading}
+              />
+              <p className="text-xs text-gray-500">Clave Única de Registro de Población (18 caracteres)</p>
+            </div>
+
+            {/* Nombre del Tutor */}
+            <div className="space-y-2">
+              <Label htmlFor="nombre_tutor">Nombre del Padre/Tutor</Label>
+              <Input
+                id="nombre_tutor"
+                value={formData.nombre_tutor}
+                onChange={(e) => handleChange('nombre_tutor', e.target.value)}
+                placeholder="Nombre completo del tutor"
+                disabled={loading}
+              />
+            </div>
+          </div>
+
+          {/* Información Médica */}
+          <div className="space-y-2">
+            <Label htmlFor="informacion_medica">Información Médica Indispensable</Label>
+            <Textarea
+              id="informacion_medica"
+              value={formData.informacion_medica}
+              onChange={(e) => handleChange('informacion_medica', e.target.value)}
+              placeholder="Alergias, condiciones médicas, medicamentos, tipo de sangre, etc."
+              rows={3}
+              disabled={loading}
+            />
+            <p className="text-xs text-gray-500">Información médica relevante que el personal debe conocer</p>
+          </div>
+
+          {/* Teléfonos de Emergencia */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <Label>Teléfonos de Contacto de Emergencia</Label>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={agregarTelefonoEmergencia}
+                disabled={loading}
+              >
+                <Plus className="h-4 w-4 mr-1" />
+                Agregar Teléfono
+              </Button>
+            </div>
+
+            <div className="space-y-3">
+              {telefonosEmergencia.map((telefono, index) => (
+                <div key={index} className="flex gap-2 items-start">
+                  <div className="flex-1 space-y-2">
+                    <Input
+                      placeholder="Nombre del contacto (ej: Mamá, Papá)"
+                      value={telefono.nombre}
+                      onChange={(e) => actualizarTelefonoEmergencia(index, 'nombre', e.target.value)}
+                      disabled={loading}
+                    />
+                  </div>
+                  <div className="flex-1 space-y-2">
+                    <Input
+                      type="tel"
+                      placeholder="Número de teléfono"
+                      value={telefono.numero}
+                      onChange={(e) => actualizarTelefonoEmergencia(index, 'numero', e.target.value)}
+                      disabled={loading}
+                    />
+                  </div>
+                  {telefonosEmergencia.length > 1 && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => eliminarTelefonoEmergencia(index)}
+                      disabled={loading}
+                      className="mt-0"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
 
           <div className="flex justify-end gap-2 pt-4">
@@ -224,8 +352,13 @@ export function FormularioAlumno({ onSuccess }: FormularioAlumnoProps) {
                   grado: '',
                   grupo: '',
                   fecha_nacimiento: '',
-                  telefono: ''
+                  telefono: '',
+                  curp: '',
+                  nombre_tutor: '',
+                  informacion_medica: '',
+                  telefonos_emergencia: []
                 })
+                setTelefonosEmergencia([{ nombre: '', numero: '' }])
               }}
               disabled={loading}
             >

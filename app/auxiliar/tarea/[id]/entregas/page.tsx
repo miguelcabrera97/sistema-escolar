@@ -27,7 +27,6 @@ interface Tarea {
   titulo: string
   descripcion: string
   fecha_vencimiento: string
-  puntos_maximos: number
   cursos: Curso
 }
 
@@ -40,7 +39,6 @@ interface Alumno {
 interface Entrega {
   id: string
   status: string
-  calificacion: number | null
   retroalimentacion: string | null
   fecha_entrega: string | null
   archivo_url: string | null
@@ -56,14 +54,27 @@ export default function AuxiliarEntregasTarea() {
   const [tarea, setTarea] = useState<Tarea | null>(null)
   const [entregas, setEntregas] = useState<Entrega[]>([])
   const [loading, setLoading] = useState(true)
-  const [calificando, setCalificando] = useState<string | null>(null)
-  const [formCalificar, setFormCalificar] = useState({
-    calificacion: '',
-    retroalimentacion: ''
-  })
 
   const cargarDatos = useCallback(async () => {
     try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        router.push('/login')
+        return
+      }
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single()
+
+      if (profile?.role !== 'auxiliar_calificaciones') {
+        alert('No tienes permiso para ver esta página.')
+        router.push('/login')
+        return
+      }
+
       // Obtener información de la tarea
       const { data: tareaData } = await supabase
         .from('tareas')
@@ -76,7 +87,7 @@ export default function AuxiliarEntregasTarea() {
       // Obtener entregas - SOLO con nombre y apellidos (sin matrícula ni contacto)
       const { data: entregasData } = await supabase
         .from('entregas')
-        .select('id, status, calificacion, retroalimentacion, fecha_entrega, archivo_url, comentarios, alumnos (id, profiles (nombre, apellidos))')
+        .select('id, status, retroalimentacion, fecha_entrega, archivo_url, comentarios, alumnos (id, profiles (nombre, apellidos))')
         .eq('tarea_id', tareaId)
         .order('fecha_entrega', { ascending: false })
 
@@ -86,52 +97,11 @@ export default function AuxiliarEntregasTarea() {
     } finally {
       setLoading(false)
     }
-  }, [tareaId])
+  }, [tareaId, router])
 
   useEffect(() => {
     cargarDatos()
   }, [cargarDatos])
-
-  const iniciarCalificacion = (entrega: Entrega) => {
-    setCalificando(entrega.id)
-    setFormCalificar({
-      calificacion: entrega.calificacion?.toString() || '',
-      retroalimentacion: entrega.retroalimentacion || ''
-    })
-  }
-
-  const cancelarCalificacion = () => {
-    setCalificando(null)
-    setFormCalificar({ calificacion: '', retroalimentacion: '' })
-  }
-
-  const guardarCalificacion = async (entregaId: string) => {
-    try {
-      const calificacion = parseInt(formCalificar.calificacion)
-      if (!tarea) return
-      if (isNaN(calificacion) || calificacion < 0 || calificacion > tarea.puntos_maximos) {
-        alert(`La calificación debe estar entre 0 y ${tarea.puntos_maximos}`)
-        return
-      }
-
-      const { error } = await supabase
-        .from('entregas')
-        .update({
-          calificacion,
-          retroalimentacion: formCalificar.retroalimentacion,
-          status: 'calificada'
-        })
-        .eq('id', entregaId)
-
-      if (error) throw error
-      alert('Calificación guardada exitosamente')
-      setCalificando(null)
-      await cargarDatos()
-    } catch (error) {
-      console.error('Error:', error)
-      alert('Error al guardar la calificación')
-    }
-  }
 
   if (loading) {
     return (
@@ -215,7 +185,7 @@ export default function AuxiliarEntregasTarea() {
                       <div className="flex items-center gap-3">
                         {entrega.status === 'calificada' && tarea && (
                           <div className="text-right">
-                            <div className="text-2xl font-bold text-green-600">{entrega.calificacion}/{tarea.puntos_maximos}</div>
+                            <div className="text-2xl font-bold text-green-600">{entrega.calificacion}</div>
                             <div className="text-xs text-gray-500">Calificación</div>
                           </div>
                         )}
@@ -251,11 +221,10 @@ export default function AuxiliarEntregasTarea() {
                         {calificando === entrega.id ? (
                           <div className="p-4 bg-blue-50 rounded-lg space-y-4">
                             <div>
-                              <Label>Calificación (0-{tarea?.puntos_maximos})</Label>
+                              <Label>Calificación</Label>
                               <Input
                                 type="number"
                                 min="0"
-                                max={tarea?.puntos_maximos}
                                 value={formCalificar.calificacion}
                                 onChange={(e) => setFormCalificar({ ...formCalificar, calificacion: e.target.value })}
                               />

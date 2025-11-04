@@ -27,7 +27,6 @@ interface Tarea {
   titulo: string
   descripcion: string
   fecha_entrega: string
-  puntos_maximos: number
   cursos: Curso
 }
 
@@ -40,7 +39,6 @@ interface Alumno {
 interface Entrega {
   id: string
   status: string
-  calificacion: number | null
   retroalimentacion: string | null
   fecha_entrega: string | null
   archivo_url: string | null
@@ -56,25 +54,32 @@ export default function EntregasTarea() {
   const [tarea, setTarea] = useState<Tarea | null>(null)
   const [entregas, setEntregas] = useState<Entrega[]>([])
   const [loading, setLoading] = useState(true)
-  const [calificando, setCalificando] = useState<string | null>(null)
-  const [formCalificar, setFormCalificar] = useState({
-    calificacion: '',
-    retroalimentacion: ''
-  })
 
   const cargarDatos = useCallback(async () => {
     try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        router.push('/login')
+        return
+      }
+
       const { data: tareaData } = await supabase
         .from('tareas')
-        .select('*, cursos (id, nombre, grado, grupo)')
+        .select('*, cursos (id, nombre, grado, grupo, maestro_id)')
         .eq('id', tareaId)
         .single()
+
+      if (tareaData && tareaData.cursos.maestro_id !== user.id) {
+        alert('No tienes permiso para ver esta página.')
+        router.push('/maestro')
+        return
+      }
 
       setTarea(tareaData)
 
       const { data: entregasData } = await supabase
         .from('entregas')
-        .select('*, alumnos (id, matricula, profiles (nombre, apellidos))')
+        .select('id, status, retroalimentacion, fecha_entrega, archivo_url, comentarios, alumnos (id, matricula, profiles (nombre, apellidos))')
         .eq('tarea_id', tareaId)
         .order('fecha_entrega', { ascending: false })
 
@@ -84,52 +89,11 @@ export default function EntregasTarea() {
     } finally {
       setLoading(false)
     }
-  }, [tareaId])
+  }, [tareaId, router])
 
   useEffect(() => {
     cargarDatos()
   }, [cargarDatos])
-
-  const iniciarCalificacion = (entrega: Entrega) => {
-    setCalificando(entrega.id)
-    setFormCalificar({
-      calificacion: entrega.calificacion?.toString() || '',
-      retroalimentacion: entrega.retroalimentacion || ''
-    })
-  }
-
-  const cancelarCalificacion = () => {
-    setCalificando(null)
-    setFormCalificar({ calificacion: '', retroalimentacion: '' })
-  }
-
-  const guardarCalificacion = async (entregaId: string) => {
-    try {
-      const calificacion = parseInt(formCalificar.calificacion)
-      if (!tarea) return
-      if (isNaN(calificacion) || calificacion < 0 || calificacion > tarea.puntos_maximos) {
-        alert(`La calificacion debe estar entre 0 y ${tarea.puntos_maximos}`)
-        return
-      }
-
-      const { error } = await supabase
-        .from('entregas')
-        .update({
-          calificacion,
-          retroalimentacion: formCalificar.retroalimentacion,
-          status: 'calificada'
-        })
-        .eq('id', entregaId)
-
-      if (error) throw error
-      alert('Calificacion guardada exitosamente')
-      setCalificando(null)
-      await cargarDatos()
-    } catch (error) {
-      console.error('Error:', error)
-      alert('Error al guardar la calificacion')
-    }
-  }
 
   if (loading) {
     return (
@@ -144,9 +108,8 @@ export default function EntregasTarea() {
 
   const stats = {
     total: entregas.length,
-    pendientes: entregas.filter(e => e.status === 'pendiente').length,
     entregadas: entregas.filter(e => e.status === 'entregada').length,
-    calificadas: entregas.filter(e => e.status === 'calificada').length,
+    pendientes: entregas.filter(e => e.status === 'pendiente').length,
   }
 
   return (
@@ -167,18 +130,14 @@ export default function EntregasTarea() {
             <CardDescription>{tarea?.cursos?.nombre} - {tarea?.cursos?.grado} {tarea?.cursos?.grupo}</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
               <div className="text-center p-4 bg-gray-50 rounded-lg">
                 <div className="text-2xl font-bold text-gray-900">{stats.total}</div>
                 <div className="text-xs text-gray-500">Total</div>
               </div>
-              <div className="text-center p-4 bg-yellow-50 rounded-lg">
-                <div className="text-2xl font-bold text-yellow-600">{stats.entregadas}</div>
-                <div className="text-xs text-gray-500">Por Calificar</div>
-              </div>
               <div className="text-center p-4 bg-green-50 rounded-lg">
-                <div className="text-2xl font-bold text-green-600">{stats.calificadas}</div>
-                <div className="text-xs text-gray-500">Calificadas</div>
+                <div className="text-2xl font-bold text-green-600">{stats.entregadas}</div>
+                <div className="text-xs text-gray-500">Entregadas</div>
               </div>
               <div className="text-center p-4 bg-red-50 rounded-lg">
                 <div className="text-2xl font-bold text-red-600">{stats.pendientes}</div>
@@ -207,17 +166,10 @@ export default function EntregasTarea() {
                         <p className="text-sm text-gray-500">Matricula: {entrega.alumnos?.matricula}</p>
                       </div>
                       <div className="flex items-center gap-3">
-                        {entrega.status === 'calificada' && tarea && (
-                          <div className="text-right">
-                            <div className="text-2xl font-bold text-green-600">{entrega.calificacion}/{tarea.puntos_maximos}</div>
-                            <div className="text-xs text-gray-500">Calificacion</div>
-                          </div>
-                        )}
-                        <Badge variant={entrega.status === 'calificada' ? 'default' : entrega.status === 'entregada' ? 'secondary' : 'destructive'}>
-                          {entrega.status === 'calificada' && <CheckCircle className="h-3 w-3 mr-1" />}
-                          {entrega.status === 'entregada' && <Clock className="h-3 w-3 mr-1" />}
+                        <Badge variant={entrega.status === 'entregada' ? 'default' : 'destructive'}>
+                          {entrega.status === 'entregada' && <CheckCircle className="h-3 w-3 mr-1" />}
                           {entrega.status === 'pendiente' && <AlertCircle className="h-3 w-3 mr-1" />}
-                          {entrega.status === 'calificada' ? 'Calificada' : entrega.status === 'entregada' ? 'Entregada' : 'Pendiente'}
+                          {entrega.status === 'entregada' ? 'Entregada' : 'Pendiente'}
                         </Badge>
                       </div>
                     </div>
@@ -240,36 +192,6 @@ export default function EntregasTarea() {
                             <div className="text-xs font-medium text-gray-500 mb-1">Comentarios:</div>
                             <p className="text-sm text-gray-700">{entrega.comentarios}</p>
                           </div>
-                        )}
-
-                        {calificando === entrega.id ? (
-                          <div className="p-4 bg-blue-50 rounded-lg space-y-4">
-                            <div>
-                              <Label>Calificacion (0-{tarea?.puntos_maximos})</Label>
-                              <Input type="number" min="0" max={tarea?.puntos_maximos} value={formCalificar.calificacion} onChange={(e) => setFormCalificar({ ...formCalificar, calificacion: e.target.value })} />
-                            </div>
-                            <div>
-                              <Label>Retroalimentacion</Label>
-                              <textarea value={formCalificar.retroalimentacion} onChange={(e) => setFormCalificar({ ...formCalificar, retroalimentacion: e.target.value })} className="w-full mt-1 px-3 py-2 border rounded-md min-h-[100px]" />
-                            </div>
-                            <div className="flex gap-2">
-                              <Button onClick={() => guardarCalificacion(entrega.id)} className="flex-1">Guardar</Button>
-                              <Button variant="outline" onClick={cancelarCalificacion}>Cancelar</Button>
-                            </div>
-                          </div>
-                        ) : (
-                          <>
-                            {entrega.retroalimentacion && (
-                              <div className="p-3 bg-blue-50 rounded">
-                                <div className="text-xs font-medium text-blue-600 mb-1">Tu retroalimentacion:</div>
-                                <p className="text-sm text-gray-700">{entrega.retroalimentacion}</p>
-                              </div>
-                            )}
-                            <div className="flex gap-2">
-                              {entrega.status === 'entregada' && <Button size="sm" onClick={() => iniciarCalificacion(entrega)}>Calificar</Button>}
-                              {entrega.status === 'calificada' && <Button size="sm" variant="outline" onClick={() => iniciarCalificacion(entrega)}>Editar</Button>}
-                            </div>
-                          </>
                         )}
                       </div>
                     )}

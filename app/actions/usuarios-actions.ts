@@ -1,6 +1,7 @@
 'use server'
 
 import { createServerSupabaseClient } from '@/lib/supabase-server'
+import { User, SupabaseClient } from '@supabase/supabase-js'
 import { revalidatePath } from 'next/cache'
 
 // Tipo para teléfonos de emergencia
@@ -68,31 +69,39 @@ export interface EditarMaestroData {
   telefono?: string
 }
 
+type UserRole = 'alumno' | 'maestro' | 'auxiliar_calificaciones' | 'directivo'
+
+/**
+ * Helper para verificar que el usuario actual es un directivo.
+ * Lanza un error si no está autenticado o no tiene el rol correcto.
+ */
+async function requireDirectivoRole(supabase: SupabaseClient): Promise<User> {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    throw new Error('No autenticado')
+  }
+
+  const { data: profile, error } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single()
+
+  if (error || profile?.role !== 'directivo') {
+    throw new Error('No autorizado. Se requiere rol de directivo.')
+  }
+
+  return user
+}
+
 /**
  * Crear un nuevo alumno en el sistema
  * Solo puede ser ejecutado por usuarios con rol 'directivo'
  */
 export async function crearAlumno(data: CrearAlumnoData) {
+  const supabase = await createServerSupabaseClient()
   try {
-    const supabase = await createServerSupabaseClient()
-
-    // Verificar que el usuario sea directivo
-    const { data: { user } } = await supabase.auth.getUser()
-
-    if (!user) {
-      return { success: false, error: 'No autenticado' }
-    }
-
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
-
-    if (profile?.role !== 'directivo') {
-      return { success: false, error: 'No autorizado. Solo directivos pueden crear alumnos.' }
-    }
-
+    await requireDirectivoRole(supabase)
     // Verificar que la matrícula no exista
     const { data: existingMatricula } = await supabase
       .from('alumnos')
@@ -104,49 +113,15 @@ export async function crearAlumno(data: CrearAlumnoData) {
       return { success: false, error: 'La matrícula ya existe' }
     }
 
-    // Crear usuario en Supabase Auth
-    // Nota: Esto requiere que tengas configurado el service_role_key
-    // o usar la función de admin de Supabase
-    const { data: authData, error: authError } = await supabase.auth.signUp({
-      email: data.email,
-      password: data.password,
-      options: {
-        data: {
-          nombre: data.nombre,
-          apellidos: data.apellidos,
-          role: 'alumno'
-        }
-      }
-    })
-
-    if (authError || !authData.user) {
-      return { success: false, error: authError?.message || 'Error al crear usuario' }
-    }
-
-    const userId = authData.user.id
-
-    // Crear perfil
-    const { error: profileError } = await supabase
-      .from('profiles')
-      .insert({
-        id: userId,
-        nombre: data.nombre,
-        apellidos: data.apellidos,
-        email: data.email,
-        role: 'alumno',
-        telefono: data.telefono || null
-      })
-
-    if (profileError) {
-      // Si falla, intentar eliminar el usuario de auth
-      return { success: false, error: 'Error al crear perfil: ' + profileError.message }
-    }
+    // Crear usuario y perfil de forma transaccional
+    const userResult = await crearUsuario(data, 'alumno')
+    if (!userResult.success) return userResult
 
     // Crear registro de alumno
     const { error: alumnoError } = await supabase
       .from('alumnos')
       .insert({
-        user_id: userId,
+        user_id: userResult.userId,
         matricula: data.matricula,
         grado: data.grado,
         grupo: data.grupo,
@@ -158,6 +133,11 @@ export async function crearAlumno(data: CrearAlumnoData) {
       })
 
     if (alumnoError) {
+      // Si la creación del alumno falla, eliminamos el usuario y perfil creados.
+      const adminSupabase = await createServerSupabaseClient(true) // Usar service_role
+      await adminSupabase.auth.admin.deleteUser(userResult.userId)
+      await supabase.from('profiles').delete().eq('id', userResult.userId)
+
       return { success: false, error: 'Error al crear alumno: ' + alumnoError.message }
     }
 
@@ -167,8 +147,7 @@ export async function crearAlumno(data: CrearAlumnoData) {
 
     return {
       success: true,
-      message: 'Alumno creado exitosamente',
-      userId
+      message: 'Alumno creado exitosamente'
     }
 
   } catch (error) {
@@ -181,64 +160,68 @@ export async function crearAlumno(data: CrearAlumnoData) {
 }
 
 /**
+ * Función genérica para crear un usuario en Auth y su perfil en la tabla `profiles`.
+ * Es más atómica: si la creación del perfil falla, elimina el usuario de Auth.
+ */
+async function crearUsuario(
+  data: CrearAlumnoData | CrearMaestroData | CrearAuxiliarData,
+  role: UserRole
+) {
+  const supabase = await createServerSupabaseClient()
+  const adminSupabase = await createServerSupabaseClient(true) // Cliente con service_role para admin actions
+
+  // 1. Crear usuario en Supabase Auth
+  const { data: authData, error: authError } = await supabase.auth.signUp({
+    email: data.email,
+    password: data.password,
+    options: {
+      data: {
+        nombre: data.nombre,
+        apellidos: data.apellidos,
+        role: role
+      }
+    }
+  })
+
+  if (authError || !authData.user) {
+    return { success: false, error: authError?.message || 'Error al crear usuario en Auth' }
+  }
+
+  const userId = authData.user.id
+
+  // 2. Crear perfil en la tabla `profiles`
+  const { error: profileError } = await supabase
+    .from('profiles')
+    .insert({
+      id: userId,
+      nombre: data.nombre,
+      apellidos: data.apellidos,
+      email: data.email,
+      role: role,
+      telefono: data.telefono || null,
+      activo: true // Aseguramos que el campo 'activo' tenga un valor por defecto
+    })
+
+  if (profileError) {
+    // Si la creación del perfil falla, eliminamos el usuario de Auth para mantener la consistencia.
+    await adminSupabase.auth.admin.deleteUser(userId)
+    return { success: false, error: 'Error al crear perfil: ' + profileError.message }
+  }
+
+  return { success: true, userId }
+}
+
+/**
  * Crear un nuevo auxiliar de calificaciones en el sistema
  * Solo puede ser ejecutado por usuarios con rol 'directivo'
  */
 export async function crearAuxiliar(data: CrearAuxiliarData) {
+  const supabase = await createServerSupabaseClient()
   try {
-    const supabase = await createServerSupabaseClient()
+    await requireDirectivoRole(supabase)
 
-    // Verificar que el usuario sea directivo
-    const { data: { user } } = await supabase.auth.getUser()
-
-    if (!user) {
-      return { success: false, error: 'No autenticado' }
-    }
-
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
-
-    if (profile?.role !== 'directivo') {
-      return { success: false, error: 'No autorizado. Solo directivos pueden crear auxiliares.' }
-    }
-
-    // Crear usuario en Supabase Auth
-    const { data: authData, error: authError } = await supabase.auth.signUp({
-      email: data.email,
-      password: data.password,
-      options: {
-        data: {
-          nombre: data.nombre,
-          apellidos: data.apellidos,
-          role: 'auxiliar_calificaciones'
-        }
-      }
-    })
-
-    if (authError || !authData.user) {
-      return { success: false, error: authError?.message || 'Error al crear usuario' }
-    }
-
-    const userId = authData.user.id
-
-    // Crear perfil
-    const { error: profileError } = await supabase
-      .from('profiles')
-      .insert({
-        id: userId,
-        nombre: data.nombre,
-        apellidos: data.apellidos,
-        email: data.email,
-        role: 'auxiliar_calificaciones',
-        telefono: data.telefono || null
-      })
-
-    if (profileError) {
-      return { success: false, error: 'Error al crear perfil: ' + profileError.message }
-    }
+    const result = await crearUsuario(data, 'auxiliar_calificaciones')
+    if (!result.success) return result
 
     // Revalidar las páginas que muestran usuarios
     revalidatePath('/directivo/usuarios')
@@ -246,8 +229,7 @@ export async function crearAuxiliar(data: CrearAuxiliarData) {
 
     return {
       success: true,
-      message: 'Auxiliar de calificaciones creado exitosamente',
-      userId
+      message: 'Auxiliar de calificaciones creado exitosamente'
     }
 
   } catch (error) {
@@ -264,60 +246,12 @@ export async function crearAuxiliar(data: CrearAuxiliarData) {
  * Solo puede ser ejecutado por usuarios con rol 'directivo'
  */
 export async function crearMaestro(data: CrearMaestroData) {
+  const supabase = await createServerSupabaseClient()
   try {
-    const supabase = await createServerSupabaseClient()
+    await requireDirectivoRole(supabase)
 
-    // Verificar que el usuario sea directivo
-    const { data: { user } } = await supabase.auth.getUser()
-
-    if (!user) {
-      return { success: false, error: 'No autenticado' }
-    }
-
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
-
-    if (profile?.role !== 'directivo') {
-      return { success: false, error: 'No autorizado. Solo directivos pueden crear maestros.' }
-    }
-
-    // Crear usuario en Supabase Auth
-    const { data: authData, error: authError } = await supabase.auth.signUp({
-      email: data.email,
-      password: data.password,
-      options: {
-        data: {
-          nombre: data.nombre,
-          apellidos: data.apellidos,
-          role: 'maestro'
-        }
-      }
-    })
-
-    if (authError || !authData.user) {
-      return { success: false, error: authError?.message || 'Error al crear usuario' }
-    }
-
-    const userId = authData.user.id
-
-    // Crear perfil
-    const { error: profileError } = await supabase
-      .from('profiles')
-      .insert({
-        id: userId,
-        nombre: data.nombre,
-        apellidos: data.apellidos,
-        email: data.email,
-        role: 'maestro',
-        telefono: data.telefono || null
-      })
-
-    if (profileError) {
-      return { success: false, error: 'Error al crear perfil: ' + profileError.message }
-    }
+    const result = await crearUsuario(data, 'maestro')
+    if (!result.success) return result
 
     // Si se proporcionó especialidad, crear registro adicional si tienes tabla de maestros
     // Si no tienes tabla maestros, puedes guardar la especialidad en profiles o crear la tabla
@@ -328,8 +262,7 @@ export async function crearMaestro(data: CrearMaestroData) {
 
     return {
       success: true,
-      message: 'Maestro creado exitosamente',
-      userId
+      message: 'Maestro creado exitosamente'
     }
 
   } catch (error) {

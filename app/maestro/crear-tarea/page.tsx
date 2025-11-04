@@ -27,7 +27,6 @@ export default function CrearTarea() {
     titulo: '',
     descripcion: '',
     fecha_entrega: '',
-    puntos_maximos: ''
   })
 
   useEffect(() => {
@@ -72,7 +71,6 @@ export default function CrearTarea() {
           titulo: formData.titulo,
           descripcion: formData.descripcion,
           fecha_entrega: formData.fecha_entrega,
-          puntos_maximos: parseInt(formData.puntos_maximos)
         })
 
       if (error) throw error
@@ -164,7 +162,7 @@ export default function CrearTarea() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4">
                 <div>
                   <Label htmlFor="fecha">Fecha de Entrega</Label>
                   <Input
@@ -172,21 +170,6 @@ export default function CrearTarea() {
                     type="date"
                     value={formData.fecha_entrega}
                     onChange={(e) => setFormData({ ...formData, fecha_entrega: e.target.value })}
-                    required
-                    disabled={submitting}
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="puntos">Puntos Máximos</Label>
-                  <Input
-                    id="puntos"
-                    type="number"
-                    min="1"
-                    max="100"
-                    value={formData.puntos_maximos}
-                    onChange={(e) => setFormData({ ...formData, puntos_maximos: e.target.value })}
-                    placeholder="100"
                     required
                     disabled={submitting}
                   />

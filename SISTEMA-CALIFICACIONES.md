@@ -164,7 +164,6 @@ CREATE TABLE tareas (
   titulo TEXT NOT NULL,
   descripcion TEXT,
   fecha_vencimiento TIMESTAMP,
-  puntos_maximos NUMERIC NOT NULL,
   curso_id UUID REFERENCES cursos(id),
   maestro_id UUID REFERENCES profiles(id),
   created_at TIMESTAMP DEFAULT NOW()
@@ -172,10 +171,6 @@ CREATE TABLE tareas (
 ```
 
 ### Campo Importante:
-
-| Campo | Tipo | Descripción |
-|-------|------|-------------|
-| `puntos_maximos` | NUMERIC | Puntaje máximo que se puede obtener en la tarea |
 
 ---
 
@@ -244,7 +239,7 @@ CREATE TABLE tareas (
    └─> URL: /maestro/tarea/[id]/entregas
 
 3. Maestro califica la entrega
-   ├─> Ingresa calificación (0 a puntos_maximos)
+   ├─> Ingresa calificación
    ├─> Escribe retroalimentación (opcional)
    └─> Guarda
 
@@ -450,7 +445,6 @@ app/
 1. **Calificación:**
    - Debe ser numérica
    - No puede ser negativa
-   - No puede exceder `puntos_maximos` de la tarea
 
 2. **Estado:**
    - Solo se puede calificar si status es "entregada"
@@ -487,10 +481,7 @@ app/
 **Causa:** La entrega está como "pendiente"
 **Solución:** Esperar a que el alumno entregue primero
 
-#### Calificación fuera de rango
 
-**Causa:** Valor mayor al máximo
-**Solución:** Verificar `puntos_maximos` de la tarea
 
 ---
 

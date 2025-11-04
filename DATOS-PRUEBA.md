@@ -152,7 +152,7 @@ Cada curso tiene entre 3-4 tareas con diferentes estados:
 
 ## Entregas y Calificaciones
 
-- **~80% de entregas completadas** con calificaciones entre 70-100 puntos
+- **~80% de entregas completadas** con calificaciones entre 70-100
 - **Retroalimentación variada** de los maestros
 - **Fechas de entrega realistas** (últimos 5 días)
 - **Calificaciones distribuidas:**

@@ -26,7 +26,6 @@ interface Tarea {
   titulo: string
   descripcion: string
   fecha_entrega: string
-  puntos_maximos: number
   cursos: Curso
 }
 
@@ -233,7 +232,7 @@ export default function TareaDetalle() {
                 entrega?.status === 'entregada' ? 'secondary' :
                 vencida ? 'destructive' : 'outline'
               }>
-                {entrega?.status === 'calificada' ? `Calificada: ${entrega.calificacion}/${tarea?.puntos_maximos}` :
+                {entrega?.status === 'calificada' ? `Calificada: ${entrega.calificacion}` :
                  entrega?.status === 'entregada' ? 'Entregada' :
                  vencida ? 'Vencida' : 'Pendiente'}
               </Badge>
@@ -250,10 +249,7 @@ export default function TareaDetalle() {
                 <Calendar className="h-4 w-4 text-gray-500" />
                 <span>Vencimiento: {tarea ? new Date(tarea.fecha_entrega).toLocaleDateString() : ''}</span>
               </div>
-              <div className="flex items-center gap-2">
-                <Award className="h-4 w-4 text-gray-500" />
-                <span>Puntos: {tarea?.puntos_maximos}</span>
-              </div>
+
             </div>
           </CardContent>
         </Card>
@@ -270,7 +266,7 @@ export default function TareaDetalle() {
               <div className="flex items-center justify-between">
                 <span className="text-gray-700">Tu calificación:</span>
                 <span className="text-3xl font-bold text-green-600">
-                  {entrega.calificacion} / {tarea?.puntos_maximos}
+                  {entrega.calificacion}
                 </span>
               </div>
               

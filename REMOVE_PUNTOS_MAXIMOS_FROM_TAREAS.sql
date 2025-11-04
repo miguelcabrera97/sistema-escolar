@@ -1,0 +1,1 @@
+ALTER TABLE tareas DROP COLUMN puntos_maximos;

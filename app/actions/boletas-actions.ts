@@ -160,6 +160,23 @@ export async function subirBoleta(formData: FormData): Promise<Result> {
  */
 export async function obtenerBoletasAlumno(alumnoId: string): Promise<Result> {
   try {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      return { success: false, error: 'No autenticado' }
+    }
+
+    // Verificar autorización
+    const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+    const { data: alumno } = await supabase.from('alumnos').select('padre_id, user_id').eq('id', alumnoId).single()
+
+    const esDirectivo = profile?.role === 'directivo'
+    const esPadre = alumno?.padre_id === user.id
+    const esAlumno = alumno?.user_id === user.id
+
+    if (!esDirectivo && !esPadre && !esAlumno) {
+      return { success: false, error: 'No autorizado para ver estas boletas' }
+    }
+
     const { data: boletas, error } = await supabase
       .from('boletas')
       .select(`

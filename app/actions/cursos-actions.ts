@@ -154,43 +154,18 @@ export async function obtenerCursos(): Promise<Result> {
 
     const { data: cursos, error } = await supabase
       .from('cursos')
-      .select(`
-        id,
-        nombre,
-        descripcion,
-        grado,
-        grupo,
-        maestro_id,
-        created_at
-      `)
+      .select('*, maestro_profiles:profiles!cursos_maestro_id_fkey(id, nombre, apellidos, email, activo)')
       .order('grado', { ascending: true })
       .order('grupo', { ascending: true })
       .order('nombre', { ascending: true })
 
     if (error) {
       console.error('Error al obtener cursos:', error)
-      return { success: false, error: error.message }
-    }
-
-    // Obtener información de los maestros manualmente
-    if (cursos && cursos.length > 0) {
-      const maestroIds = [...new Set(cursos.map(c => c.maestro_id))]
-
-      const { data: maestros } = await supabase
-        .from('profiles')
-        .select('id, nombre, apellidos, email, activo')
-        .in('id', maestroIds)
-
-      // Combinar datos
-      const cursosConMaestros = cursos.map(curso => ({
-        ...curso,
-        maestro_profiles: maestros?.find(m => m.id === curso.maestro_id) || null
-      }))
-
-      return { success: true, data: cursosConMaestros }
+      return { success: false, error: `Error al obtener cursos: ${error.message}` }
     }
 
     return { success: true, data: cursos }
+
   } catch (error) {
     console.error('Error:', error)
     return { success: false, error: 'Error al obtener cursos' }

@@ -191,6 +191,9 @@ export default function DirectivoDashboard() {
   <Button onClick={() => router.push('/directivo/pagos')}>
     Gestionar Pagos
   </Button>
+  <Button onClick={() => router.push('/directivo/boletas')}>
+    Gestionar Boletas
+  </Button>
   <Button variant="outline" onClick={() => {
     supabase.auth.signOut()
     router.push('/login')

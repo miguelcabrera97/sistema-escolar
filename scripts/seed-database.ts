@@ -103,13 +103,13 @@ const CURSOS = [
 ]
 
 const TAREAS_TEMPLATES = [
-  { titulo: 'Operaciones básicas', descripcion: 'Resolver ejercicios de suma y resta', puntos_maximos: 100, dias_vencimiento: -5 },
-  { titulo: 'Tabla de multiplicar', descripcion: 'Memorizar tablas del 1 al 10', puntos_maximos: 100, dias_vencimiento: -3 },
-  { titulo: 'Problemas matemáticos', descripcion: 'Resolver problemas de la vida real', puntos_maximos: 100, dias_vencimiento: 2 },
-  { titulo: 'Lectura comprensiva', descripcion: 'Leer cuento y responder preguntas', puntos_maximos: 100, dias_vencimiento: -4 },
-  { titulo: 'Redacción creativa', descripcion: 'Escribir una historia corta', puntos_maximos: 100, dias_vencimiento: 1 },
-  { titulo: 'El sistema solar', descripcion: 'Investigar sobre los planetas', puntos_maximos: 100, dias_vencimiento: -2 },
-  { titulo: 'Ciclo del agua', descripcion: 'Hacer un diagrama del ciclo del agua', puntos_maximos: 100, dias_vencimiento: 3 }
+  { titulo: 'Operaciones básicas', descripcion: 'Resolver ejercicios de suma y resta', dias_vencimiento: -5 },
+  { titulo: 'Tabla de multiplicar', descripcion: 'Memorizar tablas del 1 al 10', dias_vencimiento: -3 },
+  { titulo: 'Problemas matemáticos', descripcion: 'Resolver problemas de la vida real', dias_vencimiento: 2 },
+  { titulo: 'Lectura comprensiva', descripcion: 'Leer cuento y responder preguntas', dias_vencimiento: -4 },
+  { titulo: 'Redacción creativa', descripcion: 'Escribir una historia corta', dias_vencimiento: 1 },
+  { titulo: 'El sistema solar', descripcion: 'Investigar sobre los planetas', dias_vencimiento: -2 },
+  { titulo: 'Ciclo del agua', descripcion: 'Hacer un diagrama del ciclo del agua', dias_vencimiento: 3 }
 ]
 
 async function seed() {
@@ -392,7 +392,6 @@ async function seed() {
           titulo: template.titulo,
           descripcion: template.descripcion,
           fecha_entrega: fechaVencimiento.toISOString(),
-          puntos_maximos: template.puntos_maximos,
           curso_id: curso.id
         }).select().single()
 
@@ -403,8 +402,7 @@ async function seed() {
 
         tareasCreadas.push({
           id: tareaData.id,
-          curso_id: curso.id,
-          puntos_maximos: template.puntos_maximos
+          curso_id: curso.id
         })
       }
       console.log(`  ✅ ${numTareas} tareas creadas para ${curso.nombre} ${curso.grado}°${curso.grupo}`)

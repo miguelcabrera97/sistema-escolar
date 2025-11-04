@@ -643,7 +643,6 @@ CREATE TABLE tareas (
   titulo TEXT NOT NULL,
   descripcion TEXT,
   fecha_entrega TIMESTAMP,
-  puntos_maximos NUMERIC NOT NULL,
   created_at TIMESTAMP DEFAULT NOW()
 );
 ```

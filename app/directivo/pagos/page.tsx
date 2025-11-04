@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -8,7 +8,13 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
-import { Plus, DollarSign, ArrowLeft } from 'lucide-react'
+import { obtenerPagosDirectivo, crearPagoDirectivo } from '@/app/actions/pagos-actions'
+import { obtenerAlumnos } from '@/app/actions/usuarios-actions'
+import { ArrowLeft } from 'lucide-react';
+import { Plus } from 'lucide-react';
+import { DollarSign } from 'lucide-react';
+import { marcarPagoComoPagado } from '@/app/actions/pagos-actions'
+
 
 interface Profile {
   nombre: string
@@ -39,79 +45,80 @@ export default function DirectivoPagos() {
   const [loading, setLoading] = useState(true)
   const [creando, setCreando] = useState(false)
   const [mostrarForm, setMostrarForm] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [markingAsPaidId, setMarkingAsPaidId] = useState<string | null>(null)
   
-  const [formData, setFormData] = useState({
-    alumno_id: '',
-    concepto: '',
-    descripcion: '',
-    monto: '',
-    fecha_entrega: ''
-  })
+  const formRef = useRef<HTMLFormElement>(null)
 
   useEffect(() => {
     cargarDatos()
   }, [])
 
   const cargarDatos = async () => {
+    setLoading(true)
     try {
-      const { data: alumnosData } = await supabase
-        .from('alumnos')
-        .select('id, matricula, grado, grupo, profiles(nombre, apellidos)')
-        .order('matricula')
-
-      if (alumnosData) {
-        setAlumnos(alumnosData)
+      const alumnosResult = await obtenerAlumnos()
+      if (alumnosResult.success) {
+        setAlumnos(alumnosResult.data || [])
+      } else {
+        setError(alumnosResult.error)
       }
 
-      const { data: pagosData } = await supabase
-        .from('pagos')
-        .select('*, alumnos(id, matricula, grado, grupo, profiles(nombre, apellidos))')
-        .order('created_at', { ascending: false })
-        .limit(20)
-
-      if (pagosData) {
-        setPagos(pagosData)
+      const pagosResult = await obtenerPagosDirectivo()
+      if (pagosResult.success) {
+        setPagos(pagosResult.data || [])
+      } else {
+        setError(pagosResult.error)
+        // Si no está autorizado, podría redirigir
+        if (pagosResult.error === 'No autorizado') {
+          router.push('/login')
+        }
       }
-    } catch (error) {
-      console.error('Error:', error)
+    } catch (err) {
+      setError('Ocurrió un error inesperado al cargar los datos.')
     } finally {
       setLoading(false)
     }
   }
 
-  const crearPago = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleCrearPago = async (event: React.FormEvent) => {
+    event.preventDefault()
+    if (!formRef.current) return
+
     setCreando(true)
+    setError(null)
 
-    try {
-      const { error } = await supabase
-        .from('pagos')
-        .insert({
-          alumno_id: formData.alumno_id,
-          concepto: formData.concepto,
-          descripcion: formData.descripcion || null,
-          monto: parseFloat(formData.monto),
-          fecha_entrega: formData.fecha_entrega,
-          status: 'pendiente'
-        })
+    const formData = new FormData(formRef.current)
+    const result = await crearPagoDirectivo(formData)
 
-      if (error) throw error
-
+    if (result.success) {
       alert('Pago creado exitosamente')
       setMostrarForm(false)
-      setFormData({
-        alumno_id: '',
-        concepto: '',
-        descripcion: '',
-        monto: '',
-        fecha_entrega: ''
-      })
-      await cargarDatos()
-    } catch (error) {
-      console.error('Error:', error)
-      alert('Error al crear el pago')
+      formRef.current.reset()
+      await cargarDatos() // Recargar la lista de pagos
+    } else {
+      setError(result.error || 'Ocurrió un error al crear el pago.')
+    }
+
+    setCreando(false)
+  }
+
+  const handleMarcarComoPagado = async (pagoId: string) => {
+    if (!confirm('¿Estás seguro de que deseas marcar este pago como liquidado?')) return
+
+    setError(null)
+    setMarkingAsPaidId(pagoId)
+    try {
+      const result = await marcarPagoComoPagado(pagoId)
+
+      if (result.success) {
+        alert('Pago actualizado exitosamente')
+        await cargarDatos()
+      } else {
+        setError(result.error || 'Ocurrió un error al actualizar el pago.')
+      }
     } finally {
-      setCreando(false)
+      setMarkingAsPaidId(null)
     }
   }
 
@@ -147,6 +154,7 @@ export default function DirectivoPagos() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 py-8 space-y-6">
+        {error && <p className="text-red-500 text-sm bg-red-100 p-3 rounded-md">Error: {error}</p>}
         {mostrarForm && (
           <Card>
             <CardHeader>
@@ -154,12 +162,11 @@ export default function DirectivoPagos() {
               <CardDescription>Genera un cobro para un alumno</CardDescription>
             </CardHeader>
             <CardContent>
-              <form onSubmit={crearPago} className="space-y-4">
+              <form ref={formRef} onSubmit={handleCrearPago} className="space-y-4">
                 <div>
                   <Label>Alumno</Label>
                   <select
-                    value={formData.alumno_id}
-                    onChange={(e) => setFormData({ ...formData, alumno_id: e.target.value })}
+                    name="alumno_id"
                     className="w-full mt-1 px-3 py-2 border rounded-md"
                     required
                     disabled={creando}
@@ -176,8 +183,7 @@ export default function DirectivoPagos() {
                 <div>
                   <Label>Concepto</Label>
                   <Input
-                    value={formData.concepto}
-                    onChange={(e) => setFormData({ ...formData, concepto: e.target.value })}
+                    name="concepto"
                     placeholder="Ej: Colegiatura Enero 2025"
                     required
                     disabled={creando}
@@ -187,8 +193,7 @@ export default function DirectivoPagos() {
                 <div>
                   <Label>Descripcion (opcional)</Label>
                   <textarea
-                    value={formData.descripcion}
-                    onChange={(e) => setFormData({ ...formData, descripcion: e.target.value })}
+                    name="descripcion"
                     placeholder="Descripcion del pago..."
                     className="w-full mt-1 px-3 py-2 border rounded-md min-h-[80px]"
                     disabled={creando}
@@ -199,11 +204,10 @@ export default function DirectivoPagos() {
                   <div>
                     <Label>Monto (MXN)</Label>
                     <Input
+                      name="monto"
                       type="number"
                       step="0.01"
                       min="0"
-                      value={formData.monto}
-                      onChange={(e) => setFormData({ ...formData, monto: e.target.value })}
                       placeholder="0.00"
                       required
                       disabled={creando}
@@ -213,9 +217,8 @@ export default function DirectivoPagos() {
                   <div>
                     <Label>Fecha de Vencimiento</Label>
                     <Input
+                      name="fecha_entrega"
                       type="date"
-                      value={formData.fecha_entrega}
-                      onChange={(e) => setFormData({ ...formData, fecha_entrega: e.target.value })}
                       required
                       disabled={creando}
                     />
@@ -243,8 +246,8 @@ export default function DirectivoPagos() {
               </div>
             ) : (
               <div className="space-y-3">
-  {pagos.filter(p => p.alumnos && p.alumnos.profiles).map((pago) => (
-    <div key={pago.id} className="flex items-center justify-between p-4 border rounded-lg">
+                {pagos.filter(p => p.alumnos && p.alumnos.profiles).map((pago) => (
+                  <div key={pago.id} className="flex items-center justify-between p-4 border rounded-lg">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
                         <h3 className="font-semibold">{pago.concepto}</h3>
@@ -263,10 +266,19 @@ export default function DirectivoPagos() {
                         Vence: {new Date(pago.fecha_entrega).toLocaleDateString('es-MX')}
                       </p>
                     </div>
-                    <div className="text-right">
+                    <div className="text-right flex items-center gap-4">
                       <div className="text-xl font-bold">
                         ${pago.monto.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
                       </div>
+                      {pago.status !== 'pagado' && (
+                        <Button 
+                          size="sm"
+                          onClick={() => handleMarcarComoPagado(pago.id)}
+                          disabled={markingAsPaidId === pago.id}
+                        >
+                          {markingAsPaidId === pago.id ? 'Cargando...' : 'Marcar como Pagado'}
+                        </Button>
+                      )}
                     </div>
                   </div>
                 ))}

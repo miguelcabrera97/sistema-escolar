@@ -39,6 +39,7 @@ interface Alumno {
 interface Entrega {
   id: string
   status: string
+  calificacion: string | null
   retroalimentacion: string | null
   fecha_entrega: string | null
   archivo_url: string | null
@@ -54,6 +55,11 @@ export default function EntregasTarea() {
   const [tarea, setTarea] = useState<Tarea | null>(null)
   const [entregas, setEntregas] = useState<Entrega[]>([])
   const [loading, setLoading] = useState(true)
+  const [calificando, setCalificando] = useState<string | null>(null)
+  const [formCalificar, setFormCalificar] = useState({
+    calificacion: 'Entregado',
+    retroalimentacion: ''
+  })
 
   const cargarDatos = useCallback(async () => {
     try {
@@ -79,7 +85,7 @@ export default function EntregasTarea() {
 
       const { data: entregasData } = await supabase
         .from('entregas')
-        .select('id, status, retroalimentacion, fecha_entrega, archivo_url, comentarios, alumnos (id, matricula, profiles (nombre, apellidos))')
+        .select('id, status, calificacion, retroalimentacion, fecha_entrega, archivo_url, comentarios, alumnos (id, matricula, profiles (nombre, apellidos))')
         .eq('tarea_id', tareaId)
         .order('fecha_entrega', { ascending: false })
 
@@ -94,6 +100,44 @@ export default function EntregasTarea() {
   useEffect(() => {
     cargarDatos()
   }, [cargarDatos])
+
+  const iniciarCalificacion = (entrega: Entrega) => {
+    setCalificando(entrega.id)
+    setFormCalificar({
+      calificacion: entrega.calificacion || 'Entregado',
+      retroalimentacion: entrega.retroalimentacion || ''
+    })
+  }
+
+  const cancelarCalificacion = () => {
+    setCalificando(null)
+    setFormCalificar({
+      calificacion: 'Entregado',
+      retroalimentacion: ''
+    })
+  }
+
+  const guardarCalificacion = async (entregaId: string) => {
+    try {
+      const { error } = await supabase
+        .from('entregas')
+        .update({
+          calificacion: formCalificar.calificacion,
+          retroalimentacion: formCalificar.retroalimentacion,
+          status: 'calificada'
+        })
+        .eq('id', entregaId)
+
+      if (error) throw error
+
+      alert('Calificación guardada exitosamente')
+      cancelarCalificacion()
+      cargarDatos()
+    } catch (error) {
+      console.error('Error:', error)
+      alert('Error al guardar la calificación')
+    }
+  }
 
   if (loading) {
     return (
@@ -166,10 +210,18 @@ export default function EntregasTarea() {
                         <p className="text-sm text-gray-500">Matricula: {entrega.alumnos?.matricula}</p>
                       </div>
                       <div className="flex items-center gap-3">
-                        <Badge variant={entrega.status === 'entregada' ? 'default' : 'destructive'}>
-                          {entrega.status === 'entregada' && <CheckCircle className="h-3 w-3 mr-1" />}
+                        {entrega.status === 'calificada' && entrega.calificacion && (
+                          <div className="text-right">
+                            <div className={`text-lg font-bold ${entrega.calificacion === 'Entregado' ? 'text-green-600' : 'text-red-600'}`}>
+                              {entrega.calificacion}
+                            </div>
+                          </div>
+                        )}
+                        <Badge variant={entrega.status === 'calificada' ? 'default' : entrega.status === 'entregada' ? 'secondary' : 'destructive'}>
+                          {entrega.status === 'calificada' && <CheckCircle className="h-3 w-3 mr-1" />}
+                          {entrega.status === 'entregada' && <Clock className="h-3 w-3 mr-1" />}
                           {entrega.status === 'pendiente' && <AlertCircle className="h-3 w-3 mr-1" />}
-                          {entrega.status === 'entregada' ? 'Entregada' : 'Pendiente'}
+                          {entrega.status === 'calificada' ? 'Calificada' : entrega.status === 'entregada' ? 'Entregada' : 'Pendiente'}
                         </Badge>
                       </div>
                     </div>
@@ -189,9 +241,57 @@ export default function EntregasTarea() {
 
                         {entrega.comentarios && (
                           <div className="p-3 bg-gray-50 rounded">
-                            <div className="text-xs font-medium text-gray-500 mb-1">Comentarios:</div>
+                            <div className="text-xs font-medium text-gray-500 mb-1">Comentarios del alumno:</div>
                             <p className="text-sm text-gray-700">{entrega.comentarios}</p>
                           </div>
+                        )}
+
+                        {calificando === entrega.id ? (
+                          <div className="p-4 bg-blue-50 rounded-lg space-y-4">
+                            <div>
+                              <Label>Calificación</Label>
+                              <select
+                                value={formCalificar.calificacion}
+                                onChange={(e) => setFormCalificar({ ...formCalificar, calificacion: e.target.value })}
+                                className="w-full mt-1 px-3 py-2 border rounded-md"
+                              >
+                                <option value="Entregado">Entregado</option>
+                                <option value="No Entregado">No Entregado</option>
+                              </select>
+                            </div>
+                            <div>
+                              <Label>Retroalimentación</Label>
+                              <textarea
+                                value={formCalificar.retroalimentacion}
+                                onChange={(e) => setFormCalificar({ ...formCalificar, retroalimentacion: e.target.value })}
+                                className="w-full mt-1 px-3 py-2 border rounded-md min-h-[100px]"
+                                placeholder="Escribe comentarios para el alumno..."
+                              />
+                            </div>
+                            <div className="flex gap-2">
+                              <Button onClick={() => guardarCalificacion(entrega.id)} className="flex-1">Guardar</Button>
+                              <Button variant="outline" onClick={cancelarCalificacion}>Cancelar</Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                            {entrega.calificacion && (
+                              <div className="p-3 bg-green-50 rounded">
+                                <div className="text-xs font-medium text-green-600 mb-1">Calificación:</div>
+                                <p className="text-sm font-semibold text-gray-700">{entrega.calificacion}</p>
+                              </div>
+                            )}
+                            {entrega.retroalimentacion && (
+                              <div className="p-3 bg-blue-50 rounded">
+                                <div className="text-xs font-medium text-blue-600 mb-1">Retroalimentación:</div>
+                                <p className="text-sm text-gray-700">{entrega.retroalimentacion}</p>
+                              </div>
+                            )}
+                            <div className="flex gap-2">
+                              {entrega.status === 'entregada' && <Button size="sm" onClick={() => iniciarCalificacion(entrega)}>Calificar</Button>}
+                              {entrega.status === 'calificada' && <Button size="sm" variant="outline" onClick={() => iniciarCalificacion(entrega)}>Editar</Button>}
+                            </div>
+                          </>
                         )}
                       </div>
                     )}

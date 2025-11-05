@@ -167,11 +167,31 @@ export async function obtenerBoletasAlumno(alumnoId: string): Promise<Result> {
 
     // Verificar autorización
     const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
-    const { data: alumno } = await supabase.from('alumnos').select('padre_id, user_id').eq('id', alumnoId).single()
+    const { data: alumno } = await supabase.from('alumnos').select('user_id').eq('id', alumnoId).single()
 
     const esDirectivo = profile?.role === 'directivo'
-    const esPadre = alumno?.padre_id === user.id
     const esAlumno = alumno?.user_id === user.id
+
+    // Verificar si es padre del alumno
+    let esPadre = false
+    if (!esDirectivo && !esAlumno) {
+      const { data: padreData } = await supabase
+        .from('padres')
+        .select('id')
+        .eq('user_id', user.id)
+        .single()
+
+      if (padreData) {
+        const { data: relacion } = await supabase
+          .from('padre_alumno')
+          .select('id')
+          .eq('padre_id', padreData.id)
+          .eq('alumno_id', alumnoId)
+          .single()
+
+        esPadre = !!relacion
+      }
+    }
 
     if (!esDirectivo && !esPadre && !esAlumno) {
       return { success: false, error: 'No autorizado para ver estas boletas' }

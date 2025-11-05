@@ -49,12 +49,16 @@ export function ListaCursos() {
   }, [])
 
   const cargarCursos = async () => {
+    console.log('[ListaCursos] Iniciando carga de cursos...')
     setLoading(true)
     const result = await obtenerCursos()
+    console.log('[ListaCursos] Resultado:', result)
     if (result.success) {
+      console.log('[ListaCursos] Cursos recibidos:', result.data.length, 'cursos')
       setCursos(result.data)
     } else {
-      console.error('Error al cargar cursos:', result.error)
+      console.error('[ListaCursos] Error al cargar cursos:', result.error)
+      alert('Error al cargar cursos: ' + result.error)
     }
     setLoading(false)
   }

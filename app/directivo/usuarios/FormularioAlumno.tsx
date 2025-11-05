@@ -1,218 +1,110 @@
 'use client'
 
-import { useState } from 'react'
-import { Button } from '@/components/ui/button'
+import { useActionState } from 'react'
+import { useEffect, useState } from 'react'
 import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { crearAlumno, editarAlumno, getPadres } from '@/app/actions/usuarios-actions'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Textarea } from '@/components/ui/textarea'
-import { crearAlumno, type CrearAlumnoData, type TelefonoEmergencia } from '@/app/actions/usuarios-actions'
-import { Loader2, Plus, X } from 'lucide-react'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
 interface FormularioAlumnoProps {
-  onSuccess?: () => void
-}
-
-export function FormularioAlumno({ onSuccess }: FormularioAlumnoProps) {
-  const [loading, setLoading] = useState(false)
-  const [formData, setFormData] = useState<CrearAlumnoData>({
-    email: '',
-    password: '',
-    nombre: '',
-    apellidos: '',
-    matricula: '',
-    grado: '',
-    grupo: '',
-    fecha_nacimiento: '',
-    telefono: '',
-    curp: '',
-    nombre_tutor: '',
-    informacion_medica: '',
-    telefonos_emergencia: []
-  })
-  const [telefonosEmergencia, setTelefonosEmergencia] = useState<TelefonoEmergencia[]>([
-    { nombre: '', numero: '' }
-  ])
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
-
-    try {
-      // Filtrar teléfonos de emergencia que tengan al menos nombre o número
-      const telefonosValidos = telefonosEmergencia.filter(
-        tel => tel.nombre.trim() !== '' || tel.numero.trim() !== ''
-      )
-
-      const result = await crearAlumno({
-        ...formData,
-        telefonos_emergencia: telefonosValidos
-      })
-
-      if (result.success) {
-        alert('Alumno creado exitosamente')
-        // Limpiar formulario
-        setFormData({
-          email: '',
-          password: '',
-          nombre: '',
-          apellidos: '',
-          matricula: '',
-          grado: '',
-          grupo: '',
-          fecha_nacimiento: '',
-          telefono: '',
-          curp: '',
-          nombre_tutor: '',
-          informacion_medica: '',
-          telefonos_emergencia: []
-        })
-        setTelefonosEmergencia([{ nombre: '', numero: '' }])
-        onSuccess?.()
-      } else {
-        alert('Error: ' + result.error)
-      }
-    } catch (error) {
-      console.error('Error:', error)
-      alert('Error al crear alumno')
-    } finally {
-      setLoading(false)
+  alumno?: {
+    id: string
+    matricula: string
+    grado: string
+    grupo: string
+    profiles: {
+      nombre: string
+      apellidos: string
+      email?: string
     }
   }
+  onClose: () => void
+}
 
-  const handleChange = (field: keyof CrearAlumnoData, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }))
-  }
+type Padre = {
+  id: string
+  nombre: string
+  apellidos: string
+}
 
-  const agregarTelefonoEmergencia = () => {
-    setTelefonosEmergencia(prev => [...prev, { nombre: '', numero: '' }])
-  }
+const initialState = { errors: {} }
 
-  const eliminarTelefonoEmergencia = (index: number) => {
-    setTelefonosEmergencia(prev => prev.filter((_, i) => i !== index))
-  }
+export function FormularioAlumno({ alumno, onClose }: FormularioAlumnoProps) {
+  const action = alumno ? editarAlumno : crearAlumno
+  const [state, formAction] = useActionState(action, initialState)
+  const [padres, setPadres] = useState<Padre[]>([])
+  const [padreSeleccionado, setPadreSeleccionado] = useState<string>('')
+  const [gradoSeleccionado, setGradoSeleccionado] = useState<string>(alumno?.grado || '')
+  const [isLoading, setIsLoading] = useState(false)
 
-  const actualizarTelefonoEmergencia = (index: number, field: 'nombre' | 'numero', value: string) => {
-    setTelefonosEmergencia(prev =>
-      prev.map((tel, i) => i === index ? { ...tel, [field]: value } : tel)
-    )
+  useEffect(() => {
+    async function loadPadres() {
+      console.log('[FormularioAlumno] Cargando padres...')
+      const padresData = await getPadres()
+      console.log('[FormularioAlumno] Padres recibidos:', padresData)
+      setPadres(padresData)
+    }
+    loadPadres()
+  }, [])
+
+  // Si state.success es true, cerrar el modal
+  useEffect(() => {
+    if (state.success) {
+      alert(state.message)
+      onClose()
+    }
+  }, [state.success, state.message, onClose])
+
+  const handleSubmit = async (formData: FormData) => {
+    setIsLoading(true)
+    await formAction(formData)
+    setIsLoading(false)
   }
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Agregar Nuevo Alumno</CardTitle>
-        <CardDescription>
-          Completa la información del alumno para crear su cuenta
-        </CardDescription>
+        <CardTitle>{alumno ? 'Editar Alumno' : 'Crear Nuevo Alumno'}</CardTitle>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form action={handleSubmit} className="space-y-4">
+          {/* Campos ocultos */}
+          {alumno && <input type="hidden" name="id" value={alumno.id} />}
+          <input type="hidden" name="id_padre" value={padreSeleccionado} />
+          <input type="hidden" name="grado" value={gradoSeleccionado} />
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Información Personal */}
+            {/* Nombre */}
             <div className="space-y-2">
               <Label htmlFor="nombre">Nombre *</Label>
               <Input
                 id="nombre"
-                value={formData.nombre}
-                onChange={(e) => handleChange('nombre', e.target.value)}
+                name="nombre"
+                defaultValue={alumno?.profiles.nombre}
+                placeholder="Nombre del alumno"
                 required
-                disabled={loading}
               />
+              {state.errors?.nombre && (
+                <p className="text-red-500 text-xs">{state.errors.nombre}</p>
+              )}
             </div>
 
+            {/* Apellidos */}
             <div className="space-y-2">
               <Label htmlFor="apellidos">Apellidos *</Label>
               <Input
                 id="apellidos"
-                value={formData.apellidos}
-                onChange={(e) => handleChange('apellidos', e.target.value)}
+                name="apellidos"
+                defaultValue={alumno?.profiles.apellidos}
+                placeholder="Apellidos del alumno"
                 required
-                disabled={loading}
               />
-            </div>
-
-            {/* Matrícula */}
-            <div className="space-y-2">
-              <Label htmlFor="matricula">Matrícula *</Label>
-              <Input
-                id="matricula"
-                value={formData.matricula}
-                onChange={(e) => handleChange('matricula', e.target.value)}
-                placeholder="Ej: 2024001"
-                required
-                disabled={loading}
-              />
-            </div>
-
-            {/* Fecha de Nacimiento */}
-            <div className="space-y-2">
-              <Label htmlFor="fecha_nacimiento">Fecha de Nacimiento</Label>
-              <Input
-                id="fecha_nacimiento"
-                type="date"
-                value={formData.fecha_nacimiento}
-                onChange={(e) => handleChange('fecha_nacimiento', e.target.value)}
-                disabled={loading}
-              />
-            </div>
-
-            {/* Grado */}
-            <div className="space-y-2">
-              <Label htmlFor="grado">Grado *</Label>
-              <Select
-                value={formData.grado}
-                onValueChange={(value) => handleChange('grado', value)}
-                disabled={loading}
-                required
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecciona el grado" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="1">1° Grado</SelectItem>
-                  <SelectItem value="2">2° Grado</SelectItem>
-                  <SelectItem value="3">3° Grado</SelectItem>
-                  <SelectItem value="4">4° Grado</SelectItem>
-                  <SelectItem value="5">5° Grado</SelectItem>
-                  <SelectItem value="6">6° Grado</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Grupo */}
-            <div className="space-y-2">
-              <Label htmlFor="grupo">Grupo *</Label>
-              <Select
-                value={formData.grupo}
-                onValueChange={(value) => handleChange('grupo', value)}
-                disabled={loading}
-                required
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecciona el grupo" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="A">Grupo A</SelectItem>
-                  <SelectItem value="B">Grupo B</SelectItem>
-                  <SelectItem value="C">Grupo C</SelectItem>
-                  <SelectItem value="D">Grupo D</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Teléfono */}
-            <div className="space-y-2">
-              <Label htmlFor="telefono">Teléfono</Label>
-              <Input
-                id="telefono"
-                type="tel"
-                value={formData.telefono}
-                onChange={(e) => handleChange('telefono', e.target.value)}
-                placeholder="555-1234567"
-                disabled={loading}
-              />
+              {state.errors?.apellidos && (
+                <p className="text-red-500 text-xs">{state.errors.apellidos}</p>
+              )}
             </div>
 
             {/* Email */}
@@ -220,153 +112,120 @@ export function FormularioAlumno({ onSuccess }: FormularioAlumnoProps) {
               <Label htmlFor="email">Email *</Label>
               <Input
                 id="email"
+                name="email"
                 type="email"
-                value={formData.email}
-                onChange={(e) => handleChange('email', e.target.value)}
-                placeholder="alumno@escuela.com"
+                defaultValue={alumno?.profiles.email}
+                placeholder="correo@ejemplo.com"
                 required
-                disabled={loading}
               />
+              {state.errors?.email && (
+                <p className="text-red-500 text-xs">{state.errors.email}</p>
+              )}
             </div>
 
-            {/* Contraseña */}
+            {/* Password (solo al crear) */}
+            {!alumno && (
+              <div className="space-y-2">
+                <Label htmlFor="password">Contraseña *</Label>
+                <Input
+                  id="password"
+                  name="password"
+                  type="password"
+                  placeholder="Mínimo 6 caracteres"
+                  minLength={6}
+                  required
+                />
+                {state.errors?.password && (
+                  <p className="text-red-500 text-xs">{state.errors.password}</p>
+                )}
+              </div>
+            )}
+
+            {/* Matrícula */}
             <div className="space-y-2">
-              <Label htmlFor="password">Contraseña *</Label>
+              <Label htmlFor="matricula">Matrícula *</Label>
               <Input
-                id="password"
-                type="password"
-                value={formData.password}
-                onChange={(e) => handleChange('password', e.target.value)}
-                placeholder="Mínimo 6 caracteres"
+                id="matricula"
+                name="matricula"
+                defaultValue={alumno?.matricula}
+                placeholder="Ej: 2024001"
                 required
-                minLength={6}
-                disabled={loading}
               />
+              {state.errors?.matricula && (
+                <p className="text-red-500 text-xs">{state.errors.matricula}</p>
+              )}
             </div>
 
-            {/* CURP */}
+            {/* Grado */}
             <div className="space-y-2">
-              <Label htmlFor="curp">CURP</Label>
-              <Input
-                id="curp"
-                value={formData.curp}
-                onChange={(e) => handleChange('curp', e.target.value.toUpperCase())}
-                placeholder="AAAA000000HDFAAA00"
-                maxLength={18}
-                disabled={loading}
-              />
-              <p className="text-xs text-gray-500">Clave Única de Registro de Población (18 caracteres)</p>
+              <Label htmlFor="grado">Grado *</Label>
+              <Select value={gradoSeleccionado} onValueChange={setGradoSeleccionado} required>
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleccione un grado" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1">1° Primaria</SelectItem>
+                  <SelectItem value="2">2° Primaria</SelectItem>
+                  <SelectItem value="3">3° Primaria</SelectItem>
+                  <SelectItem value="4">4° Primaria</SelectItem>
+                  <SelectItem value="5">5° Primaria</SelectItem>
+                  <SelectItem value="6">6° Primaria</SelectItem>
+                </SelectContent>
+              </Select>
+              {state.errors?.grado && (
+                <p className="text-red-500 text-xs">{state.errors.grado}</p>
+              )}
             </div>
 
-            {/* Nombre del Tutor */}
+            {/* Grupo */}
             <div className="space-y-2">
-              <Label htmlFor="nombre_tutor">Nombre del Padre/Tutor</Label>
+              <Label htmlFor="grupo">Grupo *</Label>
               <Input
-                id="nombre_tutor"
-                value={formData.nombre_tutor}
-                onChange={(e) => handleChange('nombre_tutor', e.target.value)}
-                placeholder="Nombre completo del tutor"
-                disabled={loading}
+                id="grupo"
+                name="grupo"
+                defaultValue={alumno?.grupo}
+                placeholder="Ej: A, B, C"
+                maxLength={1}
+                required
               />
+              {state.errors?.grupo && (
+                <p className="text-red-500 text-xs">{state.errors.grupo}</p>
+              )}
+            </div>
+
+            {/* Padre Asignado */}
+            <div className="space-y-2">
+              <Label htmlFor="id_padre">Padre Asignado (Opcional)</Label>
+              <Select value={padreSeleccionado || "none"} onValueChange={(value) => setPadreSeleccionado(value === "none" ? "" : value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Sin padre asignado" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Sin padre asignado</SelectItem>
+                  {padres.map((padre) => (
+                    <SelectItem key={padre.id} value={padre.id}>
+                      {padre.nombre} {padre.apellidos}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
-          {/* Información Médica */}
-          <div className="space-y-2">
-            <Label htmlFor="informacion_medica">Información Médica Indispensable</Label>
-            <Textarea
-              id="informacion_medica"
-              value={formData.informacion_medica}
-              onChange={(e) => handleChange('informacion_medica', e.target.value)}
-              placeholder="Alergias, condiciones médicas, medicamentos, tipo de sangre, etc."
-              rows={3}
-              disabled={loading}
-            />
-            <p className="text-xs text-gray-500">Información médica relevante que el personal debe conocer</p>
-          </div>
-
-          {/* Teléfonos de Emergencia */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <Label>Teléfonos de Contacto de Emergencia</Label>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={agregarTelefonoEmergencia}
-                disabled={loading}
-              >
-                <Plus className="h-4 w-4 mr-1" />
-                Agregar Teléfono
-              </Button>
+          {/* Error general */}
+          {state.errors?._form && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded">
+              <p className="text-red-600 text-sm">{state.errors._form}</p>
             </div>
+          )}
 
-            <div className="space-y-3">
-              {telefonosEmergencia.map((telefono, index) => (
-                <div key={index} className="flex gap-2 items-start">
-                  <div className="flex-1 space-y-2">
-                    <Input
-                      placeholder="Nombre del contacto (ej: Mamá, Papá)"
-                      value={telefono.nombre}
-                      onChange={(e) => actualizarTelefonoEmergencia(index, 'nombre', e.target.value)}
-                      disabled={loading}
-                    />
-                  </div>
-                  <div className="flex-1 space-y-2">
-                    <Input
-                      type="tel"
-                      placeholder="Número de teléfono"
-                      value={telefono.numero}
-                      onChange={(e) => actualizarTelefonoEmergencia(index, 'numero', e.target.value)}
-                      disabled={loading}
-                    />
-                  </div>
-                  {telefonosEmergencia.length > 1 && (
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => eliminarTelefonoEmergencia(index)}
-                      disabled={loading}
-                      className="mt-0"
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="flex justify-end gap-2 pt-4">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                setFormData({
-                  email: '',
-                  password: '',
-                  nombre: '',
-                  apellidos: '',
-                  matricula: '',
-                  grado: '',
-                  grupo: '',
-                  fecha_nacimiento: '',
-                  telefono: '',
-                  curp: '',
-                  nombre_tutor: '',
-                  informacion_medica: '',
-                  telefonos_emergencia: []
-                })
-                setTelefonosEmergencia([{ nombre: '', numero: '' }])
-              }}
-              disabled={loading}
-            >
-              Limpiar
+          {/* Botones */}
+          <div className="flex justify-end gap-3 pt-4">
+            <Button type="button" variant="outline" onClick={onClose} disabled={isLoading}>
+              Cancelar
             </Button>
-            <Button type="submit" disabled={loading}>
-              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {loading ? 'Creando...' : 'Crear Alumno'}
+            <Button type="submit" disabled={isLoading}>
+              {isLoading ? 'Guardando...' : alumno ? 'Guardar Cambios' : 'Crear Alumno'}
             </Button>
           </div>
         </form>

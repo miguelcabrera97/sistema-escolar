@@ -7,25 +7,10 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { obtenerAlumnos, desactivarAlumno, reactivarAlumno } from '@/app/actions/usuarios-actions'
+import { obtenerAlumnos, desactivarAlumno, reactivarAlumno, type Alumno } from '@/app/actions/usuarios-actions'
 import { Loader2, Users, Pencil, Trash2, RefreshCw, Search, Filter, X } from 'lucide-react'
 import { DialogoEditarAlumno } from './DialogoEditarAlumno'
 import { DialogoConfirmarEliminacion } from './DialogoConfirmarEliminacion'
-
-interface Alumno {
-  id: string
-  matricula: string
-  grado: string
-  grupo: string
-  fecha_nacimiento: string | null
-  profiles: {
-    nombre: string
-    apellidos: string
-    email: string
-    telefono: string | null
-    activo: boolean
-  }
-}
 
 export function ListaAlumnos() {
   const [alumnos, setAlumnos] = useState<Alumno[]>([])
@@ -136,8 +121,8 @@ export function ListaAlumnos() {
 
     // Filtrar por estado
     if (filtroEstado !== 'todos') {
-      const activo = filtroEstado === 'activo'
-      resultado = resultado.filter(alumno => alumno.profiles.activo === activo)
+      const activoFiltro = filtroEstado === 'activo'
+      resultado = resultado.filter(alumno => alumno.profiles.activo === activoFiltro)
     }
 
     return resultado

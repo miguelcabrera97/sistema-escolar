@@ -60,13 +60,45 @@ export default function CalificacionesPadre() {
         return
       }
 
-      // Obtener hijos del padre
-      const { data: hijosData } = await supabase
-        .from('alumnos')
-        .select('*, profiles(nombre, apellidos)')
-        .eq('padre_id', user.id)
+      // Primero obtener el ID del padre
+      const { data: padreData } = await supabase
+        .from('padres')
+        .select('id')
+        .eq('user_id', user.id)
+        .single()
 
-      if (hijosData && hijosData.length > 0) {
+      if (!padreData) {
+        console.error('No se encontró el perfil del padre')
+        return
+      }
+
+      // Obtener hijos del padre a través de la tabla intermedia padre_alumno
+      const { data: relacionesData } = await supabase
+        .from('padre_alumno')
+        .select(`
+          alumno_id,
+          alumnos (
+            id,
+            matricula,
+            grado,
+            grupo,
+            profiles:user_id(nombre, apellidos)
+          )
+        `)
+        .eq('padre_id', padreData.id)
+
+      if (relacionesData && relacionesData.length > 0) {
+        // Transformar los datos para que coincidan con la interfaz Alumno
+        const hijosData = relacionesData
+          .filter(rel => rel.alumnos) // Filtrar nulos
+          .map(rel => ({
+            id: rel.alumnos!.id,
+            matricula: rel.alumnos!.matricula,
+            grado: rel.alumnos!.grado,
+            grupo: rel.alumnos!.grupo,
+            profiles: rel.alumnos!.profiles
+          }))
+
         setHijos(hijosData)
         setHijoSeleccionado(hijosData[0].id) // Seleccionar el primer hijo por defecto
       }

@@ -35,7 +35,7 @@ interface Inscripcion {
 interface Entrega {
   id: string
   status: string
-  calificacion: number | null
+  calificacion: string | null
   fecha_entrega: string | null
 }
 

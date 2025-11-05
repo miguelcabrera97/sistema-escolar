@@ -1,140 +1,84 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
+import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { DollarSign, CheckCircle, Clock, AlertCircle } from 'lucide-react'
-
-interface Profile {
-  nombre: string
-  apellidos: string
-}
-
-interface Alumno {
-  id: string
-  matricula: string
-  profiles: Profile
-}
+import { DollarSign, CheckCircle, Clock, AlertCircle, CreditCard, FileText, ArrowLeft } from 'lucide-react'
+import { obtenerPagosPadre } from '@/app/actions/pagos-actions'
+import { DialogoPagarMercadoPago } from './DialogoPagarMercadoPago'
+import { DialogoPagoManual } from './DialogoPagoManual'
 
 interface Pago {
   id: string
-  concepto: string
+  concepto_nombre: string
   descripcion: string | null
   monto: number
-  status: string
-  fecha_entrega: string
+  estado: string
+  fecha_vencimiento: string
+  created_at: string
   fecha_pago: string | null
   metodo_pago: string | null
-  alumnos: Alumno
+  referencia_pago: string | null
+  comprobante_url: string | null
+  alumnos: {
+    id: string
+    matricula: string
+    grado: string
+    grupo: string
+    profiles: {
+      nombre: string
+      apellidos: string
+    }
+  } | null
 }
 
 export default function PagosPadreContent() {
   const router = useRouter()
-  const searchParams = useSearchParams()
-  const [alumnos, setAlumnos] = useState<Alumno[]>([])
   const [pagos, setPagos] = useState<Pago[]>([])
   const [loading, setLoading] = useState(true)
-  const [procesando, setProcesando] = useState(false)
+  const [pagoSeleccionado, setPagoSeleccionado] = useState<Pago | null>(null)
+  const [dialogoMercadoPagoAbierto, setDialogoMercadoPagoAbierto] = useState(false)
+  const [dialogoPagoManualAbierto, setDialogoPagoManualAbierto] = useState(false)
 
   useEffect(() => {
-    cargarDatos()
-    
-    const success = searchParams.get('success')
-    const pagoId = searchParams.get('pago_id')
-    
-    if (success === 'true' && pagoId) {
-      verificarPago(pagoId)
-    }
-  }, [searchParams])
+    cargarPagos()
+  }, [])
 
-  const cargarDatos = async () => {
+  const cargarPagos = async () => {
+    setLoading(true)
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      
-      if (!user) {
-        router.push('/login')
-        return
-      }
-
-      const { data: alumnosData } = await supabase
-        .from('alumnos')
-        .select('id, matricula, profiles(nombre, apellidos)')
-        .eq('padre_id', user.id)
-
-      if (alumnosData) {
-        setAlumnos(alumnosData)
-
-        const { data: pagosData } = await supabase
-          .from('pagos')
-          .select(`
-            *,
-            alumnos (
-              id,
-              matricula,
-              profiles (
-                nombre,
-                apellidos
-              )
-            )
-          `)
-          .in('alumno_id', alumnosData.map(a => a.id))
-          .order('fecha_entrega', { ascending: true })
-
-        if (pagosData) {
-          setPagos(pagosData)
+      const result = await obtenerPagosPadre()
+      if (result.success) {
+        setPagos(result.data || [])
+      } else {
+        alert('Error al cargar pagos: ' + result.error)
+        if (result.error === 'No autenticado') {
+          router.push('/login')
         }
       }
     } catch (error) {
       console.error('Error:', error)
+      alert('Error al cargar los datos')
     } finally {
       setLoading(false)
     }
   }
 
-  const verificarPago = async (pagoId: string) => {
-    try {
-      const { data } = await supabase
-        .from('pagos')
-        .select('status')
-        .eq('id', pagoId)
-        .single()
-
-      if (data?.status === 'pagado') {
-        alert('Pago procesado exitosamente')
-      } else {
-        alert('El pago está siendo procesado. Actualiza en unos momentos.')
-      }
-    } catch (error) {
-      console.error('Error verificando pago:', error)
-    }
+  const handlePagarMercadoPago = (pago: Pago) => {
+    setPagoSeleccionado(pago)
+    setDialogoMercadoPagoAbierto(true)
   }
 
-  const realizarPago = async (pagoId: string) => {
-    setProcesando(true)
-    try {
-      const response = await fetch('/api/create-payment-session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pagoId })
-      })
+  const handlePagoManual = (pago: Pago) => {
+    setPagoSeleccionado(pago)
+    setDialogoPagoManualAbierto(true)
+  }
 
-      const data = await response.json()
-
-      if (data.url) {
-        window.location.href = data.url
-      } else {
-        alert('Error al crear la sesión de pago')
-      }
-    } catch (error) {
-      console.error('Error:', error)
-      alert('Error al procesar el pago')
-    } finally {
-      setProcesando(false)
-    }
+  const handleSuccess = () => {
+    cargarPagos()
   }
 
   if (loading) {
@@ -148,176 +92,288 @@ export default function PagosPadreContent() {
     )
   }
 
-  const pagosPendientes = pagos.filter(p => p.status === 'pendiente' || p.status === 'vencido')
-  const pagosPagados = pagos.filter(p => p.status === 'pagado')
+  const pagosPendientes = pagos.filter(p => p.estado === 'pendiente' || p.estado === 'vencido')
+  const pagosPagados = pagos.filter(p => p.estado === 'pagado')
   const totalPendiente = pagosPendientes.reduce((sum, p) => sum + p.monto, 0)
+  const totalPagado = pagosPagados.reduce((sum, p) => sum + p.monto, 0)
+
+  // Obtener alumnos únicos
+  const alumnosUnicos = Array.from(
+    new Map(
+      pagos
+        .filter(p => p.alumnos !== null)
+        .map(p => [p.alumnos!.id, p.alumnos!])
+    ).values()
+  )
+
+  const getBadgeVariant = (estado: string) => {
+    switch (estado) {
+      case 'pagado': return 'default'
+      case 'pendiente': return 'outline'
+      case 'vencido': return 'destructive'
+      case 'cancelado': return 'secondary'
+      default: return 'outline'
+    }
+  }
+
+  const getEstadoTexto = (estado: string) => {
+    switch (estado) {
+      case 'pagado': return 'Pagado'
+      case 'pendiente': return 'Pendiente'
+      case 'vencido': return 'Vencido'
+      case 'cancelado': return 'Cancelado'
+      default: return estado
+    }
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 py-6">
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">Pagos</h1>
-              <p className="text-gray-600">Gestiona los pagos de tus hijos</p>
+        <div className="max-w-7xl mx-auto px-4 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Button variant="ghost" onClick={() => router.push('/padre')}>
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Volver
+              </Button>
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">Mis Pagos</h1>
+                <p className="text-sm text-gray-600">Administra los pagos de tus hijos</p>
+              </div>
             </div>
-            <Button variant="outline" onClick={() => {
-              supabase.auth.signOut()
-              router.push('/login')
-            }}>
-              Cerrar Sesion
-            </Button>
           </div>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 py-8">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+      <main className="max-w-7xl mx-auto px-4 py-8 space-y-6">
+        {/* Estadísticas */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Pendiente</CardTitle>
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-red-600">
-                ${totalPendiente.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Total Pendiente</p>
+                  <p className="text-2xl font-bold text-red-600">
+                    ${totalPendiente.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                  </p>
+                </div>
+                <AlertCircle className="h-8 w-8 text-red-600" />
               </div>
-              <p className="text-xs text-muted-foreground">{pagosPendientes.length} pagos</p>
+              <p className="text-xs text-gray-500 mt-2">
+                {pagosPendientes.length} pago{pagosPendientes.length !== 1 ? 's' : ''} pendiente{pagosPendientes.length !== 1 ? 's' : ''}
+              </p>
             </CardContent>
           </Card>
 
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Pagos Realizados</CardTitle>
-              <CheckCircle className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-green-600">{pagosPagados.length}</div>
-              <p className="text-xs text-muted-foreground">Este periodo</p>
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Total Pagado</p>
+                  <p className="text-2xl font-bold text-green-600">
+                    ${totalPagado.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                  </p>
+                </div>
+                <CheckCircle className="h-8 w-8 text-green-600" />
+              </div>
+              <p className="text-xs text-gray-500 mt-2">
+                {pagosPagados.length} pago{pagosPagados.length !== 1 ? 's' : ''} realizado{pagosPagados.length !== 1 ? 's' : ''}
+              </p>
             </CardContent>
           </Card>
 
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Alumnos</CardTitle>
-              <Clock className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{alumnos.length}</div>
-              <p className="text-xs text-muted-foreground">Registrados</p>
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Mis Hijos</p>
+                  <p className="text-2xl font-bold">{alumnosUnicos.length}</p>
+                </div>
+                <Clock className="h-8 w-8 text-blue-600" />
+              </div>
+              <p className="text-xs text-gray-500 mt-2">
+                {alumnosUnicos.map((a, i) => (
+                  <span key={a.id}>
+                    {a.profiles.nombre}
+                    {i < alumnosUnicos.length - 1 && ', '}
+                  </span>
+                ))}
+              </p>
             </CardContent>
           </Card>
         </div>
 
-        <Tabs defaultValue="pendientes" className="space-y-4">
-          <TabsList>
-            <TabsTrigger value="pendientes">Pagos Pendientes</TabsTrigger>
-            <TabsTrigger value="historial">Historial</TabsTrigger>
-          </TabsList>
+        {/* Tabs de pagos */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Mis Pagos</CardTitle>
+            <CardDescription>
+              Gestiona los pagos escolares de tus hijos
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Tabs defaultValue="pendientes">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="pendientes">
+                  Pendientes ({pagosPendientes.length})
+                </TabsTrigger>
+                <TabsTrigger value="historial">
+                  Historial ({pagosPagados.length})
+                </TabsTrigger>
+              </TabsList>
 
-          <TabsContent value="pendientes" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Pagos Pendientes</CardTitle>
-                <CardDescription>Realiza los pagos de tus hijos</CardDescription>
-              </CardHeader>
-              <CardContent>
+              <TabsContent value="pendientes" className="mt-6">
                 {pagosPendientes.length === 0 ? (
                   <div className="text-center py-12 text-gray-500">
                     <CheckCircle className="h-12 w-12 mx-auto mb-4 text-green-500" />
-                    <p>No tienes pagos pendientes</p>
+                    <p className="text-lg font-semibold">¡Todo al día!</p>
+                    <p className="text-sm mt-2">No tienes pagos pendientes</p>
                   </div>
                 ) : (
                   <div className="space-y-4">
                     {pagosPendientes.map((pago) => (
-                      <div key={pago.id} className="flex items-center justify-between p-4 border rounded-lg">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <h3 className="font-semibold">{pago.concepto}</h3>
-                            <Badge variant={pago.status === 'vencido' ? 'destructive' : 'outline'}>
-                              {pago.status === 'vencido' && <AlertCircle className="h-3 w-3 mr-1" />}
-                              {pago.status === 'vencido' ? 'Vencido' : 'Pendiente'}
-                            </Badge>
-                          </div>
-                          <p className="text-sm text-gray-600">
-                            {pago.alumnos.profiles.nombre} {pago.alumnos.profiles.apellidos} - {pago.alumnos.matricula}
-                          </p>
-                          <p className="text-xs text-gray-500">
-                            Vence: {new Date(pago.fecha_entrega).toLocaleDateString('es-MX')}
-                          </p>
-                          {pago.descripcion && (
-                            <p className="text-xs text-gray-500 mt-1">{pago.descripcion}</p>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-4">
-                          <div className="text-right">
-                            <div className="text-2xl font-bold">
-                              ${pago.monto.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                      <div
+                        key={pago.id}
+                        className={`p-6 border-2 rounded-lg ${
+                          pago.estado === 'vencido'
+                            ? 'border-red-300 bg-red-50'
+                            : 'border-gray-200 bg-white'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between mb-4">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-2">
+                              <h3 className="text-lg font-bold">{pago.concepto_nombre}</h3>
+                              <Badge variant={getBadgeVariant(pago.estado)}>
+                                {pago.estado === 'vencido' && <AlertCircle className="h-3 w-3 mr-1" />}
+                                {getEstadoTexto(pago.estado)}
+                              </Badge>
                             </div>
-                            <div className="text-xs text-gray-500">MXN</div>
+                            <p className="text-sm text-gray-600">
+                              {pago.alumnos?.profiles?.nombre || 'N/A'} {pago.alumnos?.profiles?.apellidos || ''}
+                            </p>
+                            {pago.alumnos && (
+                              <p className="text-xs text-gray-500">
+                                {pago.alumnos.matricula} • {pago.alumnos.grado}° {pago.alumnos.grupo}
+                              </p>
+                            )}
+                            {pago.descripcion && (
+                              <p className="text-sm text-gray-600 mt-2">{pago.descripcion}</p>
+                            )}
                           </div>
-                          <Button 
-                            onClick={() => realizarPago(pago.id)}
-                            disabled={procesando}
-                          >
-                            {procesando ? 'Procesando...' : 'Pagar'}
-                          </Button>
+                          <div className="text-right">
+                            <p className="text-3xl font-bold text-green-600">
+                              ${pago.monto.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                            </p>
+                            <p className="text-xs text-gray-500">MXN</p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between pt-4 border-t">
+                          <div className="text-sm text-gray-600">
+                            <Clock className="h-4 w-4 inline mr-1" />
+                            Vence: {new Date(pago.fecha_vencimiento).toLocaleDateString('es-MX', {
+                              year: 'numeric',
+                              month: 'long',
+                              day: 'numeric'
+                            })}
+                          </div>
+                          <div className="flex gap-2">
+                            <Button
+                              variant="outline"
+                              onClick={() => handlePagoManual(pago)}
+                            >
+                              <FileText className="h-4 w-4 mr-2" />
+                              Pago Manual
+                            </Button>
+                            <Button
+                              onClick={() => handlePagarMercadoPago(pago)}
+                            >
+                              <CreditCard className="h-4 w-4 mr-2" />
+                              Pagar con Mercado Pago
+                            </Button>
+                          </div>
                         </div>
                       </div>
                     ))}
                   </div>
                 )}
-              </CardContent>
-            </Card>
-          </TabsContent>
+              </TabsContent>
 
-          <TabsContent value="historial" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Historial de Pagos</CardTitle>
-                <CardDescription>Pagos realizados anteriormente</CardDescription>
-              </CardHeader>
-              <CardContent>
+              <TabsContent value="historial" className="mt-6">
                 {pagosPagados.length === 0 ? (
                   <div className="text-center py-12 text-gray-500">
+                    <FileText className="h-12 w-12 mx-auto mb-4 text-gray-300" />
                     <p>No hay pagos en el historial</p>
                   </div>
                 ) : (
                   <div className="space-y-4">
                     {pagosPagados.map((pago) => (
-                      <div key={pago.id} className="flex items-center justify-between p-4 border rounded-lg bg-green-50">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <h3 className="font-semibold">{pago.concepto}</h3>
-                            <Badge variant="default">
-                              <CheckCircle className="h-3 w-3 mr-1" />
-                              Pagado
-                            </Badge>
+                      <div key={pago.id} className="p-6 border rounded-lg bg-green-50">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-2">
+                              <h3 className="text-lg font-bold">{pago.concepto_nombre}</h3>
+                              <Badge variant="default">
+                                <CheckCircle className="h-3 w-3 mr-1" />
+                                Pagado
+                              </Badge>
+                            </div>
+                            <p className="text-sm text-gray-600">
+                              {pago.alumnos?.profiles?.nombre || 'N/A'} {pago.alumnos?.profiles?.apellidos || ''}
+                            </p>
+                            {pago.alumnos && (
+                              <p className="text-xs text-gray-500">
+                                {pago.alumnos.matricula} • {pago.alumnos.grado}° {pago.alumnos.grupo}
+                              </p>
+                            )}
+                            <div className="mt-3 text-xs text-gray-600">
+                              <p>
+                                Pagado: {pago.fecha_pago && new Date(pago.fecha_pago).toLocaleDateString('es-MX', {
+                                  year: 'numeric',
+                                  month: 'long',
+                                  day: 'numeric'
+                                })}
+                              </p>
+                              <p>
+                                Método: {pago.metodo_pago === 'mercadopago' ? 'Mercado Pago' : 'Manual'}
+                              </p>
+                              {pago.referencia_pago && (
+                                <p className="font-mono">Ref: {pago.referencia_pago}</p>
+                              )}
+                            </div>
                           </div>
-                          <p className="text-sm text-gray-600">
-                            {pago.alumnos.profiles.nombre} {pago.alumnos.profiles.apellidos}
-                          </p>
-                          <p className="text-xs text-gray-500">
-                            Pagado: {pago.fecha_pago ? new Date(pago.fecha_pago).toLocaleDateString('es-MX') : 'N/A'}
-                          </p>
-                          <p className="text-xs text-gray-500">
-                            Metodo: {pago.metodo_pago || 'N/A'}
-                          </p>
-                        </div>
-                        <div className="text-right">
-                          <div className="text-2xl font-bold text-green-600">
-                            ${pago.monto.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                          <div className="text-right">
+                            <p className="text-3xl font-bold text-green-600">
+                              ${pago.monto.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                            </p>
+                            <p className="text-xs text-gray-500">MXN</p>
                           </div>
                         </div>
                       </div>
                     ))}
                   </div>
                 )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
+              </TabsContent>
+            </Tabs>
+          </CardContent>
+        </Card>
       </main>
+
+      {/* Diálogos */}
+      <DialogoPagarMercadoPago
+        pago={pagoSeleccionado}
+        open={dialogoMercadoPagoAbierto}
+        onOpenChange={setDialogoMercadoPagoAbierto}
+        onSuccess={handleSuccess}
+      />
+
+      <DialogoPagoManual
+        pago={pagoSeleccionado}
+        open={dialogoPagoManualAbierto}
+        onOpenChange={setDialogoPagoManualAbierto}
+        onSuccess={handleSuccess}
+      />
     </div>
   )
 }

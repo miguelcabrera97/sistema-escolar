@@ -1,37 +1,580 @@
 'use server'
 
 import { createServerSupabaseClient } from '@/lib/supabase-server'
-import { User, SupabaseClient } from '@supabase/supabase-js'
 import { revalidatePath } from 'next/cache'
+import { z } from 'zod'
 
-// Tipo para teléfonos de emergencia
-export interface TelefonoEmergencia {
-  nombre: string
-  numero: string
-}
+// ============================================
+// SCHEMAS DE VALIDACIÓN
+// ============================================
 
-// Tipos para los formularios
-export interface CrearAlumnoData {
-  email: string
-  password: string
-  nombre: string
-  apellidos: string
+const AlumnoSchema = z.object({
+  id: z.string().optional(),
+  nombre: z.string().min(1, 'El nombre es requerido'),
+  apellidos: z.string().min(1, 'Los apellidos son requeridos'),
+  email: z.string().email('Email inválido'),
+  password: z.string().min(6, 'La contraseña debe tener al menos 6 caracteres').optional(),
+  matricula: z.string().min(1, 'La matrícula es requerida'),
+  grado: z.string().min(1, 'El grado es requerido'),
+  grupo: z.string().min(1, 'El grupo es requerido'),
+  id_padre: z.string().optional(),
+})
+
+// ============================================
+// TIPOS E INTERFACES
+// ============================================
+
+export interface Alumno {
+  id: string
   matricula: string
   grado: string
   grupo: string
-  fecha_nacimiento?: string
-  telefono?: string
-  curp?: string
-  nombre_tutor?: string
-  informacion_medica?: string
-  telefonos_emergencia?: TelefonoEmergencia[]
+  user_id: string
+  profiles: {
+    nombre: string
+    apellidos: string
+    email?: string
+    activo: boolean
+  }
 }
+
+export interface Maestro {
+  id: string
+  user_id: string
+  especialidad?: string
+  activo: boolean
+  profiles: {
+    nombre: string
+    apellidos: string
+    email?: string
+  }
+}
+
+export interface Auxiliar {
+  id: string
+  user_id: string
+  activo: boolean
+  profiles: {
+    nombre: string
+    apellidos: string
+    email?: string
+  }
+}
+
+interface ActionResult {
+  success?: boolean
+  message?: string
+  errors?: Record<string, string[]>
+  error?: string
+}
+
+// ============================================
+// FUNCIONES DE CONSULTA
+// ============================================
+
+export async function getPadres() {
+  try {
+    const supabase = await createServerSupabaseClient()
+
+    console.log('[getPadres] Iniciando consulta...')
+
+    const { data, error } = await supabase
+      .from('padres')
+      .select(`
+        id,
+        user_id,
+        profiles:user_id(nombre, apellidos)
+      `)
+
+    if (error) {
+      console.error('[getPadres] Error:', error)
+      return []
+    }
+
+    if (!data) {
+      console.log('[getPadres] No hay datos')
+      return []
+    }
+
+    console.log('[getPadres] Datos obtenidos:', data.length, 'padres')
+
+    // Mapear y ordenar en JavaScript
+    const padres = data
+      .map(p => ({
+        id: p.id,
+        nombre: p.profiles?.nombre || '',
+        apellidos: p.profiles?.apellidos || ''
+      }))
+      .sort((a, b) => a.nombre.localeCompare(b.nombre))
+
+    console.log('[getPadres] Padres procesados:', padres.length)
+
+    return padres
+  } catch (error) {
+    console.error('[getPadres] Error inesperado:', error)
+    return []
+  }
+}
+
+export async function obtenerAlumnos(): Promise<ActionResult> {
+  try {
+    const supabase = await createServerSupabaseClient()
+
+    console.log('[obtenerAlumnos] Iniciando consulta...')
+
+    const { data, error } = await supabase
+      .from('alumnos')
+      .select(`
+        id,
+        matricula,
+        grado,
+        grupo,
+        user_id,
+        profiles:user_id(nombre, apellidos, email, activo)
+      `)
+      .order('matricula')
+
+    if (error) {
+      console.error('[obtenerAlumnos] Error:', error)
+      return { success: false, error: error.message }
+    }
+
+    console.log('[obtenerAlumnos] Datos obtenidos:', data?.length || 0, 'alumnos')
+
+    return { success: true, data }
+  } catch (error) {
+    console.error('[obtenerAlumnos] Error inesperado:', error)
+    return { success: false, error: 'Error inesperado' }
+  }
+}
+
+export async function obtenerMaestros(): Promise<ActionResult> {
+  try {
+    const supabase = await createServerSupabaseClient()
+
+    const { data, error } = await supabase
+      .from('maestros')
+      .select(`
+        id,
+        user_id,
+        especialidad,
+        profiles:user_id(nombre, apellidos, email, activo)
+      `)
+      .order('profiles(nombre)')
+
+    if (error) {
+      return { success: false, error: error.message }
+    }
+
+    // Transformar datos para que activo esté accesible
+    const maestrosTransformados = data?.map(m => ({
+      id: m.profiles.id || m.user_id,
+      nombre: m.profiles.nombre,
+      apellidos: m.profiles.apellidos,
+      email: m.profiles.email,
+      activo: m.profiles.activo,
+      especialidad: m.especialidad
+    })) || []
+
+    return { success: true, data: maestrosTransformados }
+  } catch (error) {
+    console.error('Error:', error)
+    return { success: false, error: 'Error inesperado' }
+  }
+}
+
+export async function obtenerAuxiliares(): Promise<ActionResult> {
+  try {
+    const supabase = await createServerSupabaseClient()
+
+    const { data, error } = await supabase
+      .from('auxiliares_calificaciones')
+      .select(`
+        id,
+        user_id,
+        profiles:user_id(nombre, apellidos, email, activo)
+      `)
+      .order('profiles(nombre)')
+
+    if (error) {
+      return { success: false, error: error.message }
+    }
+
+    // Transformar datos para que activo esté accesible
+    const auxiliaresTransformados = data?.map(a => ({
+      id: a.profiles.id || a.user_id,
+      nombre: a.profiles.nombre,
+      apellidos: a.profiles.apellidos,
+      email: a.profiles.email,
+      activo: a.profiles.activo
+    })) || []
+
+    return { success: true, data: auxiliaresTransformados }
+  } catch (error) {
+    console.error('Error:', error)
+    return { success: false, error: 'Error inesperado' }
+  }
+}
+
+// ============================================
+// CREAR ALUMNO
+// ============================================
+
+export async function crearAlumno(prevState: any, formData: FormData): Promise<ActionResult> {
+  try {
+    const rawFormData = Object.fromEntries(formData.entries())
+
+    // Validar con Zod
+    const validatedFields = AlumnoSchema.safeParse(rawFormData)
+
+    if (!validatedFields.success) {
+      return {
+        errors: validatedFields.error.flatten().fieldErrors,
+      }
+    }
+
+    const { nombre, apellidos, email, password, matricula, grado, grupo, id_padre } = validatedFields.data
+
+    const supabase = await createServerSupabaseClient()
+
+    // 1. Crear usuario en auth
+    const { data: authData, error: authError } = await supabase.auth.signUp({
+      email: email,
+      password: password || 'temporal123',
+      options: {
+        data: {
+          nombre: nombre,
+          apellidos: apellidos,
+          role: 'alumno',
+        },
+      },
+    })
+
+    if (authError) {
+      console.error('Error creating auth user:', authError)
+      return {
+        errors: { _form: [authError.message] },
+      }
+    }
+
+    if (!authData.user) {
+      return {
+        errors: { _form: ['No se pudo crear el usuario'] },
+      }
+    }
+
+    // 2. Crear perfil en profiles
+    const { error: profileError } = await supabase.from('profiles').insert([
+      {
+        id: authData.user.id,
+        nombre: nombre,
+        apellidos: apellidos,
+        email: email,
+        role: 'alumno',
+        activo: true,
+      },
+    ])
+
+    if (profileError) {
+      console.error('Error creating profile:', profileError)
+      // Intentar eliminar el usuario de auth
+      await supabase.auth.admin.deleteUser(authData.user.id)
+      return {
+        errors: { _form: [profileError.message] },
+      }
+    }
+
+    // 3. Crear registro en alumnos
+    const { error: alumnoError } = await supabase.from('alumnos').insert([
+      {
+        user_id: authData.user.id,
+        matricula: matricula,
+        grado: grado,
+        grupo: grupo,
+      },
+    ])
+
+    if (alumnoError) {
+      console.error('Error creating alumno:', alumnoError)
+      return {
+        errors: { _form: [alumnoError.message] },
+      }
+    }
+
+    // 4. Si hay padre asignado, crear relación en padre_alumno
+    if (id_padre) {
+      const { data: alumnoData } = await supabase
+        .from('alumnos')
+        .select('id')
+        .eq('user_id', authData.user.id)
+        .single()
+
+      if (alumnoData) {
+        await supabase.from('padre_alumno').insert([
+          {
+            padre_id: id_padre,
+            alumno_id: alumnoData.id,
+            parentesco: 'Padre/Madre',
+          },
+        ])
+      }
+    }
+
+    revalidatePath('/directivo/usuarios')
+    return {
+      success: true,
+      message: 'Alumno creado exitosamente',
+    }
+  } catch (error) {
+    console.error('Error:', error)
+    return {
+      errors: { _form: ['Error inesperado al crear alumno'] },
+    }
+  }
+}
+
+// ============================================
+// EDITAR ALUMNO
+// ============================================
+
+export async function editarAlumno(prevState: any, formData: FormData): Promise<ActionResult> {
+  try {
+    const rawFormData = Object.fromEntries(formData.entries())
+
+    const validatedFields = AlumnoSchema.safeParse(rawFormData)
+
+    if (!validatedFields.success) {
+      return {
+        errors: validatedFields.error.flatten().fieldErrors,
+      }
+    }
+
+    const { id, nombre, apellidos, email, matricula, grado, grupo, id_padre } = validatedFields.data
+
+    if (!id) {
+      return {
+        errors: { _form: ['El ID del alumno es requerido'] },
+      }
+    }
+
+    const supabase = await createServerSupabaseClient()
+
+    // 1. Obtener user_id del alumno
+    const { data: alumnoData, error: alumnoQueryError } = await supabase
+      .from('alumnos')
+      .select('user_id, id')
+      .eq('id', id)
+      .single()
+
+    if (alumnoQueryError || !alumnoData) {
+      return {
+        errors: { _form: ['Alumno no encontrado'] },
+      }
+    }
+
+    // 2. Actualizar profiles
+    const { error: profileError } = await supabase
+      .from('profiles')
+      .update({
+        nombre: nombre,
+        apellidos: apellidos,
+        email: email,
+      })
+      .eq('id', alumnoData.user_id)
+
+    if (profileError) {
+      console.error('Error updating profile:', profileError)
+      return {
+        errors: { _form: [profileError.message] },
+      }
+    }
+
+    // 3. Actualizar alumnos
+    const { error: alumnoError } = await supabase
+      .from('alumnos')
+      .update({
+        matricula: matricula,
+        grado: grado,
+        grupo: grupo,
+      })
+      .eq('id', id)
+
+    if (alumnoError) {
+      console.error('Error updating alumno:', alumnoError)
+      return {
+        errors: { _form: [alumnoError.message] },
+      }
+    }
+
+    // 4. Actualizar relación con padre
+    // Primero eliminar relaciones existentes
+    await supabase.from('padre_alumno').delete().eq('alumno_id', alumnoData.id)
+
+    // Si hay padre asignado, crear nueva relación
+    if (id_padre) {
+      await supabase.from('padre_alumno').insert([
+        {
+          padre_id: id_padre,
+          alumno_id: alumnoData.id,
+          parentesco: 'Padre/Madre',
+        },
+      ])
+    }
+
+    revalidatePath('/directivo/usuarios')
+    return {
+      success: true,
+      message: 'Alumno actualizado exitosamente',
+    }
+  } catch (error) {
+    console.error('Error:', error)
+    return {
+      errors: { _form: ['Error inesperado al actualizar alumno'] },
+    }
+  }
+}
+
+// ============================================
+// ACTIVAR/DESACTIVAR USUARIO
+// ============================================
+
+export async function toggleActivoAlumno(id: string, activo: boolean): Promise<ActionResult> {
+  try {
+    const supabase = await createServerSupabaseClient()
+
+    // Obtener user_id del alumno
+    const { data: alumnoData } = await supabase
+      .from('alumnos')
+      .select('user_id')
+      .eq('id', id)
+      .single()
+
+    if (!alumnoData) {
+      return { success: false, error: 'Alumno no encontrado' }
+    }
+
+    // Actualizar el campo activo en profiles
+    const { error } = await supabase
+      .from('profiles')
+      .update({ activo })
+      .eq('id', alumnoData.user_id)
+
+    if (error) {
+      return { success: false, error: error.message }
+    }
+
+    revalidatePath('/directivo/usuarios')
+    return { success: true, message: `Alumno ${activo ? 'activado' : 'desactivado'} exitosamente` }
+  } catch (error) {
+    console.error('Error:', error)
+    return { success: false, error: 'Error inesperado' }
+  }
+}
+
+export async function toggleActivoMaestro(id: string, activo: boolean): Promise<ActionResult> {
+  try {
+    const supabase = await createServerSupabaseClient()
+
+    // Obtener user_id del maestro
+    const { data: maestroData } = await supabase
+      .from('maestros')
+      .select('user_id')
+      .eq('id', id)
+      .single()
+
+    if (!maestroData) {
+      return { success: false, error: 'Maestro no encontrado' }
+    }
+
+    // Actualizar el campo activo en profiles
+    const { error } = await supabase
+      .from('profiles')
+      .update({ activo })
+      .eq('id', maestroData.user_id)
+
+    if (error) {
+      return { success: false, error: error.message }
+    }
+
+    revalidatePath('/directivo/usuarios')
+    return { success: true, message: `Maestro ${activo ? 'activado' : 'desactivado'} exitosamente` }
+  } catch (error) {
+    console.error('Error:', error)
+    return { success: false, error: 'Error inesperado' }
+  }
+}
+
+export async function toggleActivoAuxiliar(id: string, activo: boolean): Promise<ActionResult> {
+  try {
+    const supabase = await createServerSupabaseClient()
+
+    // Obtener user_id del auxiliar
+    const { data: auxiliarData } = await supabase
+      .from('auxiliares_calificaciones')
+      .select('user_id')
+      .eq('id', id)
+      .single()
+
+    if (!auxiliarData) {
+      return { success: false, error: 'Auxiliar no encontrado' }
+    }
+
+    // Actualizar el campo activo en profiles
+    const { error } = await supabase
+      .from('profiles')
+      .update({ activo })
+      .eq('id', auxiliarData.user_id)
+
+    if (error) {
+      return { success: false, error: error.message }
+    }
+
+    revalidatePath('/directivo/usuarios')
+    return { success: true, message: `Auxiliar ${activo ? 'activado' : 'desactivado'} exitosamente` }
+  } catch (error) {
+    console.error('Error:', error)
+    return { success: false, error: 'Error inesperado' }
+  }
+}
+
+// ============================================
+// FUNCIONES DE COMPATIBILIDAD (LEGACY)
+// ============================================
+
+export async function desactivarAlumno(id: string): Promise<ActionResult> {
+  return toggleActivoAlumno(id, false)
+}
+
+export async function reactivarAlumno(id: string): Promise<ActionResult> {
+  return toggleActivoAlumno(id, true)
+}
+
+export async function desactivarMaestro(id: string): Promise<ActionResult> {
+  return toggleActivoMaestro(id, false)
+}
+
+export async function reactivarMaestro(id: string): Promise<ActionResult> {
+  return toggleActivoMaestro(id, true)
+}
+
+// ============================================
+// TIPOS LEGACY (COMPATIBILIDAD)
+// ============================================
 
 export interface CrearMaestroData {
   email: string
   password: string
   nombre: string
   apellidos: string
+  especialidad?: string
+  telefono?: string
+}
+
+export interface EditarMaestroData {
+  id: string
+  nombre: string
+  apellidos: string
+  email: string
   especialidad?: string
   telefono?: string
 }
@@ -44,902 +587,174 @@ export interface CrearAuxiliarData {
   telefono?: string
 }
 
-export interface EditarAlumnoData {
-  id: string
-  nombre: string
-  apellidos: string
-  matricula: string
-  grado: string
-  grupo: string
-  fecha_nacimiento?: string
-  telefono?: string
-  email: string
-  curp?: string
-  nombre_tutor?: string
-  informacion_medica?: string
-  telefonos_emergencia?: TelefonoEmergencia[]
-}
+// ============================================
+// FUNCIONES DE MAESTROS (LEGACY)
+// ============================================
 
-export interface EditarMaestroData {
-  id: string
-  nombre: string
-  apellidos: string
-  email: string
-  especialidad?: string
-  telefono?: string
-}
-
-type UserRole = 'alumno' | 'maestro' | 'auxiliar_calificaciones' | 'directivo'
-
-/**
- * Helper para verificar que el usuario actual es un directivo.
- * Lanza un error si no está autenticado o no tiene el rol correcto.
- */
-async function requireDirectivoRole(supabase: SupabaseClient): Promise<User> {
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) {
-    throw new Error('No autenticado')
-  }
-
-  const { data: profile, error } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-
-  if (error || profile?.role !== 'directivo') {
-    throw new Error('No autorizado. Se requiere rol de directivo.')
-  }
-
-  return user
-}
-
-/**
- * Crear un nuevo alumno en el sistema
- * Solo puede ser ejecutado por usuarios con rol 'directivo'
- */
-export async function crearAlumno(data: CrearAlumnoData) {
-  const supabase = await createServerSupabaseClient()
+export async function crearMaestro(data: CrearMaestroData): Promise<ActionResult> {
   try {
-    await requireDirectivoRole(supabase)
-    // Verificar que la matrícula no exista
-    const { data: existingMatricula } = await supabase
-      .from('alumnos')
-      .select('id')
-      .eq('matricula', data.matricula)
-      .single()
+    const supabase = await createServerSupabaseClient()
 
-    if (existingMatricula) {
-      return { success: false, error: 'La matrícula ya existe' }
-    }
-
-    // Crear usuario y perfil de forma transaccional
-    const userResult = await crearUsuario(data, 'alumno')
-    if (!userResult.success) return userResult
-
-    // Crear registro de alumno
-    const { error: alumnoError } = await supabase
-      .from('alumnos')
-      .insert({
-        user_id: userResult.userId,
-        matricula: data.matricula,
-        grado: data.grado,
-        grupo: data.grupo,
-        fecha_nacimiento: data.fecha_nacimiento || null,
-        curp: data.curp || null,
-        nombre_tutor: data.nombre_tutor || null,
-        informacion_medica: data.informacion_medica || null,
-        telefonos_emergencia: data.telefonos_emergencia || []
-      })
-
-    if (alumnoError) {
-      // Si la creación del alumno falla, eliminamos el usuario y perfil creados.
-      const adminSupabase = await createServerSupabaseClient(true) // Usar service_role
-      await adminSupabase.auth.admin.deleteUser(userResult.userId)
-      await supabase.from('profiles').delete().eq('id', userResult.userId)
-
-      return { success: false, error: 'Error al crear alumno: ' + alumnoError.message }
-    }
-
-    // Revalidar las páginas que muestran alumnos
-    revalidatePath('/directivo/alumnos')
-    revalidatePath('/directivo')
-
-    return {
-      success: true,
-      message: 'Alumno creado exitosamente'
-    }
-
-  } catch (error) {
-    console.error('Error al crear alumno:', error)
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Error desconocido'
-    }
-  }
-}
-
-/**
- * Función genérica para crear un usuario en Auth y su perfil en la tabla `profiles`.
- * Es más atómica: si la creación del perfil falla, elimina el usuario de Auth.
- */
-async function crearUsuario(
-  data: CrearAlumnoData | CrearMaestroData | CrearAuxiliarData,
-  role: UserRole
-) {
-  const supabase = await createServerSupabaseClient()
-  const adminSupabase = await createServerSupabaseClient(true) // Cliente con service_role para admin actions
-
-  // 1. Crear usuario en Supabase Auth
-  const { data: authData, error: authError } = await supabase.auth.signUp({
-    email: data.email,
-    password: data.password,
-    options: {
-      data: {
-        nombre: data.nombre,
-        apellidos: data.apellidos,
-        role: role
-      }
-    }
-  })
-
-  if (authError || !authData.user) {
-    return { success: false, error: authError?.message || 'Error al crear usuario en Auth' }
-  }
-
-  const userId = authData.user.id
-
-  // 2. Crear perfil en la tabla `profiles`
-  const { error: profileError } = await supabase
-    .from('profiles')
-    .insert({
-      id: userId,
-      nombre: data.nombre,
-      apellidos: data.apellidos,
+    // 1. Crear usuario en auth
+    const { data: authData, error: authError } = await supabase.auth.signUp({
       email: data.email,
-      role: role,
-      telefono: data.telefono || null,
-      activo: true // Aseguramos que el campo 'activo' tenga un valor por defecto
+      password: data.password,
+      options: {
+        data: {
+          nombre: data.nombre,
+          apellidos: data.apellidos,
+          role: 'maestro',
+        },
+      },
     })
 
-  if (profileError) {
-    // Si la creación del perfil falla, eliminamos el usuario de Auth para mantener la consistencia.
-    await adminSupabase.auth.admin.deleteUser(userId)
-    return { success: false, error: 'Error al crear perfil: ' + profileError.message }
-  }
+    if (authError || !authData.user) {
+      return { success: false, error: authError?.message || 'Error al crear usuario' }
+    }
 
-  return { success: true, userId }
-}
+    // 2. Crear perfil
+    const { error: profileError } = await supabase.from('profiles').insert([
+      {
+        id: authData.user.id,
+        nombre: data.nombre,
+        apellidos: data.apellidos,
+        email: data.email,
+        role: 'maestro',
+        activo: true,
+      },
+    ])
 
-/**
- * Crear un nuevo auxiliar de calificaciones en el sistema
- * Solo puede ser ejecutado por usuarios con rol 'directivo'
- */
-export async function crearAuxiliar(data: CrearAuxiliarData) {
-  const supabase = await createServerSupabaseClient()
-  try {
-    await requireDirectivoRole(supabase)
+    if (profileError) {
+      await supabase.auth.admin.deleteUser(authData.user.id)
+      return { success: false, error: profileError.message }
+    }
 
-    const result = await crearUsuario(data, 'auxiliar_calificaciones')
-    if (!result.success) return result
+    // 3. Crear maestro
+    const { error: maestroError } = await supabase.from('maestros').insert([
+      {
+        user_id: authData.user.id,
+        especialidad: data.especialidad || null,
+      },
+    ])
 
-    // Revalidar las páginas que muestran usuarios
+    if (maestroError) {
+      return { success: false, error: maestroError.message }
+    }
+
     revalidatePath('/directivo/usuarios')
-    revalidatePath('/directivo')
-
-    return {
-      success: true,
-      message: 'Auxiliar de calificaciones creado exitosamente'
-    }
-
+    return { success: true, message: 'Maestro creado exitosamente' }
   } catch (error) {
-    console.error('Error al crear auxiliar:', error)
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Error desconocido'
-    }
+    console.error('Error:', error)
+    return { success: false, error: 'Error inesperado' }
   }
 }
 
-/**
- * Crear un nuevo maestro en el sistema
- * Solo puede ser ejecutado por usuarios con rol 'directivo'
- */
-export async function crearMaestro(data: CrearMaestroData) {
-  const supabase = await createServerSupabaseClient()
-  try {
-    await requireDirectivoRole(supabase)
-
-    const result = await crearUsuario(data, 'maestro')
-    if (!result.success) return result
-
-    // Si se proporcionó especialidad, crear registro adicional si tienes tabla de maestros
-    // Si no tienes tabla maestros, puedes guardar la especialidad en profiles o crear la tabla
-
-    // Revalidar las páginas que muestran maestros
-    revalidatePath('/directivo/maestros')
-    revalidatePath('/directivo')
-
-    return {
-      success: true,
-      message: 'Maestro creado exitosamente'
-    }
-
-  } catch (error) {
-    console.error('Error al crear maestro:', error)
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Error desconocido'
-    }
-  }
-}
-
-/**
- * Obtener lista de todos los alumnos (para directivo)
- */
-export async function obtenerAlumnos() {
+export async function editarMaestro(data: EditarMaestroData): Promise<ActionResult> {
   try {
     const supabase = await createServerSupabaseClient()
 
-    const { data: { user } } = await supabase.auth.getUser()
-
-    if (!user) {
-      return { success: false, error: 'No autenticado', data: [] }
-    }
-
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
-
-    if (profile?.role !== 'directivo') {
-      return { success: false, error: 'No autorizado', data: [] }
-    }
-
-    const { data: alumnos, error } = await supabase
-      .from('alumnos')
-      .select(`
-        *,
-        profiles (
-          nombre,
-          apellidos,
-          email,
-          telefono,
-          activo
-        )
-      `)
-      .order('matricula')
-
-    if (error) {
-      return { success: false, error: error.message, data: [] }
-    }
-
-    return { success: true, data: alumnos || [] }
-
-  } catch (error) {
-    console.error('Error al obtener alumnos:', error)
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Error desconocido',
-      data: []
-    }
-  }
-}
-
-/**
- * Obtener lista de todos los auxiliares de calificaciones (para directivo)
- */
-export async function obtenerAuxiliares() {
-  try {
-    const supabase = await createServerSupabaseClient()
-
-    const { data: { user } } = await supabase.auth.getUser()
-
-    if (!user) {
-      return { success: false, error: 'No autenticado', data: [] }
-    }
-
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
-
-    if (profile?.role !== 'directivo') {
-      return { success: false, error: 'No autorizado', data: [] }
-    }
-
-    const { data: auxiliares, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('role', 'auxiliar_calificaciones')
-      .order('apellidos')
-
-    if (error) {
-      return { success: false, error: error.message, data: [] }
-    }
-
-    return { success: true, data: auxiliares || [] }
-
-  } catch (error) {
-    console.error('Error al obtener auxiliares:', error)
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Error desconocido',
-      data: []
-    }
-  }
-}
-
-/**
- * Obtener lista de todos los maestros (para directivo)
- */
-export async function obtenerMaestros() {
-  try {
-    const supabase = await createServerSupabaseClient()
-
-    const { data: { user } } = await supabase.auth.getUser()
-
-    if (!user) {
-      return { success: false, error: 'No autenticado', data: [] }
-    }
-
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
-
-    if (profile?.role !== 'directivo') {
-      return { success: false, error: 'No autorizado', data: [] }
-    }
-
-    const { data: maestros, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('role', 'maestro')
-      .order('apellidos')
-
-    if (error) {
-      return { success: false, error: error.message, data: [] }
-    }
-
-    return { success: true, data: maestros || [] }
-
-  } catch (error) {
-    console.error('Error al obtener maestros:', error)
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Error desconocido',
-      data: []
-    }
-  }
-}
-
-/**
- * Editar información de un alumno existente
- * Solo puede ser ejecutado por usuarios con rol 'directivo'
- */
-export async function editarAlumno(data: EditarAlumnoData) {
-  try {
-    const supabase = await createServerSupabaseClient()
-
-    // Verificar que el usuario sea directivo
-    const { data: { user } } = await supabase.auth.getUser()
-
-    if (!user) {
-      return { success: false, error: 'No autenticado' }
-    }
-
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
-
-    if (profile?.role !== 'directivo') {
-      return { success: false, error: 'No autorizado. Solo directivos pueden editar alumnos.' }
-    }
-
-    // Verificar que el alumno exista
-    const { data: existingAlumno } = await supabase
-      .from('alumnos')
+    // 1. Obtener user_id del maestro
+    const { data: maestroData } = await supabase
+      .from('maestros')
       .select('user_id')
       .eq('id', data.id)
       .single()
 
-    if (!existingAlumno) {
-      return { success: false, error: 'Alumno no encontrado' }
+    if (!maestroData) {
+      return { success: false, error: 'Maestro no encontrado' }
     }
 
-    // Verificar que la matrícula no esté en uso por otro alumno
-    const { data: matriculaCheck } = await supabase
-      .from('alumnos')
-      .select('id')
-      .eq('matricula', data.matricula)
-      .neq('id', data.id)
-      .single()
-
-    if (matriculaCheck) {
-      return { success: false, error: 'La matrícula ya está en uso por otro alumno' }
-    }
-
-    // Actualizar perfil
+    // 2. Actualizar profile
     const { error: profileError } = await supabase
       .from('profiles')
       .update({
         nombre: data.nombre,
         apellidos: data.apellidos,
         email: data.email,
-        telefono: data.telefono || null
       })
-      .eq('id', existingAlumno.user_id)
+      .eq('id', maestroData.user_id)
 
     if (profileError) {
-      return { success: false, error: 'Error al actualizar perfil: ' + profileError.message }
+      return { success: false, error: profileError.message }
     }
 
-    // Actualizar información del alumno
-    const { error: alumnoError } = await supabase
-      .from('alumnos')
+    // 3. Actualizar maestro
+    const { error: maestroError } = await supabase
+      .from('maestros')
       .update({
-        matricula: data.matricula,
-        grado: data.grado,
-        grupo: data.grupo,
-        fecha_nacimiento: data.fecha_nacimiento || null,
-        curp: data.curp || null,
-        nombre_tutor: data.nombre_tutor || null,
-        informacion_medica: data.informacion_medica || null,
-        telefonos_emergencia: data.telefonos_emergencia || []
+        especialidad: data.especialidad || null,
       })
       .eq('id', data.id)
 
-    if (alumnoError) {
-      return { success: false, error: 'Error al actualizar alumno: ' + alumnoError.message }
+    if (maestroError) {
+      return { success: false, error: maestroError.message }
     }
 
-    // Revalidar las páginas
-    revalidatePath('/directivo/alumnos')
     revalidatePath('/directivo/usuarios')
-    revalidatePath('/directivo')
-
-    return {
-      success: true,
-      message: 'Alumno actualizado exitosamente'
-    }
-
+    return { success: true, message: 'Maestro actualizado exitosamente' }
   } catch (error) {
-    console.error('Error al editar alumno:', error)
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Error desconocido'
-    }
+    console.error('Error:', error)
+    return { success: false, error: 'Error inesperado' }
   }
 }
 
-/**
- * Editar información de un maestro existente
- * Solo puede ser ejecutado por usuarios con rol 'directivo'
- */
-export async function editarMaestro(data: EditarMaestroData) {
+// ============================================
+// FUNCIONES DE AUXILIARES (LEGACY)
+// ============================================
+
+export async function crearAuxiliar(data: CrearAuxiliarData): Promise<ActionResult> {
   try {
     const supabase = await createServerSupabaseClient()
 
-    // Verificar que el usuario sea directivo
-    const { data: { user } } = await supabase.auth.getUser()
+    // 1. Crear usuario en auth
+    const { data: authData, error: authError } = await supabase.auth.signUp({
+      email: data.email,
+      password: data.password,
+      options: {
+        data: {
+          nombre: data.nombre,
+          apellidos: data.apellidos,
+          role: 'auxiliar_calificaciones',
+        },
+      },
+    })
 
-    if (!user) {
-      return { success: false, error: 'No autenticado' }
+    if (authError || !authData.user) {
+      return { success: false, error: authError?.message || 'Error al crear usuario' }
     }
 
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
-
-    if (profile?.role !== 'directivo') {
-      return { success: false, error: 'No autorizado. Solo directivos pueden editar maestros.' }
-    }
-
-    // Verificar que el maestro exista y tenga rol de maestro
-    const { data: existingMaestro } = await supabase
-      .from('profiles')
-      .select('id, role')
-      .eq('id', data.id)
-      .single()
-
-    if (!existingMaestro) {
-      return { success: false, error: 'Maestro no encontrado' }
-    }
-
-    if (existingMaestro.role !== 'maestro') {
-      return { success: false, error: 'El usuario no es un maestro' }
-    }
-
-    // Actualizar perfil del maestro
-    const { error: profileError } = await supabase
-      .from('profiles')
-      .update({
+    // 2. Crear perfil
+    const { error: profileError } = await supabase.from('profiles').insert([
+      {
+        id: authData.user.id,
         nombre: data.nombre,
         apellidos: data.apellidos,
         email: data.email,
-        telefono: data.telefono || null
-      })
-      .eq('id', data.id)
+        role: 'auxiliar_calificaciones',
+        activo: true,
+      },
+    ])
 
     if (profileError) {
-      return { success: false, error: 'Error al actualizar maestro: ' + profileError.message }
+      await supabase.auth.admin.deleteUser(authData.user.id)
+      return { success: false, error: profileError.message }
     }
 
-    // Revalidar las páginas
-    revalidatePath('/directivo/usuarios')
-    revalidatePath('/directivo')
-
-    return {
-      success: true,
-      message: 'Maestro actualizado exitosamente'
-    }
-
-  } catch (error) {
-    console.error('Error al editar maestro:', error)
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Error desconocido'
-    }
-  }
-}
-
-/**
- * Obtener datos completos de un alumno para edición
- */
-export async function obtenerAlumnoPorId(alumnoId: string) {
-  try {
-    const supabase = await createServerSupabaseClient()
-
-    const { data: { user } } = await supabase.auth.getUser()
-
-    if (!user) {
-      return { success: false, error: 'No autenticado', data: null }
-    }
-
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
-
-    if (profile?.role !== 'directivo') {
-      return { success: false, error: 'No autorizado', data: null }
-    }
-
-    const { data: alumno, error } = await supabase
-      .from('alumnos')
-      .select(`
-        *,
-        profiles (
-          nombre,
-          apellidos,
-          email,
-          telefono
-        )
-      `)
-      .eq('id', alumnoId)
-      .single()
-
-    if (error || !alumno) {
-      return { success: false, error: 'Alumno no encontrado', data: null }
-    }
-
-    return { success: true, data: alumno }
-
-  } catch (error) {
-    console.error('Error al obtener alumno:', error)
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Error desconocido',
-      data: null
-    }
-  }
-}
-
-/**
- * Obtener datos completos de un maestro para edición
- */
-export async function obtenerMaestroPorId(maestroId: string) {
-  try {
-    const supabase = await createServerSupabaseClient()
-
-    const { data: { user } } = await supabase.auth.getUser()
-
-    if (!user) {
-      return { success: false, error: 'No autenticado', data: null }
-    }
-
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
-
-    if (profile?.role !== 'directivo') {
-      return { success: false, error: 'No autorizado', data: null }
-    }
-
-    const { data: maestro, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', maestroId)
-      .eq('role', 'maestro')
-      .single()
-
-    if (error || !maestro) {
-      return { success: false, error: 'Maestro no encontrado', data: null }
-    }
-
-    return { success: true, data: maestro }
-
-  } catch (error) {
-    console.error('Error al obtener maestro:', error)
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Error desconocido',
-      data: null
-    }
-  }
-}
-
-/**
- * Desactivar un alumno (soft delete)
- * Solo puede ser ejecutado por usuarios con rol 'directivo'
- */
-export async function desactivarAlumno(alumnoId: string) {
-  try {
-    const supabase = await createServerSupabaseClient()
-
-    // Verificar que el usuario sea directivo
-    const { data: { user } } = await supabase.auth.getUser()
-
-    if (!user) {
-      return { success: false, error: 'No autenticado' }
-    }
-
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
-
-    if (profile?.role !== 'directivo') {
-      return { success: false, error: 'No autorizado. Solo directivos pueden desactivar alumnos.' }
-    }
-
-    // Verificar que el alumno exista
-    const { data: existingAlumno } = await supabase
-      .from('alumnos')
-      .select('user_id')
-      .eq('id', alumnoId)
-      .single()
-
-    if (!existingAlumno) {
-      return { success: false, error: 'Alumno no encontrado' }
-    }
-
-    // Marcar perfil como inactivo
-    const { error: profileError } = await supabase
-      .from('profiles')
-      .update({ activo: false })
-      .eq('id', existingAlumno.user_id)
-
-    if (profileError) {
-      return { success: false, error: 'Error al desactivar alumno: ' + profileError.message }
-    }
-
-    // Revalidar las páginas
-    revalidatePath('/directivo/alumnos')
-    revalidatePath('/directivo/usuarios')
-    revalidatePath('/directivo')
-
-    return {
-      success: true,
-      message: 'Alumno desactivado exitosamente'
-    }
-
-  } catch (error) {
-    console.error('Error al desactivar alumno:', error)
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Error desconocido'
-    }
-  }
-}
-
-/**
- * Desactivar un maestro (soft delete)
- * Solo puede ser ejecutado por usuarios con rol 'directivo'
- */
-export async function desactivarMaestro(maestroId: string) {
-  try {
-    const supabase = await createServerSupabaseClient()
-
-    // Verificar que el usuario sea directivo
-    const { data: { user } } = await supabase.auth.getUser()
-
-    if (!user) {
-      return { success: false, error: 'No autenticado' }
-    }
-
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
-
-    if (profile?.role !== 'directivo') {
-      return { success: false, error: 'No autorizado. Solo directivos pueden desactivar maestros.' }
-    }
-
-    // Verificar que el maestro exista y tenga rol de maestro
-    const { data: existingMaestro } = await supabase
-      .from('profiles')
-      .select('id, role')
-      .eq('id', maestroId)
-      .single()
-
-    if (!existingMaestro) {
-      return { success: false, error: 'Maestro no encontrado' }
-    }
-
-    if (existingMaestro.role !== 'maestro') {
-      return { success: false, error: 'El usuario no es un maestro' }
-    }
-
-    // Marcar perfil como inactivo
-    const { error: profileError } = await supabase
-      .from('profiles')
-      .update({ activo: false })
-      .eq('id', maestroId)
-
-    if (profileError) {
-      return { success: false, error: 'Error al desactivar maestro: ' + profileError.message }
-    }
-
-    // Revalidar las páginas
-    revalidatePath('/directivo/usuarios')
-    revalidatePath('/directivo')
-
-    return {
-      success: true,
-      message: 'Maestro desactivado exitosamente'
-    }
-
-  } catch (error) {
-    console.error('Error al desactivar maestro:', error)
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Error desconocido'
-    }
-  }
-}
-
-/**
- * Reactivar un alumno
- * Solo puede ser ejecutado por usuarios con rol 'directivo'
- */
-export async function reactivarAlumno(alumnoId: string) {
-  try {
-    const supabase = await createServerSupabaseClient()
-
-    const { data: { user } } = await supabase.auth.getUser()
-
-    if (!user) {
-      return { success: false, error: 'No autenticado' }
-    }
-
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
-
-    if (profile?.role !== 'directivo') {
-      return { success: false, error: 'No autorizado' }
-    }
-
-    const { data: existingAlumno } = await supabase
-      .from('alumnos')
-      .select('user_id')
-      .eq('id', alumnoId)
-      .single()
-
-    if (!existingAlumno) {
-      return { success: false, error: 'Alumno no encontrado' }
-    }
-
-    const { error: profileError } = await supabase
-      .from('profiles')
-      .update({ activo: true })
-      .eq('id', existingAlumno.user_id)
-
-    if (profileError) {
-      return { success: false, error: 'Error al reactivar alumno: ' + profileError.message }
-    }
-
-    revalidatePath('/directivo/alumnos')
-    revalidatePath('/directivo/usuarios')
-    revalidatePath('/directivo')
-
-    return {
-      success: true,
-      message: 'Alumno reactivado exitosamente'
-    }
-
-  } catch (error) {
-    console.error('Error al reactivar alumno:', error)
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Error desconocido'
-    }
-  }
-}
-
-/**
- * Reactivar un maestro
- * Solo puede ser ejecutado por usuarios con rol 'directivo'
- */
-export async function reactivarMaestro(maestroId: string) {
-  try {
-    const supabase = await createServerSupabaseClient()
-
-    const { data: { user } } = await supabase.auth.getUser()
-
-    if (!user) {
-      return { success: false, error: 'No autenticado' }
-    }
-
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
-
-    if (profile?.role !== 'directivo') {
-      return { success: false, error: 'No autorizado' }
-    }
-
-    const { data: existingMaestro } = await supabase
-      .from('profiles')
-      .select('id, role')
-      .eq('id', maestroId)
-      .single()
-
-    if (!existingMaestro || existingMaestro.role !== 'maestro') {
-      return { success: false, error: 'Maestro no encontrado' }
-    }
-
-    const { error: profileError } = await supabase
-      .from('profiles')
-      .update({ activo: true })
-      .eq('id', maestroId)
-
-    if (profileError) {
-      return { success: false, error: 'Error al reactivar maestro: ' + profileError.message }
+    // 3. Crear auxiliar
+    const { error: auxiliarError } = await supabase.from('auxiliares_calificaciones').insert([
+      {
+        user_id: authData.user.id,
+      },
+    ])
+
+    if (auxiliarError) {
+      return { success: false, error: auxiliarError.message }
     }
 
     revalidatePath('/directivo/usuarios')
-    revalidatePath('/directivo')
-
-    return {
-      success: true,
-      message: 'Maestro reactivado exitosamente'
-    }
-
+    return { success: true, message: 'Auxiliar creado exitosamente' }
   } catch (error) {
-    console.error('Error al reactivar maestro:', error)
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Error desconocido'
-    }
+    console.error('Error:', error)
+    return { success: false, error: 'Error inesperado' }
   }
 }

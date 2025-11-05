@@ -21,6 +21,10 @@ export default function FormularioSubirBoleta({ alumnos, onBoletaSubida }: Formu
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
 
+  // Estados para los valores de los Select
+  const [alumnoSeleccionado, setAlumnoSeleccionado] = useState<string>('')
+  const [periodoSeleccionado, setPeriodoSeleccionado] = useState<string>('')
+
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (!formRef.current) return
@@ -35,6 +39,8 @@ export default function FormularioSubirBoleta({ alumnos, onBoletaSubida }: Formu
     if (result.success) {
       setSuccess('Boleta subida exitosamente.')
       formRef.current.reset()
+      setAlumnoSeleccionado('')
+      setPeriodoSeleccionado('')
       onBoletaSubida() // Llamar a la función de callback
     } else {
       setError(result.error || 'Ocurrió un error inesperado.')
@@ -55,10 +61,14 @@ export default function FormularioSubirBoleta({ alumnos, onBoletaSubida }: Formu
       </CardHeader>
       <CardContent>
         <form ref={formRef} onSubmit={handleSubmit} className="space-y-4">
+          {/* Campos ocultos para enviar los valores de los Select */}
+          <input type="hidden" name="alumno_id" value={alumnoSeleccionado} />
+          <input type="hidden" name="periodo" value={periodoSeleccionado} />
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="alumno_id">Alumno</Label>
-              <Select name="alumno_id" required>
+              <Select value={alumnoSeleccionado} onValueChange={setAlumnoSeleccionado} required>
                 <SelectTrigger>
                   <SelectValue placeholder="Seleccione un alumno" />
                 </SelectTrigger>
@@ -73,7 +83,7 @@ export default function FormularioSubirBoleta({ alumnos, onBoletaSubida }: Formu
             </div>
             <div className="space-y-2">
               <Label htmlFor="periodo">Periodo</Label>
-              <Select name="periodo" required>
+              <Select value={periodoSeleccionado} onValueChange={setPeriodoSeleccionado} required>
                 <SelectTrigger>
                   <SelectValue placeholder="Seleccione un periodo" />
                 </SelectTrigger>

@@ -150,24 +150,62 @@ export async function obtenerCursosAuxiliar(auxiliarId: string): Promise<Result>
 
 export async function obtenerCursos(): Promise<Result> {
   try {
+    console.log('[obtenerCursos] Iniciando consulta...')
     const supabase = await createServerSupabaseClient()
 
-    const { data: cursos, error } = await supabase
+    // Obtener cursos
+    const { data: cursos, error: cursosError } = await supabase
       .from('cursos')
-      .select('*, maestro_profiles:profiles!cursos_maestro_id_fkey(id, nombre, apellidos, email, activo)')
+      .select('*')
       .order('grado', { ascending: true })
       .order('grupo', { ascending: true })
       .order('nombre', { ascending: true })
 
-    if (error) {
-      console.error('Error al obtener cursos:', error)
-      return { success: false, error: `Error al obtener cursos: ${error.message}` }
+    if (cursosError) {
+      console.error('[obtenerCursos] Error en consulta de cursos:', cursosError)
+      return { success: false, error: `Error al obtener cursos: ${cursosError.message}` }
     }
 
-    return { success: true, data: cursos }
+    if (!cursos || cursos.length === 0) {
+      console.log('[obtenerCursos] No hay cursos en la base de datos')
+      return { success: true, data: [] }
+    }
+
+    console.log('[obtenerCursos] Cursos obtenidos:', cursos.length, 'cursos')
+
+    // Obtener los maestros (profiles) de esos cursos
+    const maestroIds = cursos.map(c => c.maestro_id).filter(Boolean)
+
+    if (maestroIds.length === 0) {
+      console.log('[obtenerCursos] No hay maestros asignados')
+      return { success: true, data: cursos.map(c => ({ ...c, maestro_profiles: null })) }
+    }
+
+    const { data: maestros, error: maestrosError } = await supabase
+      .from('profiles')
+      .select('id, nombre, apellidos, email, activo')
+      .in('id', maestroIds)
+
+    if (maestrosError) {
+      console.error('[obtenerCursos] Error al obtener maestros:', maestrosError)
+      // Continuar sin los datos de maestros
+    }
+
+    // Combinar datos
+    const cursosConMaestros = cursos.map(curso => {
+      const maestro = maestros?.find(m => m.id === curso.maestro_id)
+      return {
+        ...curso,
+        maestro_profiles: maestro || null
+      }
+    })
+
+    console.log('[obtenerCursos] Cursos con maestros:', cursosConMaestros.length)
+
+    return { success: true, data: cursosConMaestros }
 
   } catch (error) {
-    console.error('Error:', error)
+    console.error('[obtenerCursos] Error inesperado:', error)
     return { success: false, error: 'Error al obtener cursos' }
   }
 }
@@ -330,15 +368,37 @@ export async function inscribirAlumnos(data: InscribirAlumnosData): Promise<Resu
   try {
     const supabase = await createServerSupabaseClient()
 
-    // Verificar que el curso existe
+    // Verificar que el curso existe y obtener su grado y grupo
     const { data: curso, error: cursoError } = await supabase
       .from('cursos')
-      .select('id')
+      .select('id, grado, grupo')
       .eq('id', data.curso_id)
       .single()
 
     if (cursoError || !curso) {
       return { success: false, error: 'El curso no existe' }
+    }
+
+    // Verificar que todos los alumnos pertenecen al mismo grado y grupo que el curso
+    const { data: alumnos, error: alumnosError } = await supabase
+      .from('alumnos')
+      .select('id, grado, grupo')
+      .in('id', data.alumno_ids)
+
+    if (alumnosError) {
+      return { success: false, error: 'Error al verificar alumnos' }
+    }
+
+    // Validar que todos los alumnos son del mismo grupo que el curso
+    const alumnosInvalidos = alumnos?.filter(
+      alumno => alumno.grado !== curso.grado || alumno.grupo !== curso.grupo
+    )
+
+    if (alumnosInvalidos && alumnosInvalidos.length > 0) {
+      return {
+        success: false,
+        error: `No se pueden inscribir alumnos de otros grupos. El curso es para ${curso.grado}° ${curso.grupo}`
+      }
     }
 
     // Obtener inscripciones existentes
@@ -505,10 +565,24 @@ export async function obtenerAlumnosDisponibles(cursoId: string): Promise<Result
   try {
     const supabase = await createServerSupabaseClient()
 
-    // Obtener todos los alumnos
+    // Primero obtener el grado y grupo del curso
+    const { data: curso, error: cursoError } = await supabase
+      .from('cursos')
+      .select('grado, grupo')
+      .eq('id', cursoId)
+      .single()
+
+    if (cursoError || !curso) {
+      console.error('Error al obtener curso:', cursoError)
+      return { success: false, error: 'Error al obtener información del curso' }
+    }
+
+    // Obtener solo los alumnos del mismo grado y grupo que el curso
     const { data: todosAlumnos, error: alumnosError } = await supabase
       .from('alumnos')
       .select('id, matricula, grado, grupo, user_id')
+      .eq('grado', curso.grado)
+      .eq('grupo', curso.grupo)
 
     if (alumnosError) {
       console.error('Error al obtener alumnos:', alumnosError)

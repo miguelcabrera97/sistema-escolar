@@ -26,6 +26,7 @@ interface Tarea {
   titulo: string
   descripcion: string
   fecha_entrega: string
+  archivo_url: string | null
   cursos: Curso
 }
 
@@ -39,7 +40,7 @@ interface Entrega {
   archivo_url: string | null
   comentarios: string | null
   status: string
-  calificacion: number | null
+  calificacion: string | null
   retroalimentacion: string | null
   fecha_entrega: string | null
 }
@@ -228,11 +229,11 @@ export default function TareaDetalle() {
                 </CardDescription>
               </div>
               <Badge variant={
-                entrega?.status === 'calificada' ? 'default' :
+                entrega?.status === 'calificada' ? (entrega.calificacion === 'Entregado' ? 'default' : 'destructive') :
                 entrega?.status === 'entregada' ? 'secondary' :
                 vencida ? 'destructive' : 'outline'
               }>
-                {entrega?.status === 'calificada' ? `Calificada: ${entrega.calificacion}` :
+                {entrega?.status === 'calificada' ? entrega.calificacion :
                  entrega?.status === 'entregada' ? 'Entregada' :
                  vencida ? 'Vencida' : 'Pendiente'}
               </Badge>
@@ -243,6 +244,21 @@ export default function TareaDetalle() {
               <h3 className="font-semibold mb-2">Descripción:</h3>
               <p className="text-gray-700">{tarea?.descripcion}</p>
             </div>
+
+            {tarea?.archivo_url && (
+              <div className="border-t pt-4">
+                <h3 className="font-semibold mb-2">Material Adjunto del Maestro:</h3>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => window.open(tarea.archivo_url || '', '_blank')}
+                  className="inline-flex items-center gap-2"
+                >
+                  <FileText className="h-4 w-4" />
+                  Descargar archivo adjunto
+                </Button>
+              </div>
+            )}
 
             <div className="flex gap-6 text-sm">
               <div className="flex items-center gap-2">
@@ -264,9 +280,9 @@ export default function TareaDetalle() {
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-gray-700">Tu calificación:</span>
-                <span className="text-3xl font-bold text-green-600">
-                  {entrega.calificacion}
+                <span className="text-gray-700">Estado:</span>
+                <span className={`text-2xl font-bold ${entrega.calificacion === 'Entregado' ? 'text-green-600' : 'text-red-600'}`}>
+                  {entrega.calificacion || 'Pendiente'}
                 </span>
               </div>
               

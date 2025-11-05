@@ -28,6 +28,7 @@ export default function CrearTarea() {
     descripcion: '',
     fecha_entrega: '',
   })
+  const [archivo, setArchivo] = useState<File | null>(null)
 
   useEffect(() => {
     cargarCursos()
@@ -64,6 +65,32 @@ export default function CrearTarea() {
     setSubmitting(true)
 
     try {
+      let archivoUrl = null
+
+      // Subir archivo si existe
+      if (archivo) {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) throw new Error('Usuario no autenticado')
+
+        const fileExt = archivo.name.split('.').pop()
+        const fileName = `maestros/${user.id}/${Date.now()}.${fileExt}`
+
+        const { error: uploadError } = await supabase.storage
+          .from('tareas')
+          .upload(fileName, archivo, {
+            cacheControl: '3600',
+            upsert: false
+          })
+
+        if (uploadError) throw uploadError
+
+        const { data } = supabase.storage
+          .from('tareas')
+          .getPublicUrl(fileName)
+
+        archivoUrl = data.publicUrl
+      }
+
       const { error } = await supabase
         .from('tareas')
         .insert({
@@ -71,6 +98,7 @@ export default function CrearTarea() {
           titulo: formData.titulo,
           descripcion: formData.descripcion,
           fecha_entrega: formData.fecha_entrega,
+          archivo_url: archivoUrl,
         })
 
       if (error) throw error
@@ -174,6 +202,20 @@ export default function CrearTarea() {
                     disabled={submitting}
                   />
                 </div>
+              </div>
+
+              <div>
+                <Label htmlFor="archivo">Archivo Adjunto (opcional)</Label>
+                <Input
+                  id="archivo"
+                  type="file"
+                  onChange={(e) => setArchivo(e.target.files?.[0] || null)}
+                  disabled={submitting}
+                  accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Puedes adjuntar material de apoyo, instrucciones en PDF, etc.
+                </p>
               </div>
 
               <div className="flex gap-2">

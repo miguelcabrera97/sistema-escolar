@@ -178,7 +178,7 @@ export default function DirectivoDashboard() {
     <h1 className="text-3xl font-bold text-gray-900">Panel de Directivo</h1>
     <p className="text-gray-600">Vista general del sistema</p>
   </div>
-  <div className="flex gap-2">
+  <div className="flex gap-2 flex-wrap">
   <Button onClick={() => router.push('/directivo/cursos')}>
     Gestionar Cursos
   </Button>
@@ -190,6 +190,9 @@ export default function DirectivoDashboard() {
   </Button>
   <Button onClick={() => router.push('/directivo/pagos')}>
     Gestionar Pagos
+  </Button>
+  <Button onClick={() => router.push('/directivo/relaciones-padre-alumno')}>
+    Relaciones Padre-Alumno
   </Button>
   <Button onClick={() => router.push('/directivo/boletas')}>
     Gestionar Boletas

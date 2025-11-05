@@ -1,6 +1,7 @@
 'use server'
 
 import { createServerSupabaseClient } from '@/lib/supabase-server'
+import { supabaseAdmin } from '@/lib/supabase-admin'
 import { revalidatePath } from 'next/cache'
 
 interface Result {
@@ -115,24 +116,29 @@ export async function crearPago(data: CrearPagoData): Promise<Result> {
 
     console.log('✅ Relación verificada correctamente')
 
-    // Crear el pago
-    const { data: pago, error: pagoError } = await supabase
+    // LOG: Ver el objeto que vamos a insertar
+    const pagoData = {
+      concepto: concepto.nombre,
+      padre_id: data.padre_id,
+      alumno_id: data.alumno_id,
+      descripcion: data.descripcion || null,
+      monto: data.monto,
+      fecha_vencimiento: data.fecha_vencimiento,
+      estado: 'pendiente',
+      creado_por: user.id
+    }
+    console.log('📝 Datos del pago a insertar:', JSON.stringify(pagoData, null, 2))
+
+    // Crear el pago usando supabaseAdmin para bypasear RLS
+    console.log('🔐 Usando supabaseAdmin para crear el pago...')
+    const { data: pago, error: pagoError } = await supabaseAdmin
       .from('pagos')
-      .insert({
-        concepto: concepto.nombre,  // Usar 'concepto' en lugar de 'concepto_id' y 'concepto_nombre'
-        padre_id: data.padre_id,
-        alumno_id: data.alumno_id,
-        descripcion: data.descripcion || null,
-        monto: data.monto,
-        fecha_vencimiento: data.fecha_vencimiento,
-        estado: 'pendiente',
-        creado_por: user.id
-      })
+      .insert(pagoData)
       .select()
       .single()
 
     if (pagoError) {
-      console.error('Error al crear pago:', pagoError)
+      console.error('❌ Error completo al crear pago:', JSON.stringify(pagoError, null, 2))
       return { success: false, error: pagoError.message }
     }
 

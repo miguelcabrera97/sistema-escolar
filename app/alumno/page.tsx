@@ -52,8 +52,8 @@ interface Pago {
   id: string
   concepto: string
   monto: number
-  status: string
-  fecha_entrega: string
+  estado: string
+  fecha_vencimiento: string
 }
 
 export default function AlumnoDashboard() {
@@ -90,30 +90,75 @@ export default function AlumnoDashboard() {
 
       setAlumno(alumnoData)
 
-      const { data: inscripcionesData } = await supabase
+      // Primero obtener las inscripciones con los cursos
+      const { data: inscripcionesData, error: inscripcionesError } = await supabase
         .from('inscripciones')
-        .select(`
-          cursos (
+        .select('curso_id')
+        .eq('alumno_id', alumnoData.id)
+
+      if (inscripcionesError) {
+        console.error('❌ Error al cargar inscripciones:', inscripcionesError)
+        console.error('   Código:', inscripcionesError.code)
+        console.error('   Mensaje:', inscripcionesError.message)
+        console.error('   Detalles:', inscripcionesError.details)
+        console.error('   Hint:', inscripcionesError.hint)
+      }
+
+      console.log('📚 Inscripciones encontradas:', inscripcionesData?.length || 0)
+
+      // Obtener los IDs de cursos
+      const cursoIds = inscripcionesData?.map((i: any) => i.curso_id) || []
+      console.log('📚 Cursos IDs:', cursoIds)
+
+      // Obtener los datos completos de los cursos
+      if (cursoIds.length > 0) {
+        const { data: cursosData, error: cursosError } = await supabase
+          .from('cursos')
+          .select(`
             id,
             nombre,
             descripcion,
-            maestro_profiles:profiles!cursos_maestro_id_fkey(nombre, apellidos)
-          )
-        `)
-        .eq('alumno_id', alumnoData.id)
+            maestro_id
+          `)
+          .in('id', cursoIds)
 
-      if (inscripcionesData) {
-        setCursos(inscripcionesData.map((i: Inscripcion) => i.cursos))
+        if (cursosError) {
+          console.error('❌ Error al cargar cursos:', cursosError)
+        } else if (cursosData) {
+          // Obtener los profiles de los maestros
+          const maestroIds = cursosData.map(c => c.maestro_id).filter(Boolean)
+          const { data: maestrosProfiles } = await supabase
+            .from('profiles')
+            .select('id, nombre, apellidos')
+            .in('id', maestroIds)
+
+          // Combinar los datos
+          const cursosCompletos = cursosData.map(curso => ({
+            ...curso,
+            maestro_profiles: maestrosProfiles?.find(m => m.id === curso.maestro_id) || { nombre: '', apellidos: '' }
+          }))
+
+          setCursos(cursosCompletos)
+          console.log('✅ Cursos cargados:', cursosCompletos.length)
+        }
       }
 
-      const { data: tareasData } = await supabase
+      const { data: tareasData, error: tareasError } = await supabase
         .from('tareas')
         .select(`
           *,
           entregas!entregas_tarea_id_fkey(id, status, calificacion, fecha_entrega)
         `)
-        .in('curso_id', inscripcionesData?.map((i: Inscripcion) => i.cursos.id) || [])
+        .in('curso_id', cursoIds)
         .order('fecha_entrega', { ascending: true })
+
+      console.log('📝 Tareas encontradas:', tareasData?.length || 0)
+      if (tareasError) {
+        console.error('❌ Error al cargar tareas:', tareasError)
+        console.error('   Código:', tareasError.code)
+        console.error('   Mensaje:', tareasError.message)
+        console.error('   Detalles:', tareasError.details)
+      }
 
       if (tareasData) {
         const tareasConEntregas = tareasData.map(tarea => ({
@@ -121,13 +166,22 @@ export default function AlumnoDashboard() {
           entregas: tarea.entregas?.filter((e: Entrega) => e.id) || []
         }))
         setTareas(tareasConEntregas)
+        console.log('✅ Tareas procesadas:', tareasConEntregas.length)
       }
 
-      const { data: pagosData } = await supabase
+      const { data: pagosData, error: pagosError } = await supabase
         .from('pagos')
         .select('*')
         .eq('alumno_id', alumnoData.id)
-        .order('fecha_entrega', { ascending: true })
+        .order('fecha_vencimiento', { ascending: true })
+
+      if (pagosError) {
+        console.error('❌ Error al cargar pagos:', pagosError)
+        console.error('   Código:', pagosError.code)
+        console.error('   Mensaje:', pagosError.message)
+      }
+
+      console.log('💰 Pagos encontrados:', pagosData?.length || 0)
 
       if (pagosData) {
         setPagos(pagosData)
@@ -163,7 +217,7 @@ export default function AlumnoDashboard() {
     return entrega?.status === 'calificada'
   })
 
-  const pagosPendientes = pagos.filter(p => p.status === 'pendiente' || p.status === 'vencido')
+  const pagosPendientes = pagos.filter(p => p.estado === 'pendiente' || p.estado === 'vencido')
   const totalAdeudo = pagosPendientes.reduce((sum, p) => sum + p.monto, 0)
 
   return (

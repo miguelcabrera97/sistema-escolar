@@ -65,6 +65,9 @@ export default function CrearTarea() {
     setSubmitting(true)
 
     try {
+      // Importar los server actions dinámicamente
+      const { crearTarea, subirArchivoTarea } = await import('@/app/actions/tareas-actions')
+
       let archivoUrl = null
 
       // Subir archivo si existe
@@ -72,36 +75,27 @@ export default function CrearTarea() {
         const { data: { user } } = await supabase.auth.getUser()
         if (!user) throw new Error('Usuario no autenticado')
 
-        const fileExt = archivo.name.split('.').pop()
-        const fileName = `maestros/${user.id}/${Date.now()}.${fileExt}`
+        const resultUpload = await subirArchivoTarea(archivo, user.id)
 
-        const { error: uploadError } = await supabase.storage
-          .from('tareas')
-          .upload(fileName, archivo, {
-            cacheControl: '3600',
-            upsert: false
-          })
+        if (!resultUpload.success) {
+          throw new Error(resultUpload.error || 'Error al subir archivo')
+        }
 
-        if (uploadError) throw uploadError
-
-        const { data } = supabase.storage
-          .from('tareas')
-          .getPublicUrl(fileName)
-
-        archivoUrl = data.publicUrl
+        archivoUrl = resultUpload.data.publicUrl
       }
 
-      const { error } = await supabase
-        .from('tareas')
-        .insert({
-          curso_id: formData.curso_id,
-          titulo: formData.titulo,
-          descripcion: formData.descripcion,
-          fecha_entrega: formData.fecha_entrega,
-          archivo_url: archivoUrl,
-        })
+      // Crear la tarea usando el server action
+      const result = await crearTarea({
+        curso_id: formData.curso_id,
+        titulo: formData.titulo,
+        descripcion: formData.descripcion,
+        fecha_entrega: formData.fecha_entrega,
+        archivo_url: archivoUrl,
+      })
 
-      if (error) throw error
+      if (!result.success) {
+        throw new Error(result.error || 'Error al crear tarea')
+      }
 
       alert('Tarea creada exitosamente')
       router.push('/maestro')

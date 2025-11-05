@@ -6,10 +6,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { DollarSign, CheckCircle, Clock, AlertCircle, CreditCard, FileText, ArrowLeft } from 'lucide-react'
-import { obtenerPagosPadre } from '@/app/actions/pagos-actions'
+import { DollarSign, CheckCircle, Clock, AlertCircle, CreditCard, FileText, ArrowLeft, Download } from 'lucide-react'
+import { obtenerPagosPadre, obtenerDatosPagoParaRecibo } from '@/app/actions/pagos-actions'
 import { DialogoPagarMercadoPago } from './DialogoPagarMercadoPago'
 import { DialogoPagoManual } from './DialogoPagoManual'
+import { descargarReciboPDF } from '@/lib/recibo-pdf'
 
 interface Pago {
   id: string
@@ -79,6 +80,21 @@ export default function PagosPadreContent() {
 
   const handleSuccess = () => {
     cargarPagos()
+  }
+
+  const handleDescargarRecibo = async (pagoId: string) => {
+    try {
+      const result = await obtenerDatosPagoParaRecibo(pagoId)
+
+      if (result.success && result.data) {
+        descargarReciboPDF(result.data)
+      } else {
+        alert('Error: ' + result.error)
+      }
+    } catch (error) {
+      console.error('Error:', error)
+      alert('Error al generar el recibo')
+    }
   }
 
   if (loading) {
@@ -343,11 +359,22 @@ export default function PagosPadreContent() {
                               )}
                             </div>
                           </div>
-                          <div className="text-right">
-                            <p className="text-3xl font-bold text-green-600">
-                              ${pago.monto.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
-                            </p>
-                            <p className="text-xs text-gray-500">MXN</p>
+                          <div className="text-right flex flex-col items-end gap-3">
+                            <div>
+                              <p className="text-3xl font-bold text-green-600">
+                                ${pago.monto.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                              </p>
+                              <p className="text-xs text-gray-500">MXN</p>
+                            </div>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleDescargarRecibo(pago.id)}
+                              className="w-full"
+                            >
+                              <Download className="h-4 w-4 mr-2" />
+                              Descargar Recibo
+                            </Button>
                           </div>
                         </div>
                       </div>

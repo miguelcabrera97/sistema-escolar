@@ -98,6 +98,29 @@ export default function DirectivoBoletas() {
     )
   })
 
+  // Agrupar boletas para detectar versiones múltiples
+  const boletasConVersion = boletasFiltradas.map(boleta => {
+    const mismaPeriodoCiclo = boletasFiltradas.filter(
+      b => b.alumno_id === boleta.alumno_id &&
+           b.periodo === boleta.periodo &&
+           b.ciclo_escolar === boleta.ciclo_escolar
+    )
+
+    const versionesMultiples = mismaPeriodoCiclo.length > 1
+    const esUltima = versionesMultiples &&
+      mismaPeriodoCiclo.every(b => new Date(b.fecha_subida) <= new Date(boleta.fecha_subida))
+
+    return {
+      ...boleta,
+      tieneVersiones: versionesMultiples,
+      esVersionMasReciente: esUltima,
+      numeroVersion: mismaPeriodoCiclo
+        .sort((a, b) => new Date(b.fecha_subida).getTime() - new Date(a.fecha_subida).getTime())
+        .findIndex(b => b.id === boleta.id) + 1,
+      totalVersiones: mismaPeriodoCiclo.length
+    }
+  })
+
   if (loading && boletas.length === 0) { // Mostrar cargando solo en la carga inicial
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -136,7 +159,7 @@ export default function DirectivoBoletas() {
               <div>
                 <CardTitle>Boletas Subidas</CardTitle>
                 <CardDescription>
-                  {boletasFiltradas.length} boleta{boletasFiltradas.length !== 1 ? 's' : ''} en el sistema
+                  {boletasConVersion.length} boleta{boletasConVersion.length !== 1 ? 's' : ''} en el sistema
                 </CardDescription>
               </div>
               <div className="w-64">
@@ -153,17 +176,19 @@ export default function DirectivoBoletas() {
             </div>
           </CardHeader>
           <CardContent>
-            {boletasFiltradas.length === 0 ? (
+            {boletasConVersion.length === 0 ? (
               <div className="text-center py-12 text-gray-500">
                 <FileText className="h-12 w-12 mx-auto text-gray-300 mb-4" />
                 <p>No hay boletas subidas aún</p>
               </div>
             ) : (
               <div className="space-y-3">
-                {boletasFiltradas.map((boleta) => (
+                {boletasConVersion.map((boleta) => (
                   <div
                     key={boleta.id}
-                    className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50"
+                    className={`flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 ${
+                      boleta.esVersionMasReciente ? 'border-green-300 bg-green-50/30' : ''
+                    }`}
                   >
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
@@ -172,12 +197,31 @@ export default function DirectivoBoletas() {
                           {boleta.alumnos.profiles.nombre} {boleta.alumnos.profiles.apellidos}
                         </span>
                         <Badge variant="outline">{boleta.alumnos.matricula}</Badge>
+                        {boleta.tieneVersiones && (
+                          <>
+                            {boleta.esVersionMasReciente ? (
+                              <Badge variant="default" className="bg-green-600">
+                                Versión Actual
+                              </Badge>
+                            ) : (
+                              <Badge variant="secondary">
+                                Versión {boleta.numeroVersion} de {boleta.totalVersiones}
+                              </Badge>
+                            )}
+                          </>
+                        )}
                       </div>
                       <div className="text-sm text-gray-600">
                         <span className="font-medium">{boleta.periodo}</span> • {boleta.ciclo_escolar} • {boleta.alumnos.grado}° {boleta.alumnos.grupo}
                       </div>
                       <div className="text-xs text-gray-500 mt-1">
-                        Subido: {new Date(boleta.fecha_subida).toLocaleDateString('es-MX')}
+                        Subido: {new Date(boleta.fecha_subida).toLocaleString('es-MX', {
+                          year: 'numeric',
+                          month: 'short',
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
                       </div>
                       {boleta.notas && (
                         <div className="text-xs text-gray-500 mt-1 italic">

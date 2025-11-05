@@ -790,3 +790,121 @@ export async function crearPreferenciaMercadoPago(pagoId: string): Promise<Resul
     return { success: false, error: 'Error inesperado al crear preferencia de pago' }
   }
 }
+
+// ============================================
+// OBTENER DATOS COMPLETOS DE PAGO PARA RECIBO
+// ============================================
+
+export async function obtenerDatosPagoParaRecibo(pagoId: string): Promise<Result> {
+  try {
+    const supabase = await createServerSupabaseClient()
+
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { success: false, error: 'No autenticado' }
+
+    // Obtener el pago con toda la información necesaria
+    const { data: pago, error: pagoError } = await supabase
+      .from('pagos')
+      .select(`
+        id,
+        concepto_nombre,
+        descripcion,
+        monto,
+        estado,
+        metodo_pago,
+        fecha_pago,
+        referencia_pago,
+        padre_id,
+        alumno_id
+      `)
+      .eq('id', pagoId)
+      .single()
+
+    if (pagoError || !pago) {
+      return { success: false, error: 'Pago no encontrado' }
+    }
+
+    // Verificar que el pago esté pagado
+    if (pago.estado !== 'pagado') {
+      return { success: false, error: 'El pago aún no ha sido procesado' }
+    }
+
+    // Obtener información del padre
+    const { data: padre } = await supabase
+      .from('padres')
+      .select('id, user_id')
+      .eq('id', pago.padre_id)
+      .single()
+
+    if (!padre) {
+      return { success: false, error: 'Padre no encontrado' }
+    }
+
+    const { data: padreProfile } = await supabase
+      .from('profiles')
+      .select('nombre, apellidos, email')
+      .eq('id', padre.user_id)
+      .single()
+
+    // Obtener información del alumno
+    const { data: alumno } = await supabase
+      .from('alumnos')
+      .select('id, matricula, grado, grupo, user_id')
+      .eq('id', pago.alumno_id)
+      .single()
+
+    if (!alumno) {
+      return { success: false, error: 'Alumno no encontrado' }
+    }
+
+    const { data: alumnoProfile } = await supabase
+      .from('profiles')
+      .select('nombre, apellidos')
+      .eq('id', alumno.user_id)
+      .single()
+
+    // Verificar autorización
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single()
+
+    const esDirectivo = profile?.role === 'directivo'
+    const esPadre = padre.user_id === user.id
+
+    if (!esDirectivo && !esPadre) {
+      return { success: false, error: 'No autorizado para ver este recibo' }
+    }
+
+    // Formatear datos para el recibo
+    const datosRecibo = {
+      numeroRecibo: pago.id.substring(0, 8).toUpperCase(),
+      fechaPago: new Date(pago.fecha_pago || '').toLocaleDateString('es-MX', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      }),
+      monto: Number(pago.monto),
+      concepto: pago.concepto_nombre,
+      descripcion: pago.descripcion || undefined,
+      metodoPago: pago.metodo_pago || 'N/A',
+      referencia: pago.referencia_pago || undefined,
+      alumnoNombre: alumnoProfile?.nombre || '',
+      alumnoApellidos: alumnoProfile?.apellidos || '',
+      alumnoMatricula: alumno.matricula,
+      alumnoGrado: alumno.grado,
+      alumnoGrupo: alumno.grupo,
+      padreNombre: padreProfile?.nombre || '',
+      padreApellidos: padreProfile?.apellidos || '',
+      nombreEscuela: 'SISTEMA ESCOLAR', // Puedes hacer esto configurable
+      direccionEscuela: '', // Puedes hacer esto configurable
+      telefonoEscuela: '' // Puedes hacer esto configurable
+    }
+
+    return { success: true, data: datosRecibo }
+  } catch (error) {
+    console.error('Error:', error)
+    return { success: false, error: 'Error inesperado' }
+  }
+}

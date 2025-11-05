@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Users, BookOpen, FileText, DollarSign } from 'lucide-react'
+import { Users, BookOpen, FileText, DollarSign, GraduationCap, UserCog, Receipt, ArrowRight, LogOut, LinkIcon } from 'lucide-react'
 
 interface Profile {
   nombre: string
@@ -31,14 +31,14 @@ interface Curso {
 
 interface Pago {
   id: string
-  concepto: string
+  concepto_nombre: string
   monto: number
-  status: string
-  fecha_entrega: string
+  estado: string
+  fecha_vencimiento: string
   alumnos: {
     matricula: string
     profiles: Profile
-  }
+  } | null
 }
 
 export default function DirectivoDashboard() {
@@ -88,7 +88,7 @@ export default function DirectivoDashboard() {
       const { data: pagosDelMes } = await supabase
         .from('pagos')
         .select('monto')
-        .eq('status', 'pagado')
+        .eq('estado', 'pagado')
         .gte('fecha_pago', inicioMes.toISOString())
 
       const ingresosDelMes = pagosDelMes?.reduce((sum, p) => sum + p.monto, 0) || 0
@@ -96,7 +96,7 @@ export default function DirectivoDashboard() {
       const { data: pagosPendientesData } = await supabase
         .from('pagos')
         .select('monto')
-        .in('status', ['pendiente', 'vencido'])
+        .in('estado', ['pendiente', 'vencido'])
 
       const totalPendiente = pagosPendientesData?.reduce((sum, p) => sum + p.monto, 0) || 0
 
@@ -128,7 +128,11 @@ export default function DirectivoDashboard() {
       const { data: pagosData } = await supabase
         .from('pagos')
         .select(`
-          *,
+          id,
+          concepto_nombre,
+          monto,
+          estado,
+          fecha_vencimiento,
           alumnos (
             matricula,
             profiles (
@@ -137,8 +141,8 @@ export default function DirectivoDashboard() {
             )
           )
         `)
-        .in('status', ['pendiente', 'vencido'])
-        .order('fecha_entrega', { ascending: true })
+        .in('estado', ['pendiente', 'vencido'])
+        .order('fecha_vencimiento', { ascending: true })
         .limit(5)
 
       if (pagosData) {
@@ -170,169 +174,332 @@ export default function DirectivoDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 py-6">
-          <div className="flex justify-between items-center">
-  <div>
-    <h1 className="text-3xl font-bold text-gray-900">Panel de Directivo</h1>
-    <p className="text-gray-600">Vista general del sistema</p>
-  </div>
-  <div className="flex gap-2 flex-wrap">
-  <Button onClick={() => router.push('/directivo/cursos')}>
-    Gestionar Cursos
-  </Button>
-  <Button onClick={() => router.push('/directivo/usuarios')}>
-    Gestionar Usuarios
-  </Button>
-  <Button onClick={() => router.push('/directivo/alumnos')}>
-    Ver Alumnos
-  </Button>
-  <Button onClick={() => router.push('/directivo/pagos')}>
-    Gestionar Pagos
-  </Button>
-  <Button onClick={() => router.push('/directivo/relaciones-padre-alumno')}>
-    Relaciones Padre-Alumno
-  </Button>
-  <Button onClick={() => router.push('/directivo/boletas')}>
-    Gestionar Boletas
-  </Button>
-  <Button variant="outline" onClick={() => {
-    supabase.auth.signOut()
-    router.push('/login')
-  }}>
-    Cerrar Sesión
-  </Button>
-</div>
-</div>
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+      <header className="bg-white shadow-sm border-b">
+        <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Panel de Control</h1>
+              <p className="text-sm text-gray-600 mt-1">Gestión administrativa del sistema escolar</p>
+            </div>
+            <Button
+              variant="outline"
+              onClick={() => {
+                supabase.auth.signOut()
+                router.push('/login')
+              }}
+              className="self-end sm:self-auto"
+            >
+              <LogOut className="h-4 w-4 mr-2" />
+              Cerrar Sesión
+            </Button>
+          </div>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 py-8">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Alumnos</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.totalAlumnos}</div>
-              <p className="text-xs text-muted-foreground">Inscritos actualmente</p>
-            </CardContent>
-          </Card>
+      <main className="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8 space-y-8">
+        {/* Estadísticas Principales */}
+        <section>
+          <h2 className="text-xl font-bold text-gray-900 mb-4">Resumen General</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <Card className="hover:shadow-lg transition-shadow">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-gray-600">Total Alumnos</CardTitle>
+                <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
+                  <GraduationCap className="h-5 w-5 text-blue-600" />
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold text-gray-900">{stats.totalAlumnos}</div>
+                <p className="text-xs text-gray-500 mt-1">Inscritos actualmente</p>
+              </CardContent>
+            </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Maestros</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.totalMaestros}</div>
-              <p className="text-xs text-muted-foreground">En la plataforma</p>
-            </CardContent>
-          </Card>
+            <Card className="hover:shadow-lg transition-shadow">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-gray-600">Total Maestros</CardTitle>
+                <div className="h-10 w-10 rounded-full bg-purple-100 flex items-center justify-center">
+                  <Users className="h-5 w-5 text-purple-600" />
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold text-gray-900">{stats.totalMaestros}</div>
+                <p className="text-xs text-gray-500 mt-1">En la plataforma</p>
+              </CardContent>
+            </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Cursos</CardTitle>
-              <BookOpen className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.totalCursos}</div>
-              <p className="text-xs text-muted-foreground">Activos</p>
-            </CardContent>
-          </Card>
+            <Card className="hover:shadow-lg transition-shadow">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-gray-600">Total Cursos</CardTitle>
+                <div className="h-10 w-10 rounded-full bg-green-100 flex items-center justify-center">
+                  <BookOpen className="h-5 w-5 text-green-600" />
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold text-gray-900">{stats.totalCursos}</div>
+                <p className="text-xs text-gray-500 mt-1">Cursos activos</p>
+              </CardContent>
+            </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Tareas</CardTitle>
-              <FileText className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.totalTareas}</div>
-              <p className="text-xs text-muted-foreground">Creadas</p>
-            </CardContent>
-          </Card>
+            <Card className="hover:shadow-lg transition-shadow">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-gray-600">Total Tareas</CardTitle>
+                <div className="h-10 w-10 rounded-full bg-orange-100 flex items-center justify-center">
+                  <FileText className="h-5 w-5 text-orange-600" />
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold text-gray-900">{stats.totalTareas}</div>
+                <p className="text-xs text-gray-500 mt-1">Tareas creadas</p>
+              </CardContent>
+            </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Ingresos del Mes</CardTitle>
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                ${stats.ingresosDelMes.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
-              </div>
-              <p className="text-xs text-muted-foreground">MXN</p>
-            </CardContent>
-          </Card>
+            <Card className="hover:shadow-lg transition-shadow">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-gray-600">Ingresos del Mes</CardTitle>
+                <div className="h-10 w-10 rounded-full bg-emerald-100 flex items-center justify-center">
+                  <DollarSign className="h-5 w-5 text-emerald-600" />
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-emerald-600">
+                  ${stats.ingresosDelMes.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                </div>
+                <p className="text-xs text-gray-500 mt-1">MXN recibidos</p>
+              </CardContent>
+            </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Pagos Pendientes</CardTitle>
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-red-600">
-                ${stats.pagosPendientes.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
-              </div>
-              <p className="text-xs text-muted-foreground">Por cobrar</p>
-            </CardContent>
-          </Card>
-        </div>
+            <Card className="hover:shadow-lg transition-shadow border-red-200">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-gray-600">Pagos Pendientes</CardTitle>
+                <div className="h-10 w-10 rounded-full bg-red-100 flex items-center justify-center">
+                  <DollarSign className="h-5 w-5 text-red-600" />
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-red-600">
+                  ${stats.pagosPendientes.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                </div>
+                <p className="text-xs text-gray-500 mt-1">MXN por cobrar</p>
+              </CardContent>
+            </Card>
+          </div>
+        </section>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Cursos Recientes</CardTitle>
-              <CardDescription>Últimos cursos creados</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {cursos.map((curso) => (
-                  <div key={curso.id} className="flex items-center justify-between p-4 border rounded-lg">
-                    <div>
-                      <h3 className="font-semibold">{curso.nombre}</h3>
-                      <p className="text-sm text-gray-600">
-                        {curso.grado} {curso.grupo} - {curso.maestro_profiles.nombre} {curso.maestro_profiles.apellidos}
-                      </p>
+        {/* Acceso Rápido */}
+        <section>
+          <h2 className="text-xl font-bold text-gray-900 mb-4">Acceso Rápido</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <Card
+              className="hover:shadow-lg transition-all cursor-pointer hover:border-blue-300 group"
+              onClick={() => router.push('/directivo/usuarios')}
+            >
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="h-12 w-12 rounded-lg bg-blue-100 flex items-center justify-center group-hover:bg-blue-200 transition-colors">
+                        <UserCog className="h-6 w-6 text-blue-600" />
+                      </div>
+                      <h3 className="font-bold text-lg text-gray-900">Usuarios</h3>
                     </div>
+                    <p className="text-sm text-gray-600">Gestionar maestros y personal</p>
                   </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+                  <ArrowRight className="h-5 w-5 text-gray-400 group-hover:text-blue-600 group-hover:translate-x-1 transition-all" />
+                </div>
+              </CardContent>
+            </Card>
 
-          <Card>
+            <Card
+              className="hover:shadow-lg transition-all cursor-pointer hover:border-purple-300 group"
+              onClick={() => router.push('/directivo/alumnos')}
+            >
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="h-12 w-12 rounded-lg bg-purple-100 flex items-center justify-center group-hover:bg-purple-200 transition-colors">
+                        <GraduationCap className="h-6 w-6 text-purple-600" />
+                      </div>
+                      <h3 className="font-bold text-lg text-gray-900">Alumnos</h3>
+                    </div>
+                    <p className="text-sm text-gray-600">Ver y administrar alumnos</p>
+                  </div>
+                  <ArrowRight className="h-5 w-5 text-gray-400 group-hover:text-purple-600 group-hover:translate-x-1 transition-all" />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card
+              className="hover:shadow-lg transition-all cursor-pointer hover:border-green-300 group"
+              onClick={() => router.push('/directivo/cursos')}
+            >
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="h-12 w-12 rounded-lg bg-green-100 flex items-center justify-center group-hover:bg-green-200 transition-colors">
+                        <BookOpen className="h-6 w-6 text-green-600" />
+                      </div>
+                      <h3 className="font-bold text-lg text-gray-900">Cursos</h3>
+                    </div>
+                    <p className="text-sm text-gray-600">Gestionar cursos y materias</p>
+                  </div>
+                  <ArrowRight className="h-5 w-5 text-gray-400 group-hover:text-green-600 group-hover:translate-x-1 transition-all" />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card
+              className="hover:shadow-lg transition-all cursor-pointer hover:border-emerald-300 group"
+              onClick={() => router.push('/directivo/pagos')}
+            >
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="h-12 w-12 rounded-lg bg-emerald-100 flex items-center justify-center group-hover:bg-emerald-200 transition-colors">
+                        <DollarSign className="h-6 w-6 text-emerald-600" />
+                      </div>
+                      <h3 className="font-bold text-lg text-gray-900">Pagos</h3>
+                    </div>
+                    <p className="text-sm text-gray-600">Administrar pagos escolares</p>
+                  </div>
+                  <ArrowRight className="h-5 w-5 text-gray-400 group-hover:text-emerald-600 group-hover:translate-x-1 transition-all" />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card
+              className="hover:shadow-lg transition-all cursor-pointer hover:border-orange-300 group"
+              onClick={() => router.push('/directivo/boletas')}
+            >
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="h-12 w-12 rounded-lg bg-orange-100 flex items-center justify-center group-hover:bg-orange-200 transition-colors">
+                        <Receipt className="h-6 w-6 text-orange-600" />
+                      </div>
+                      <h3 className="font-bold text-lg text-gray-900">Boletas</h3>
+                    </div>
+                    <p className="text-sm text-gray-600">Gestionar boletas de calificaciones</p>
+                  </div>
+                  <ArrowRight className="h-5 w-5 text-gray-400 group-hover:text-orange-600 group-hover:translate-x-1 transition-all" />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card
+              className="hover:shadow-lg transition-all cursor-pointer hover:border-indigo-300 group"
+              onClick={() => router.push('/directivo/relaciones-padre-alumno')}
+            >
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="h-12 w-12 rounded-lg bg-indigo-100 flex items-center justify-center group-hover:bg-indigo-200 transition-colors">
+                        <LinkIcon className="h-6 w-6 text-indigo-600" />
+                      </div>
+                      <h3 className="font-bold text-lg text-gray-900">Relaciones</h3>
+                    </div>
+                    <p className="text-sm text-gray-600">Vincular padres con alumnos</p>
+                  </div>
+                  <ArrowRight className="h-5 w-5 text-gray-400 group-hover:text-indigo-600 group-hover:translate-x-1 transition-all" />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </section>
+
+        {/* Información Reciente */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Card className="hover:shadow-lg transition-shadow">
             <CardHeader>
-              <CardTitle>Pagos Pendientes</CardTitle>
-              <CardDescription>Próximos a vencer</CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-lg">Cursos Recientes</CardTitle>
+                  <CardDescription>Últimos 5 cursos registrados</CardDescription>
+                </div>
+                <BookOpen className="h-5 w-5 text-gray-400" />
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                {pagosPendientes.map((pago) => (
-                  <div key={pago.id} className="flex items-center justify-between p-4 border rounded-lg">
-                    <div>
-                      <h3 className="font-semibold">{pago.concepto}</h3>
-                      <p className="text-sm text-gray-600">
-                        {pago.alumnos?.profiles ? (
-                          `${pago.alumnos.profiles.nombre} ${pago.alumnos.profiles.apellidos} - ${pago.alumnos.matricula}`
-                        ) : (
-                          'Alumno no disponible'
-                        )}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        Vence: {new Date(pago.fecha_entrega).toLocaleDateString()}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <div className="font-bold">
-                        ${pago.monto.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+              {cursos.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  <BookOpen className="h-12 w-12 mx-auto mb-2 text-gray-300" />
+                  <p className="text-sm">No hay cursos registrados</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {cursos.map((curso) => (
+                    <div key={curso.id} className="flex items-start justify-between p-3 border rounded-lg hover:bg-gray-50 transition-colors">
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-gray-900">{curso.nombre}</h3>
+                        <p className="text-sm text-gray-600 mt-1">
+                          {curso.grado}° {curso.grupo}
+                        </p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          Maestro: {curso.maestro_profiles.nombre} {curso.maestro_profiles.apellidos}
+                        </p>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="hover:shadow-lg transition-shadow border-red-100">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-lg">Pagos Pendientes</CardTitle>
+                  <CardDescription>Próximos a vencer</CardDescription>
+                </div>
+                <DollarSign className="h-5 w-5 text-red-500" />
               </div>
+            </CardHeader>
+            <CardContent>
+              {pagosPendientes.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  <DollarSign className="h-12 w-12 mx-auto mb-2 text-gray-300" />
+                  <p className="text-sm">No hay pagos pendientes</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {pagosPendientes.map((pago) => (
+                    <div key={pago.id} className="flex items-start justify-between p-3 border border-red-100 rounded-lg hover:bg-red-50 transition-colors">
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-gray-900">{pago.concepto_nombre}</h3>
+                        <p className="text-sm text-gray-600 mt-1">
+                          {pago.alumnos?.profiles ? (
+                            `${pago.alumnos.profiles.nombre} ${pago.alumnos.profiles.apellidos}`
+                          ) : (
+                            'Alumno no disponible'
+                          )}
+                        </p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          Mat: {pago.alumnos?.matricula || 'N/A'}
+                        </p>
+                        <p className="text-xs text-red-600 mt-1 font-medium">
+                          Vence: {new Date(pago.fecha_vencimiento).toLocaleDateString('es-MX', {
+                            year: 'numeric',
+                            month: 'short',
+                            day: 'numeric'
+                          })}
+                        </p>
+                      </div>
+                      <div className="text-right ml-4">
+                        <div className="font-bold text-lg text-red-600">
+                          ${pago.monto.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                        </div>
+                        <p className="text-xs text-gray-500">MXN</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>

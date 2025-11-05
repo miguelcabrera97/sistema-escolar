@@ -403,7 +403,69 @@ Sistema de gestión escolar integral que incluye:
 
 ---
 
-## 🆕 Últimas Implementaciones (15 de Enero, 2025)
+## 🆕 Últimas Implementaciones
+
+### **15 de Enero, 2025 - Parte 3: Sistema de Recibos PDF**
+
+#### **Generación de Recibos PDF (2 copias por hoja)**
+- ✅ Instalada librería jsPDF para generación de PDFs
+- ✅ Función completa de generación de recibos (`lib/recibo-pdf.ts`)
+- ✅ **Formato de 2 copias en una hoja:**
+  - Original (parte superior)
+  - Copia (parte inferior)
+  - Línea punteada para cortar entre ambas
+- ✅ **Contenido del recibo:**
+  - Encabezado con nombre de escuela (configurable)
+  - Número de recibo único
+  - Fecha de pago
+  - Datos del alumno (nombre, matrícula, grado, grupo)
+  - Datos del padre
+  - Concepto de pago
+  - Monto destacado en verde
+  - Método de pago
+  - Referencia (si aplica)
+- ✅ **Botón de descarga en vista de padre:**
+  - Disponible en historial de pagos pagados
+  - Descarga automática del PDF
+- ✅ **Botón de descarga en vista de directivo:**
+  - Icono de descarga en tabla de pagos
+  - Disponible para todos los pagos pagados
+- ✅ **Seguridad:**
+  - Solo padres y directivos pueden descargar recibos
+  - Verificación de autorización en backend
+
+**Archivos creados/modificados:**
+- `lib/recibo-pdf.ts` - Generador de PDFs
+- `app/actions/pagos-actions.ts` - Función `obtenerDatosPagoParaRecibo`
+- `app/padre/pagos/PagosPadreContent.tsx` - Botón descargar en vista padre
+- `app/directivo/pagos/TablaPagos.tsx` - Botón descargar en vista directivo
+- `package.json` - Librería jsPDF agregada
+
+---
+
+### **15 de Enero, 2025 - Parte 2: Sistema de Versiones de Boletas**
+
+#### **Acumulación de Boletas (Historial Completo)**
+- ✅ Las boletas ya NO se reemplazan al subir una nueva
+- ✅ Todas las versiones se acumulan en el sistema
+- ✅ Indicador visual de "Versión Actual" (badge verde)
+- ✅ Numeración de versiones (Versión 1 de 3, etc.)
+- ✅ Fecha y hora completa de publicación
+- ✅ Resaltado de la versión más reciente (fondo verde)
+- ✅ Disponible en todas las vistas:
+  - Vista de directivo (gestión)
+  - Vista de alumno (descarga)
+  - Vista de padre (descarga por hijo)
+
+**Archivos modificados:**
+- `app/actions/boletas-actions.ts` - Elimina lógica de reemplazo
+- `app/directivo/boletas/page.tsx` - Indicadores de versión
+- `app/alumno/calificaciones/page.tsx` - Vista de múltiples versiones
+- `app/padre/calificaciones/page.tsx` - Vista de múltiples versiones
+
+---
+
+## 🆕 Últimas Implementaciones (15 de Enero, 2025 - Parte 1)
 
 ### 1. **Archivos Adjuntos en Tareas**
 - Maestros pueden subir archivos al crear tareas

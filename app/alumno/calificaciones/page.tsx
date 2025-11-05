@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import { ArrowLeft, Award, FileText, Download, Calendar } from 'lucide-react'
 import { obtenerBoletasAlumno } from '@/app/actions/boletas-actions'
 
@@ -152,51 +153,70 @@ export default function CalificacionesAlumno() {
               </div>
             ) : (
               <div className="space-y-4">
-                {boletas.map((boleta) => (
-                  <div
-                    key={boleta.id}
-                    className="flex items-center justify-between p-6 border-2 rounded-lg hover:border-blue-300 transition-colors bg-white"
-                  >
-                    <div className="flex items-start gap-4">
-                      <div className="p-3 bg-blue-100 rounded-lg">
-                        <FileText className="h-6 w-6 text-blue-600" />
-                      </div>
-                      <div>
-                        <h3 className="font-bold text-lg text-gray-900">
-                          Boleta - {boleta.periodo}
-                        </h3>
-                        <div className="flex items-center gap-3 mt-1 text-sm text-gray-600">
-                          <span className="flex items-center gap-1">
-                            <Calendar className="h-4 w-4" />
-                            {boleta.ciclo_escolar}
-                          </span>
-                          <span>•</span>
-                          <span>
-                            Publicado: {new Date(boleta.fecha_subida).toLocaleDateString('es-MX', {
-                              year: 'numeric',
-                              month: 'long',
-                              day: 'numeric'
-                            })}
-                          </span>
-                        </div>
-                        {boleta.notas && (
-                          <p className="text-sm text-gray-500 mt-2 italic">
-                            {boleta.notas}
-                          </p>
-                        )}
-                      </div>
-                    </div>
+                {boletas.map((boleta, index) => {
+                  // Determinar si hay múltiples versiones del mismo periodo/ciclo
+                  const versionesSimilares = boletas.filter(
+                    b => b.periodo === boleta.periodo && b.ciclo_escolar === boleta.ciclo_escolar
+                  )
+                  const tieneVersiones = versionesSimilares.length > 1
+                  const esVersionMasReciente = tieneVersiones &&
+                    versionesSimilares.every(b => new Date(b.fecha_subida) <= new Date(boleta.fecha_subida))
 
-                    <Button
-                      size="lg"
-                      onClick={() => window.open(boleta.archivo_url, '_blank')}
-                      className="ml-4"
+                  return (
+                    <div
+                      key={boleta.id}
+                      className={`flex items-center justify-between p-6 border-2 rounded-lg hover:border-blue-300 transition-colors ${
+                        esVersionMasReciente ? 'bg-green-50 border-green-300' : 'bg-white'
+                      }`}
                     >
-                      <Download className="h-4 w-4 mr-2" />
-                      Descargar PDF
-                    </Button>
-                  </div>
-                ))}
+                      <div className="flex items-start gap-4">
+                        <div className="p-3 bg-blue-100 rounded-lg">
+                          <FileText className="h-6 w-6 text-blue-600" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-bold text-lg text-gray-900">
+                              Boleta - {boleta.periodo}
+                            </h3>
+                            {esVersionMasReciente && tieneVersiones && (
+                              <Badge className="bg-green-600">Versión Actual</Badge>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-3 mt-1 text-sm text-gray-600">
+                            <span className="flex items-center gap-1">
+                              <Calendar className="h-4 w-4" />
+                              {boleta.ciclo_escolar}
+                            </span>
+                            <span>•</span>
+                            <span>
+                              Publicado: {new Date(boleta.fecha_subida).toLocaleDateString('es-MX', {
+                                year: 'numeric',
+                                month: 'long',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
+                            </span>
+                          </div>
+                          {boleta.notas && (
+                            <p className="text-sm text-gray-500 mt-2 italic">
+                              {boleta.notas}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      <Button
+                        size="lg"
+                        onClick={() => window.open(boleta.archivo_url, '_blank')}
+                        className="ml-4"
+                      >
+                        <Download className="h-4 w-4 mr-2" />
+                        Descargar PDF
+                      </Button>
+                    </div>
+                  )
+                })}
               </div>
             )}
           </CardContent>

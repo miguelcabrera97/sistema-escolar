@@ -4,9 +4,10 @@ import { useState } from 'react'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { CheckCircle, XCircle, Eye, Ban } from 'lucide-react'
-import { verificarPagoManual, cancelarPago } from '@/app/actions/pagos-actions'
+import { CheckCircle, XCircle, Eye, Ban, Download } from 'lucide-react'
+import { verificarPagoManual, cancelarPago, obtenerDatosPagoParaRecibo } from '@/app/actions/pagos-actions'
 import { DialogoDetallePago } from './DialogoDetallePago'
+import { descargarReciboPDF } from '@/lib/recibo-pdf'
 
 interface Pago {
   id: string
@@ -96,6 +97,21 @@ export function TablaPagos({ pagos, onSuccess }: Props) {
       alert('Error al cancelar el pago')
     } finally {
       setProcesando(null)
+    }
+  }
+
+  const handleDescargarRecibo = async (pagoId: string) => {
+    try {
+      const result = await obtenerDatosPagoParaRecibo(pagoId)
+
+      if (result.success && result.data) {
+        descargarReciboPDF(result.data)
+      } else {
+        alert('Error: ' + result.error)
+      }
+    } catch (error) {
+      console.error('Error:', error)
+      alert('Error al generar el recibo')
     }
   }
 
@@ -208,6 +224,17 @@ export function TablaPagos({ pagos, onSuccess }: Props) {
                     >
                       <Eye className="h-4 w-4" />
                     </Button>
+
+                    {pago.estado === 'pagado' && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDescargarRecibo(pago.id)}
+                        title="Descargar recibo"
+                      >
+                        <Download className="h-4 w-4 text-blue-600" />
+                      </Button>
+                    )}
 
                     {pago.estado === 'pagado' && pago.metodo_pago === 'manual' && !pago.pagado_verificado_por && (
                       <>

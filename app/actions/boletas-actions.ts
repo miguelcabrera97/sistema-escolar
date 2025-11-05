@@ -71,26 +71,7 @@ export async function subirBoleta(formData: FormData): Promise<Result> {
       return { success: false, error: 'El archivo no debe superar 10MB' }
     }
 
-    // Verificar si ya existe una boleta para este alumno/periodo
-    const { data: boletaExistente } = await supabase
-      .from('boletas')
-      .select('id, archivo_url')
-      .eq('alumno_id', alumno_id)
-      .eq('periodo', periodo)
-      .eq('ciclo_escolar', ciclo_escolar)
-      .single()
-
-    // Si existe, eliminar el archivo anterior del storage
-    if (boletaExistente) {
-      const oldPath = boletaExistente.archivo_url.split('/boletas/')[1]
-      if (oldPath) {
-        await supabase.storage
-          .from('boletas')
-          .remove([oldPath])
-      }
-    }
-
-    // Generar nombre único para el archivo
+    // Generar nombre único para el archivo (siempre con timestamp para evitar duplicados)
     const timestamp = Date.now()
     const fileName = `${alumno_id}_${periodo}_${ciclo_escolar}_${timestamp}.pdf`
     const filePath = `${alumno_id}/${fileName}`
@@ -100,7 +81,7 @@ export async function subirBoleta(formData: FormData): Promise<Result> {
       .from('boletas')
       .upload(filePath, archivo, {
         contentType: 'application/pdf',
-        upsert: true
+        upsert: false // No reemplazar, crear siempre nuevo
       })
 
     if (uploadError) {
@@ -113,7 +94,7 @@ export async function subirBoleta(formData: FormData): Promise<Result> {
       .from('boletas')
       .getPublicUrl(filePath)
 
-    // Guardar o actualizar registro en la base de datos
+    // Crear nuevo registro (siempre insertar, nunca actualizar)
     const boletaData = {
       alumno_id,
       periodo,
@@ -124,27 +105,13 @@ export async function subirBoleta(formData: FormData): Promise<Result> {
       notas: notas || null
     }
 
-    if (boletaExistente) {
-      // Actualizar registro existente
-      const { error: updateError } = await supabase
-        .from('boletas')
-        .update(boletaData)
-        .eq('id', boletaExistente.id)
+    const { error: insertError } = await supabase
+      .from('boletas')
+      .insert(boletaData)
 
-      if (updateError) {
-        console.error('Error al actualizar boleta:', updateError)
-        return { success: false, error: 'Error al actualizar la boleta' }
-      }
-    } else {
-      // Crear nuevo registro
-      const { error: insertError } = await supabase
-        .from('boletas')
-        .insert(boletaData)
-
-      if (insertError) {
-        console.error('Error al crear boleta:', insertError)
-        return { success: false, error: 'Error al guardar la boleta' }
-      }
+    if (insertError) {
+      console.error('Error al crear boleta:', insertError)
+      return { success: false, error: 'Error al guardar la boleta' }
     }
 
     return { success: true, data: { message: 'Boleta subida exitosamente' } }

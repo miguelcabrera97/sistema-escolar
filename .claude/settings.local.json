@@ -1,13 +1,14 @@
 {
+  "permissions": {
+    "allow": [
+      "Bash(tree:*)",
+      "Bash(npm run dev:*)"
+    ]
+  },
   "enableAllProjectMcpServers": true,
   "enabledMcpjsonServers": [
     "memory",
     "DeepGraph Next.js MCP",
     "supabase"
-  ],
-  "permissions": {
-    "allow": [
-      "Bash(tree:*)"
-    ]
-  }
+  ]
 }

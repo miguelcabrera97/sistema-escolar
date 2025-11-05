@@ -89,25 +89,39 @@ export async function crearPago(data: CrearPagoData): Promise<Result> {
     }
 
     // Verificar que el alumno existe y pertenece al padre
-    const { data: relacion } = await supabase
+    console.log('🔍 Verificando relación padre-alumno')
+    console.log('  padre_id:', data.padre_id)
+    console.log('  alumno_id:', data.alumno_id)
+
+    const { data: relacion, error: relacionError } = await supabase
       .from('padre_alumno')
-      .select('id')
+      .select('*')
       .eq('padre_id', data.padre_id)
       .eq('alumno_id', data.alumno_id)
-      .single()
+      .maybeSingle()
+
+    console.log('  Relación encontrada:', relacion)
+    console.log('  Error de relación:', relacionError)
+
+    if (relacionError) {
+      console.error('❌ Error al verificar relación:', relacionError)
+      return { success: false, error: `Error al verificar relación: ${relacionError.message}` }
+    }
 
     if (!relacion) {
-      return { success: false, error: 'El alumno no pertenece a este padre' }
+      console.error('❌ No se encontró relación padre-alumno')
+      return { success: false, error: 'El alumno no pertenece a este padre. Verifica que el padre esté asignado al alumno.' }
     }
+
+    console.log('✅ Relación verificada correctamente')
 
     // Crear el pago
     const { data: pago, error: pagoError } = await supabase
       .from('pagos')
       .insert({
-        concepto_id: data.concepto_id,
+        concepto: concepto.nombre,  // Usar 'concepto' en lugar de 'concepto_id' y 'concepto_nombre'
         padre_id: data.padre_id,
         alumno_id: data.alumno_id,
-        concepto_nombre: concepto.nombre,
         descripcion: data.descripcion || null,
         monto: data.monto,
         fecha_vencimiento: data.fecha_vencimiento,
@@ -183,10 +197,9 @@ export async function crearPagosMasivos(data: CrearPagosMasivosData): Promise<Re
 
     // Crear un pago por cada relación padre-alumno
     const pagos = relaciones.map(rel => ({
-      concepto_id: data.concepto_id,
+      concepto: concepto.nombre,  // Usar 'concepto' en lugar de 'concepto_id' y 'concepto_nombre'
       padre_id: rel.padre_id,
       alumno_id: rel.alumno_id,
-      concepto_nombre: concepto.nombre,
       descripcion: data.descripcion || null,
       monto: data.monto,
       fecha_vencimiento: data.fecha_vencimiento,
@@ -734,8 +747,8 @@ export async function crearPreferenciaMercadoPago(pagoId: string): Promise<Resul
         items: [
           {
             id: pagoId,
-            title: pago.concepto_nombre,
-            description: pago.descripcion || `Pago de ${pago.concepto_nombre} - ${alumnoProfile?.nombre || ''} ${alumnoProfile?.apellidos || ''}`,
+            title: pago.concepto || 'Pago',
+            description: pago.descripcion || `Pago de ${pago.concepto || 'concepto'} - ${alumnoProfile?.nombre || ''} ${alumnoProfile?.apellidos || ''}`,
             quantity: 1,
             currency_id: 'MXN',
             unit_price: Number(pago.monto)
@@ -807,7 +820,7 @@ export async function obtenerDatosPagoParaRecibo(pagoId: string): Promise<Result
       .from('pagos')
       .select(`
         id,
-        concepto_nombre,
+        concepto,
         descripcion,
         monto,
         estado,
@@ -886,7 +899,7 @@ export async function obtenerDatosPagoParaRecibo(pagoId: string): Promise<Result
         day: 'numeric'
       }),
       monto: Number(pago.monto),
-      concepto: pago.concepto_nombre,
+      concepto: pago.concepto,
       descripcion: pago.descripcion || undefined,
       metodoPago: pago.metodo_pago || 'N/A',
       referencia: pago.referencia_pago || undefined,

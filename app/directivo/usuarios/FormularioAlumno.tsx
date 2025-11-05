@@ -20,6 +20,17 @@ interface FormularioAlumnoProps {
       apellidos: string
       email?: string
     }
+    padre_alumno?: Array<{
+      padre_id: string
+      padres: {
+        id: string
+        user_id: string
+        profiles: {
+          nombre: string
+          apellidos: string
+        }
+      }
+    }>
   }
   onClose: () => void
 }
@@ -46,9 +57,16 @@ export function FormularioAlumno({ alumno, onClose }: FormularioAlumnoProps) {
       const padresData = await getPadres()
       console.log('[FormularioAlumno] Padres recibidos:', padresData)
       setPadres(padresData)
+
+      // Si estamos editando un alumno y tiene padre asignado, seleccionarlo
+      if (alumno?.padre_alumno && alumno.padre_alumno.length > 0) {
+        const padreActual = alumno.padre_alumno[0].padre_id
+        console.log('[FormularioAlumno] Padre actual del alumno:', padreActual)
+        setPadreSeleccionado(padreActual)
+      }
     }
     loadPadres()
-  }, [])
+  }, [alumno])
 
   // Si state.success es true, cerrar el modal
   useEffect(() => {

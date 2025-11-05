@@ -28,16 +28,33 @@ export default function PadreDashboard() {
       }
 
       // Obtener datos del padre
-      const { data: padreData } = await supabase
+      const { data: padreData, error: padreError } = await supabase
         .from('padres')
         .select('*, profiles(*)')
         .eq('user_id', user.id)
         .single()
 
+      console.log('🔍 Usuario autenticado:', user.id)
+      console.log('👤 Datos del padre:', padreData)
+
+      if (padreError) {
+        console.error('❌ Error al obtener padre:', padreError)
+      }
+
+      if (!padreData) {
+        console.error('⚠️ No se encontró registro de padre para user_id:', user.id)
+        console.log('💡 Ejecuta este SQL en Supabase:')
+        console.log(`INSERT INTO padres (user_id) SELECT id FROM profiles WHERE id = '${user.id}' AND role = 'padre' AND NOT EXISTS (SELECT 1 FROM padres WHERE user_id = '${user.id}');`)
+        setLoading(false)
+        return
+      }
+
       setPadre(padreData)
 
-      // Obtener hijos vinculados
-      const { data: hijosData } = await supabase
+      console.log('🔍 Consultando alumnos para padre_id:', padreData.id)
+
+      // Obtener hijos vinculados (sin pagos por ahora)
+      const { data: hijosData, error: hijosError } = await supabase
         .from('padre_alumno')
         .select(`
           parentesco,
@@ -50,23 +67,49 @@ export default function PadreDashboard() {
             profiles (
               nombre,
               apellidos
-            ),
-            pagos (
-              id,
-              concepto,
-              monto,
-              status,
-              fecha_entrega
             )
           )
         `)
-        .eq('padre_id', padreData?.id)
+        .eq('padre_id', padreData.id)
+
+      if (hijosError) {
+        console.error('❌ Error al obtener hijos:', hijosError)
+        console.error('❌ Código de error:', hijosError.code)
+        console.error('❌ Mensaje:', hijosError.message)
+        console.error('❌ Detalles:', hijosError.details)
+        console.error('❌ Hint:', hijosError.hint)
+      }
+
+      console.log('👦 Datos de hijos:', hijosData)
+      console.log('📊 Total de hijos encontrados:', hijosData?.length || 0)
 
       // Transformar datos para acceso más fácil
       const hijosFormateados = hijosData?.map((item: any) => ({
         ...item.alumnos,
         parentesco: item.parentesco
       })) || []
+
+      // Obtener pagos para cada hijo
+      if (hijosFormateados.length > 0) {
+        const alumnoIds = hijosFormateados.map(h => h.id)
+        console.log('💰 Consultando pagos para alumnos:', alumnoIds)
+
+        const { data: pagosData, error: pagosError } = await supabase
+          .from('pagos')
+          .select('*')
+          .in('alumno_id', alumnoIds)
+
+        if (pagosError) {
+          console.error('❌ Error al obtener pagos:', pagosError)
+        } else {
+          console.log('💰 Pagos encontrados:', pagosData?.length || 0)
+
+          // Asignar pagos a cada hijo
+          hijosFormateados.forEach(hijo => {
+            hijo.pagos = pagosData?.filter(p => p.alumno_id === hijo.id) || []
+          })
+        }
+      }
 
       setHijos(hijosFormateados)
     } catch (error) {
@@ -140,7 +183,7 @@ export default function PadreDashboard() {
           </Card>
         ) : (
           hijos.map((hijo) => {
-            const pagosPendientes = hijo.pagos?.filter((p: any) => p.status === 'pendiente') || []
+            const pagosPendientes = hijo.pagos?.filter((p: any) => p.estado === 'pendiente') || []
             const totalPendiente = pagosPendientes.reduce((sum: number, p: any) => sum + parseFloat(p.monto || 0), 0)
 
             return (
@@ -226,20 +269,20 @@ export default function PadreDashboard() {
                             className="flex items-center justify-between p-3 border rounded hover:bg-gray-50"
                           >
                             <div className="flex-1">
-                              <p className="font-medium">{pago.concepto}</p>
+                              <p className="font-medium">{pago.concepto_nombre || pago.concepto || 'Pago'}</p>
                               <p className="text-sm text-gray-500">
-                                Vencimiento: {new Date(pago.fecha_entrega).toLocaleDateString('es-MX')}
+                                Vencimiento: {new Date(pago.fecha_vencimiento || pago.fecha_entrega || Date.now()).toLocaleDateString('es-MX')}
                               </p>
                             </div>
                             <div className="flex items-center gap-3">
                               <span className="font-bold text-lg">
-                                ${parseFloat(pago.monto).toFixed(2)}
+                                ${parseFloat(pago.monto || 0).toFixed(2)}
                               </span>
-                              <Badge 
-                                variant={pago.status === 'pagado' ? 'default' : 'destructive'}
+                              <Badge
+                                variant={pago.estado === 'pagado' || pago.status === 'pagado' ? 'default' : 'destructive'}
                                 className="capitalize"
                               >
-                                {pago.status}
+                                {pago.estado || pago.status || 'pendiente'}
                               </Badge>
                             </div>
                           </div>

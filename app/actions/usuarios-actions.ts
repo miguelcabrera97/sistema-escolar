@@ -130,7 +130,15 @@ export async function obtenerAlumnos(): Promise<ActionResult> {
         grado,
         grupo,
         user_id,
-        profiles:user_id(nombre, apellidos, email, activo)
+        profiles:user_id(nombre, apellidos, email, activo),
+        padre_alumno(
+          padre_id,
+          padres(
+            id,
+            user_id,
+            profiles:user_id(nombre, apellidos)
+          )
+        )
       `)
       .order('matricula')
 

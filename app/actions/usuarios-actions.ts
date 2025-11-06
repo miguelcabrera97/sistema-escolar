@@ -159,6 +159,42 @@ export async function obtenerAlumnos(): Promise<ActionResult> {
   }
 }
 
+export async function obtenerAlumnosPorGradoGrupo(grado?: string, grupo?: string): Promise<ActionResult> {
+  try {
+    const supabase = await createServerSupabaseClient()
+
+    let query = supabase
+      .from('alumnos')
+      .select(`
+        id,
+        matricula,
+        curp,
+        grado,
+        grupo,
+        user_id,
+        profiles:user_id(nombre, apellidos, email, activo)
+      `)
+
+    if (grado) {
+      query = query.eq('grado', grado)
+    }
+
+    if (grupo) {
+      query = query.eq('grupo', grupo)
+    }
+
+    const { data, error } = await query.order('grado').order('grupo').order('matricula')
+
+    if (error) {
+      return { success: false, error: error.message }
+    }
+
+    return { success: true, data: data || [] }
+  } catch (error: any) {
+    return { success: false, error: error.message }
+  }
+}
+
 export async function obtenerMaestros(): Promise<ActionResult> {
   try {
     const supabase = await createServerSupabaseClient()

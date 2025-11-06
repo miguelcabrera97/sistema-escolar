@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { crearCurso } from '@/app/actions/cursos-actions'
 import { obtenerMaestros } from '@/app/actions/usuarios-actions'
+import { obtenerGrados, obtenerGrupos, type Grado, type Grupo } from '@/app/actions/grados-grupos-actions'
 import { BookOpen, Loader2, Plus } from 'lucide-react'
 
 interface Maestro {
@@ -20,6 +21,8 @@ interface Maestro {
 
 export function FormularioCurso() {
   const [maestros, setMaestros] = useState<Maestro[]>([])
+  const [grados, setGrados] = useState<Grado[]>([])
+  const [grupos, setGrupos] = useState<Grupo[]>([])
   const [loadingMaestros, setLoadingMaestros] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [mostrarFormulario, setMostrarFormulario] = useState(false)
@@ -33,21 +36,35 @@ export function FormularioCurso() {
   })
 
   useEffect(() => {
-    cargarMaestros()
+    cargarDatos()
   }, [])
 
-  const cargarMaestros = async () => {
+  const cargarDatos = async () => {
     setLoadingMaestros(true)
-    const result = await obtenerMaestros()
-    if (result.success) {
-      console.log('Maestros obtenidos:', result.data)
-      // Filtrar solo maestros activos
-      const maestrosActivos = result.data.filter((m: Maestro) => m.activo)
+
+    // Cargar maestros
+    const maestrosResult = await obtenerMaestros()
+    if (maestrosResult.success) {
+      console.log('Maestros obtenidos:', maestrosResult.data)
+      const maestrosActivos = maestrosResult.data.filter((m: Maestro) => m.activo)
       console.log('Maestros activos:', maestrosActivos)
       setMaestros(maestrosActivos)
     } else {
-      console.error('Error al cargar maestros:', result.error)
+      console.error('Error al cargar maestros:', maestrosResult.error)
     }
+
+    // Cargar grados
+    const gradosResult = await obtenerGrados()
+    if (gradosResult.success) {
+      setGrados(gradosResult.data)
+    }
+
+    // Cargar grupos
+    const gruposResult = await obtenerGrupos()
+    if (gruposResult.success) {
+      setGrupos(gruposResult.data)
+    }
+
     setLoadingMaestros(false)
   }
 
@@ -97,9 +114,6 @@ export function FormularioCurso() {
       setSubmitting(false)
     }
   }
-
-  const grados = ['1', '2', '3', '4', '5', '6']
-  const grupos = ['A', 'B', 'C', 'D', 'E', 'F']
 
   return (
     <Card>
@@ -164,8 +178,8 @@ export function FormularioCurso() {
                   </SelectTrigger>
                   <SelectContent>
                     {grados.map((grado) => (
-                      <SelectItem key={grado} value={grado}>
-                        {grado}°
+                      <SelectItem key={grado.id} value={grado.nombre_completo}>
+                        {grado.nombre_completo}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -185,8 +199,8 @@ export function FormularioCurso() {
                   </SelectTrigger>
                   <SelectContent>
                     {grupos.map((grupo) => (
-                      <SelectItem key={grupo} value={grupo}>
-                        {grupo}
+                      <SelectItem key={grupo.id} value={grupo.nombre}>
+                        {grupo.nombre}
                       </SelectItem>
                     ))}
                   </SelectContent>

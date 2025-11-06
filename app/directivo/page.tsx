@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Users, BookOpen, FileText, DollarSign, GraduationCap, UserCog, Receipt, ArrowRight, LogOut, LinkIcon, UserPlus } from 'lucide-react'
+import { Users, BookOpen, FileText, DollarSign, GraduationCap, UserCog, Receipt, ArrowRight, LogOut, LinkIcon, UserPlus, List } from 'lucide-react'
 
 interface Profile {
   nombre: string
@@ -331,6 +331,26 @@ export default function DirectivoDashboard() {
             </Card>
 
             <Card
+              className="hover:shadow-lg transition-all cursor-pointer hover:border-indigo-300 group"
+              onClick={() => router.push('/directivo/alumnos-por-grado')}
+            >
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="h-12 w-12 rounded-lg bg-indigo-100 flex items-center justify-center group-hover:bg-indigo-200 transition-colors">
+                        <Users className="h-6 w-6 text-indigo-600" />
+                      </div>
+                      <h3 className="font-bold text-lg text-gray-900">Por Grado/Grupo</h3>
+                    </div>
+                    <p className="text-sm text-gray-600">Vista organizada por grado</p>
+                  </div>
+                  <ArrowRight className="h-5 w-5 text-gray-400 group-hover:text-indigo-600 group-hover:translate-x-1 transition-all" />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card
               className="hover:shadow-lg transition-all cursor-pointer hover:border-green-300 group"
               onClick={() => router.push('/directivo/cursos')}
             >
@@ -346,6 +366,26 @@ export default function DirectivoDashboard() {
                     <p className="text-sm text-gray-600">Gestionar cursos y materias</p>
                   </div>
                   <ArrowRight className="h-5 w-5 text-gray-400 group-hover:text-green-600 group-hover:translate-x-1 transition-all" />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card
+              className="hover:shadow-lg transition-all cursor-pointer hover:border-yellow-300 group"
+              onClick={() => router.push('/directivo/grados-grupos')}
+            >
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="h-12 w-12 rounded-lg bg-yellow-100 flex items-center justify-center group-hover:bg-yellow-200 transition-colors">
+                        <List className="h-6 w-6 text-yellow-600" />
+                      </div>
+                      <h3 className="font-bold text-lg text-gray-900">Grados y Grupos</h3>
+                    </div>
+                    <p className="text-sm text-gray-600">Administrar niveles académicos</p>
+                  </div>
+                  <ArrowRight className="h-5 w-5 text-gray-400 group-hover:text-yellow-600 group-hover:translate-x-1 transition-all" />
                 </div>
               </CardContent>
             </Card>

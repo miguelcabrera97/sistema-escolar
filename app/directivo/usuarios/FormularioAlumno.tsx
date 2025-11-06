@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { crearAlumno, editarAlumno, getPadres } from '@/app/actions/usuarios-actions'
+import { obtenerGrados, obtenerGrupos, type Grado, type Grupo } from '@/app/actions/grados-grupos-actions'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
@@ -47,16 +48,33 @@ export function FormularioAlumno({ alumno, onClose }: FormularioAlumnoProps) {
   const action = alumno ? editarAlumno : crearAlumno
   const [state, formAction] = useActionState(action, initialState)
   const [padres, setPadres] = useState<Padre[]>([])
+  const [grados, setGrados] = useState<Grado[]>([])
+  const [grupos, setGrupos] = useState<Grupo[]>([])
   const [padreSeleccionado, setPadreSeleccionado] = useState<string>('')
   const [gradoSeleccionado, setGradoSeleccionado] = useState<string>(alumno?.grado || '')
+  const [grupoSeleccionado, setGrupoSeleccionado] = useState<string>(alumno?.grupo || '')
   const [isLoading, setIsLoading] = useState(false)
 
   useEffect(() => {
-    async function loadPadres() {
-      console.log('[FormularioAlumno] Cargando padres...')
+    async function loadData() {
+      console.log('[FormularioAlumno] Cargando datos...')
+
+      // Cargar padres
       const padresData = await getPadres()
       console.log('[FormularioAlumno] Padres recibidos:', padresData)
       setPadres(padresData)
+
+      // Cargar grados
+      const gradosResult = await obtenerGrados()
+      if (gradosResult.success) {
+        setGrados(gradosResult.data)
+      }
+
+      // Cargar grupos
+      const gruposResult = await obtenerGrupos()
+      if (gruposResult.success) {
+        setGrupos(gruposResult.data)
+      }
 
       // Si estamos editando un alumno y tiene padre asignado, seleccionarlo
       if (alumno?.padre_alumno && alumno.padre_alumno.length > 0) {
@@ -65,7 +83,7 @@ export function FormularioAlumno({ alumno, onClose }: FormularioAlumnoProps) {
         setPadreSeleccionado(padreActual)
       }
     }
-    loadPadres()
+    loadData()
   }, [alumno])
 
   // Si state.success es true, cerrar el modal
@@ -93,6 +111,7 @@ export function FormularioAlumno({ alumno, onClose }: FormularioAlumnoProps) {
           {alumno && <input type="hidden" name="id" value={alumno.id} />}
           <input type="hidden" name="id_padre" value={padreSeleccionado} />
           <input type="hidden" name="grado" value={gradoSeleccionado} />
+          <input type="hidden" name="grupo" value={grupoSeleccionado} />
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Nombre */}
@@ -198,12 +217,11 @@ export function FormularioAlumno({ alumno, onClose }: FormularioAlumnoProps) {
                   <SelectValue placeholder="Seleccione un grado" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="1">1° Primaria</SelectItem>
-                  <SelectItem value="2">2° Primaria</SelectItem>
-                  <SelectItem value="3">3° Primaria</SelectItem>
-                  <SelectItem value="4">4° Primaria</SelectItem>
-                  <SelectItem value="5">5° Primaria</SelectItem>
-                  <SelectItem value="6">6° Primaria</SelectItem>
+                  {grados.map((grado) => (
+                    <SelectItem key={grado.id} value={grado.nombre_completo}>
+                      {grado.nombre_completo}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
               {state.errors?.grado && (
@@ -214,14 +232,18 @@ export function FormularioAlumno({ alumno, onClose }: FormularioAlumnoProps) {
             {/* Grupo */}
             <div className="space-y-2">
               <Label htmlFor="grupo">Grupo *</Label>
-              <Input
-                id="grupo"
-                name="grupo"
-                defaultValue={alumno?.grupo}
-                placeholder="Ej: A, B, C"
-                maxLength={1}
-                required
-              />
+              <Select value={grupoSeleccionado} onValueChange={setGrupoSeleccionado} required>
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleccione un grupo" />
+                </SelectTrigger>
+                <SelectContent>
+                  {grupos.map((grupo) => (
+                    <SelectItem key={grupo.id} value={grupo.nombre}>
+                      {grupo.nombre}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               {state.errors?.grupo && (
                 <p className="text-red-500 text-xs">{state.errors.grupo}</p>
               )}

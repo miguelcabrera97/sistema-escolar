@@ -3,6 +3,7 @@
 import { createServerSupabaseClient } from '@/lib/supabase-server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { revalidatePath } from 'next/cache'
+import { MercadoPagoConfig, Preference } from 'mercadopago'
 
 interface Result {
   success: boolean
@@ -292,35 +293,55 @@ export async function obtenerPagosDirectivo(filtros?: {
       return { success: true, data: [] }
     }
 
-    // Obtener IDs únicos de padres y alumnos
-    const padreIds = [...new Set(pagos.map(p => p.padre_id))]
-    const alumnoIds = [...new Set(pagos.map(p => p.alumno_id))]
+    // Obtener IDs únicos de padres y alumnos (filtrar nulls)
+    const padreIds = [...new Set(pagos.map(p => p.padre_id).filter(Boolean))]
+    const alumnoIds = [...new Set(pagos.map(p => p.alumno_id).filter(Boolean))]
 
     // Obtener información de padres
-    const { data: padres } = await supabase
-      .from('padres')
-      .select('id, user_id')
-      .in('id', padreIds)
+    let padres = []
+    let padreProfiles = []
+    if (padreIds.length > 0) {
+      const { data: padresData } = await supabase
+        .from('padres')
+        .select('id, user_id')
+        .in('id', padreIds)
 
-    // Obtener profiles de padres
-    const padreUserIds = padres?.map(p => p.user_id).filter(Boolean) || []
-    const { data: padreProfiles } = await supabase
-      .from('profiles')
-      .select('id, nombre, apellidos, email')
-      .in('id', padreUserIds)
+      padres = padresData || []
+
+      // Obtener profiles de padres
+      const padreUserIds = padres.map(p => p.user_id).filter(Boolean)
+      if (padreUserIds.length > 0) {
+        const { data: padreProfilesData } = await supabase
+          .from('profiles')
+          .select('id, nombre, apellidos, email')
+          .in('id', padreUserIds)
+
+        padreProfiles = padreProfilesData || []
+      }
+    }
 
     // Obtener información de alumnos
-    const { data: alumnos } = await supabase
-      .from('alumnos')
-      .select('id, matricula, grado, grupo, user_id')
-      .in('id', alumnoIds)
+    let alumnos = []
+    let alumnoProfiles = []
+    if (alumnoIds.length > 0) {
+      const { data: alumnosData } = await supabase
+        .from('alumnos')
+        .select('id, matricula, grado, grupo, user_id')
+        .in('id', alumnoIds)
 
-    // Obtener profiles de alumnos
-    const alumnoUserIds = alumnos?.map(a => a.user_id).filter(Boolean) || []
-    const { data: alumnoProfiles } = await supabase
-      .from('profiles')
-      .select('id, nombre, apellidos')
-      .in('id', alumnoUserIds)
+      alumnos = alumnosData || []
+
+      // Obtener profiles de alumnos
+      const alumnoUserIds = alumnos.map(a => a.user_id).filter(Boolean)
+      if (alumnoUserIds.length > 0) {
+        const { data: alumnoProfilesData } = await supabase
+          .from('profiles')
+          .select('id, nombre, apellidos')
+          .in('id', alumnoUserIds)
+
+        alumnoProfiles = alumnoProfilesData || []
+      }
+    }
 
     // Combinar todos los datos
     const pagosCompletos = pagos.map(pago => {
@@ -518,7 +539,11 @@ export async function verificarPagoManual(pagoId: string, aprobar: boolean): Pro
       pagado_verificado_por: user.id
     }
 
-    if (!aprobar) {
+    if (aprobar) {
+      // Aprobar el pago - marcar como pagado
+      updateData.estado = 'pagado'
+      updateData.fecha_pago = new Date().toISOString()
+    } else {
       // Rechazar el pago
       updateData.estado = 'pendiente'
       updateData.metodo_pago = null
@@ -540,7 +565,7 @@ export async function verificarPagoManual(pagoId: string, aprobar: boolean): Pro
     revalidatePath('/directivo/pagos')
     return {
       success: true,
-      data: { message: aprobar ? 'Pago verificado' : 'Pago rechazado' }
+      data: { message: aprobar ? 'Pago aprobado exitosamente' : 'Pago rechazado' }
     }
   } catch (error) {
     console.error('Error:', error)

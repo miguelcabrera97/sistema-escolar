@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Users, BookOpen, FileText, DollarSign, GraduationCap, UserCog, Receipt, ArrowRight, LogOut, LinkIcon, UserPlus, Printer } from 'lucide-react'
+import { Users, BookOpen, FileText, DollarSign, GraduationCap, UserCog, Receipt, ArrowRight, LogOut, LinkIcon, UserPlus } from 'lucide-react'
 
 interface Profile {
   nombre: string
@@ -383,29 +383,9 @@ export default function DirectivoDashboard() {
                       </div>
                       <h3 className="font-bold text-lg text-gray-900">Pagos</h3>
                     </div>
-                    <p className="text-sm text-gray-600">Administrar pagos escolares</p>
+                    <p className="text-sm text-gray-600">Pagos en línea y recibos</p>
                   </div>
                   <ArrowRight className="h-5 w-5 text-gray-400 group-hover:text-emerald-600 group-hover:translate-x-1 transition-all" />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card
-              className="hover:shadow-lg transition-all cursor-pointer hover:border-cyan-300 group"
-              onClick={() => router.push('/directivo/recibos')}
-            >
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="flex items-center gap-3 mb-2">
-                      <div className="h-12 w-12 rounded-lg bg-cyan-100 flex items-center justify-center group-hover:bg-cyan-200 transition-colors">
-                        <Printer className="h-6 w-6 text-cyan-600" />
-                      </div>
-                      <h3 className="font-bold text-lg text-gray-900">Recibos</h3>
-                    </div>
-                    <p className="text-sm text-gray-600">Generar recibos de pago</p>
-                  </div>
-                  <ArrowRight className="h-5 w-5 text-gray-400 group-hover:text-cyan-600 group-hover:translate-x-1 transition-all" />
                 </div>
               </CardContent>
             </Card>

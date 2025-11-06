@@ -1,9 +1,11 @@
 'use client'
 
+import { useState } from 'react'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Calendar, DollarSign, User, CreditCard, FileText, CheckCircle, ExternalLink } from 'lucide-react'
+import { Calendar, DollarSign, User, CreditCard, FileText, CheckCircle, ExternalLink, Check } from 'lucide-react'
+import { verificarPagoManual } from '@/app/actions/pagos-actions'
 
 interface Pago {
   id: string
@@ -41,10 +43,34 @@ interface Props {
   pago: Pago | null
   open: boolean
   onOpenChange: (open: boolean) => void
+  onSuccess?: () => void
 }
 
-export function DialogoDetallePago({ pago, open, onOpenChange }: Props) {
+export function DialogoDetallePago({ pago, open, onOpenChange, onSuccess }: Props) {
+  const [aprobando, setAprobando] = useState(false)
+
   if (!pago) return null
+
+  const handleAprobarPago = async () => {
+    if (!confirm('¿Confirmar que este pago fue realizado en ventanilla?')) return
+
+    setAprobando(true)
+    try {
+      const result = await verificarPagoManual(pago.id, true)
+      if (result.success) {
+        alert('Pago aprobado exitosamente')
+        onOpenChange(false)
+        if (onSuccess) onSuccess()
+      } else {
+        alert('Error: ' + result.error)
+      }
+    } catch (error) {
+      console.error('Error:', error)
+      alert('Error al aprobar el pago')
+    } finally {
+      setAprobando(false)
+    }
+  }
 
   const getBadgeVariant = (estado: string) => {
     switch (estado) {
@@ -222,7 +248,19 @@ export function DialogoDetallePago({ pago, open, onOpenChange }: Props) {
           )}
         </div>
 
-        <div className="flex justify-end pt-4">
+        <div className="flex justify-between items-center pt-4 border-t">
+          <div>
+            {pago.estado === 'pendiente' && pago.metodo_pago === 'ventanilla' && (
+              <Button
+                onClick={handleAprobarPago}
+                disabled={aprobando}
+                className="bg-green-600 hover:bg-green-700"
+              >
+                <Check className="h-4 w-4 mr-2" />
+                {aprobando ? 'Aprobando...' : 'Aprobar Pago en Ventanilla'}
+              </Button>
+            )}
+          </div>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cerrar
           </Button>

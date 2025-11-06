@@ -282,6 +282,7 @@ export function TablaPagos({ pagos, onSuccess }: Props) {
         pago={pagoDetalle}
         open={dialogoDetalleAbierto}
         onOpenChange={setDialogoDetalleAbierto}
+        onSuccess={onSuccess}
       />
     </>
   )

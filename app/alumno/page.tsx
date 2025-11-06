@@ -295,15 +295,15 @@ export default function AlumnoDashboard() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Tareas Recientes</CardTitle>
-              <CardDescription>Tareas pendientes y próximas a vencer</CardDescription>
+              <CardTitle>Mis Tareas</CardTitle>
+              <CardDescription>Todas tus tareas: pendientes, entregadas y calificadas</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {tareasPendientes.slice(0, 5).map((tarea) => {
+                {tareas.slice(0, 10).map((tarea) => {
                   const entrega = tarea.entregas.find(e => e.id)
                   const vencida = new Date(tarea.fecha_entrega) < new Date()
-                  
+
                   return (
                     <div key={tarea.id} className="flex items-center justify-between p-4 border rounded-lg">
                       <div className="flex-1">
@@ -311,6 +311,11 @@ export default function AlumnoDashboard() {
                         <p className="text-sm text-gray-600">
                           Vence: {new Date(tarea.fecha_entrega).toLocaleDateString()}
                         </p>
+                        {entrega?.status === 'calificada' && entrega.calificacion && (
+                          <p className="text-sm font-semibold mt-1 text-green-600">
+                            Calificación: {entrega.calificacion}
+                          </p>
+                        )}
                       </div>
                       <div className="flex items-center gap-2">
                         <Badge variant={
@@ -322,8 +327,8 @@ export default function AlumnoDashboard() {
                            entrega?.status === 'entregada' ? 'Entregada' :
                            vencida ? 'Vencida' : 'Pendiente'}
                         </Badge>
-                        <Button 
-                          size="sm" 
+                        <Button
+                          size="sm"
                           onClick={() => router.push(`/alumno/tarea/${tarea.id}`)}
                         >
                           Ver

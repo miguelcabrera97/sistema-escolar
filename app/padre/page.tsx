@@ -198,7 +198,7 @@ export default function PadreDashboard() {
                 </div>
 
                 {/* Cards de resumen */}
-                <div className="grid gap-6 md:grid-cols-3">
+                <div className="grid gap-6 md:grid-cols-2">
                   <Card>
                     <CardHeader className="flex flex-row items-center justify-between pb-2">
                       <CardTitle className="text-sm font-medium">Pagos Pendientes</CardTitle>
@@ -225,17 +225,6 @@ export default function PadreDashboard() {
                     <CardContent>
                       <div className="text-2xl font-bold">Ver Boleta</div>
                       <p className="text-xs text-muted-foreground">Consultar calificaciones</p>
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardHeader className="flex flex-row items-center justify-between pb-2">
-                      <CardTitle className="text-sm font-medium">Asistencias</CardTitle>
-                      <User className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-2xl font-bold">95%</div>
-                      <p className="text-xs text-muted-foreground">Este mes</p>
                     </CardContent>
                   </Card>
                 </div>

@@ -132,7 +132,7 @@ export default function TareaDetalle() {
 
       if (archivo) {
         const fileExt = archivo.name.split('.').pop()
-        const fileName = `${alumno.id}/${tareaId}/${Date.now()}.${fileExt}`
+        const fileName = `entregas/${alumno.id}/${Date.now()}.${fileExt}`
 
         const { error: uploadError } = await supabase.storage
           .from('tareas')

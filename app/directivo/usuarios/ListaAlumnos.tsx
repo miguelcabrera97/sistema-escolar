@@ -281,6 +281,7 @@ export function ListaAlumnos() {
                   <TableRow>
                     <TableHead>Matrícula</TableHead>
                     <TableHead>Nombre Completo</TableHead>
+                    <TableHead>CURP</TableHead>
                     <TableHead>Grado</TableHead>
                     <TableHead>Grupo</TableHead>
                     <TableHead>Email</TableHead>
@@ -297,6 +298,9 @@ export function ListaAlumnos() {
                       </TableCell>
                       <TableCell>
                         {alumno.profiles.nombre} {alumno.profiles.apellidos}
+                      </TableCell>
+                      <TableCell className="text-sm text-gray-600 font-mono">
+                        {alumno.curp || '-'}
                       </TableCell>
                       <TableCell>{alumno.grado}°</TableCell>
                       <TableCell>{alumno.grupo}</TableCell>

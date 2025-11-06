@@ -15,6 +15,7 @@ const AlumnoSchema = z.object({
   email: z.string().email('Email inválido'),
   password: z.string().min(6, 'La contraseña debe tener al menos 6 caracteres').optional(),
   matricula: z.string().min(1, 'La matrícula es requerida'),
+  curp: z.string().length(18, 'El CURP debe tener exactamente 18 caracteres').optional().or(z.literal('')),
   grado: z.string().min(1, 'El grado es requerido'),
   grupo: z.string().min(1, 'El grupo es requerido'),
   id_padre: z.string().optional(),
@@ -27,6 +28,7 @@ const AlumnoSchema = z.object({
 export interface Alumno {
   id: string
   matricula: string
+  curp?: string
   grado: string
   grupo: string
   user_id: string
@@ -127,6 +129,7 @@ export async function obtenerAlumnos(): Promise<ActionResult> {
       .select(`
         id,
         matricula,
+        curp,
         grado,
         grupo,
         user_id,
@@ -241,7 +244,7 @@ export async function crearAlumno(prevState: any, formData: FormData): Promise<A
       }
     }
 
-    const { nombre, apellidos, email, password, matricula, grado, grupo, id_padre } = validatedFields.data
+    const { nombre, apellidos, email, password, matricula, curp, grado, grupo, id_padre } = validatedFields.data
 
     const supabase = await createServerSupabaseClient()
 
@@ -297,6 +300,7 @@ export async function crearAlumno(prevState: any, formData: FormData): Promise<A
       {
         user_id: authData.user.id,
         matricula: matricula,
+        curp: curp || null,
         grado: grado,
         grupo: grupo,
       },
@@ -357,7 +361,7 @@ export async function editarAlumno(prevState: any, formData: FormData): Promise<
       }
     }
 
-    const { id, nombre, apellidos, email, matricula, grado, grupo, id_padre } = validatedFields.data
+    const { id, nombre, apellidos, email, matricula, curp, grado, grupo, id_padre } = validatedFields.data
 
     if (!id) {
       return {
@@ -402,6 +406,7 @@ export async function editarAlumno(prevState: any, formData: FormData): Promise<
       .from('alumnos')
       .update({
         matricula: matricula,
+        curp: curp || null,
         grado: grado,
         grupo: grupo,
       })

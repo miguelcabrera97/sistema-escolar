@@ -174,6 +174,22 @@ export function FormularioAlumno({ alumno, onClose }: FormularioAlumnoProps) {
               )}
             </div>
 
+            {/* CURP */}
+            <div className="space-y-2">
+              <Label htmlFor="curp">CURP</Label>
+              <Input
+                id="curp"
+                name="curp"
+                defaultValue={alumno?.curp}
+                placeholder="18 caracteres"
+                maxLength={18}
+                className="uppercase"
+              />
+              {state.errors?.curp && (
+                <p className="text-red-500 text-xs">{state.errors.curp}</p>
+              )}
+            </div>
+
             {/* Grado */}
             <div className="space-y-2">
               <Label htmlFor="grado">Grado *</Label>

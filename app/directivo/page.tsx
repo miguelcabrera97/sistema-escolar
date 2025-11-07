@@ -244,26 +244,6 @@ export default function DirectivoDashboard() {
             </Card>
 
             <Card
-              className="hover:shadow-lg transition-all cursor-pointer hover:border-purple-300 group"
-              onClick={() => router.push('/directivo/alumnos')}
-            >
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="flex items-center gap-3 mb-2">
-                      <div className="h-12 w-12 rounded-lg bg-purple-100 flex items-center justify-center group-hover:bg-purple-200 transition-colors">
-                        <GraduationCap className="h-6 w-6 text-purple-600" />
-                      </div>
-                      <h3 className="font-bold text-lg text-gray-900">Alumnos</h3>
-                    </div>
-                    <p className="text-sm text-gray-600">Ver y administrar alumnos</p>
-                  </div>
-                  <ArrowRight className="h-5 w-5 text-gray-400 group-hover:text-purple-600 group-hover:translate-x-1 transition-all" />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card
               className="hover:shadow-lg transition-all cursor-pointer hover:border-indigo-300 group"
               onClick={() => router.push('/directivo/alumnos-por-grado')}
             >

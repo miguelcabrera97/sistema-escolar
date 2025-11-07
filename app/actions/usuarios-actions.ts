@@ -807,3 +807,124 @@ export async function crearAuxiliar(data: CrearAuxiliarData): Promise<ActionResu
     return { success: false, error: 'Error inesperado' }
   }
 }
+
+// ============================================
+// PADRES Y DIRECTIVOS
+// ============================================
+
+const PadreDirectivoSchema = z.object({
+  nombre: z.string().min(1, 'El nombre es requerido'),
+  apellidos: z.string().min(1, 'Los apellidos son requeridos'),
+  email: z.string().email('Email inválido'),
+  password: z.string().min(6, 'La contraseña debe tener al menos 6 caracteres'),
+  telefono: z.string().optional(),
+  role: z.enum(['padre', 'directivo']),
+})
+
+export async function crearPadreODirectivo(prevState: any, formData: FormData): Promise<ActionResult> {
+  try {
+    const rawFormData = Object.fromEntries(formData.entries())
+
+    const validatedFields = PadreDirectivoSchema.safeParse(rawFormData)
+
+    if (!validatedFields.success) {
+      return {
+        errors: validatedFields.error.flatten().fieldErrors,
+      }
+    }
+
+    const { nombre, apellidos, email, password, telefono, role } = validatedFields.data
+
+    const supabase = await createServerSupabaseClient()
+
+    // 1. Crear usuario en auth
+    const { data: authData, error: authError } = await supabase.auth.signUp({
+      email: email,
+      password: password,
+      options: {
+        data: {
+          nombre: nombre,
+          apellidos: apellidos,
+          role: role,
+        },
+      },
+    })
+
+    if (authError) {
+      console.error('Error creating auth user:', authError)
+      return {
+        errors: { _form: [authError.message] },
+      }
+    }
+
+    if (!authData.user) {
+      return {
+        errors: { _form: ['No se pudo crear el usuario'] },
+      }
+    }
+
+    // 2. Crear perfil en profiles
+    const { error: profileError } = await supabase.from('profiles').insert([
+      {
+        id: authData.user.id,
+        nombre: nombre,
+        apellidos: apellidos,
+        email: email,
+        telefono: telefono || null,
+        role: role,
+        activo: true,
+      },
+    ])
+
+    if (profileError) {
+      console.error('Error creating profile:', profileError)
+      await supabase.auth.admin.deleteUser(authData.user.id)
+      return {
+        errors: { _form: [profileError.message] },
+      }
+    }
+
+    // 3. Si es padre, crear registro en tabla padres
+    if (role === 'padre') {
+      const { error: padreError } = await supabase.from('padres').insert([
+        {
+          user_id: authData.user.id,
+        },
+      ])
+
+      if (padreError) {
+        console.error('Error creating padre:', padreError)
+        return {
+          errors: { _form: [padreError.message] },
+        }
+      }
+    }
+
+    revalidatePath('/directivo/usuarios')
+    return { success: true, message: `${role === 'padre' ? 'Padre' : 'Directivo'} creado exitosamente` }
+  } catch (error) {
+    console.error('Error:', error)
+    return { success: false, error: 'Error inesperado' }
+  }
+}
+
+export async function obtenerPadresYDirectivos(): Promise<ActionResult> {
+  try {
+    const supabase = await createServerSupabaseClient()
+
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id, nombre, apellidos, email, telefono, role, activo')
+      .in('role', ['padre', 'directivo'])
+      .order('role')
+      .order('nombre')
+
+    if (error) {
+      return { success: false, error: error.message }
+    }
+
+    return { success: true, data: data || [] }
+  } catch (error: any) {
+    return { success: false, error: error.message }
+  }
+}

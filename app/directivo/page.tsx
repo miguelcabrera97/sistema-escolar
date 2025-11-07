@@ -3,14 +3,9 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Users, BookOpen, FileText, DollarSign, GraduationCap, UserCog, Receipt, ArrowRight, LogOut, LinkIcon, UserPlus, List } from 'lucide-react'
-
-interface Profile {
-  nombre: string
-  apellidos: string
-}
 
 interface Stats {
   totalAlumnos: number
@@ -19,26 +14,6 @@ interface Stats {
   totalTareas: number
   ingresosDelMes: number
   pagosPendientes: number
-}
-
-interface Curso {
-  id: string
-  nombre: string
-  grado: string
-  grupo: string
-  maestro_profiles: Profile
-}
-
-interface Pago {
-  id: string
-  concepto_nombre: string
-  monto: number
-  estado: string
-  fecha_vencimiento: string
-  alumnos: {
-    matricula: string
-    profiles: Profile
-  } | null
 }
 
 export default function DirectivoDashboard() {
@@ -51,8 +26,6 @@ export default function DirectivoDashboard() {
     ingresosDelMes: 0,
     pagosPendientes: 0
   })
-  const [cursos, setCursos] = useState<Curso[]>([])
-  const [pagosPendientes, setPagosPendientes] = useState<Pago[]>([])
   const [loading, setLoading] = useState(true)
 
   const obtenerDatos = useCallback(async () => {
@@ -108,46 +81,6 @@ export default function DirectivoDashboard() {
         ingresosDelMes,
         pagosPendientes: totalPendiente
       })
-
-      const { data: cursosData } = await supabase
-        .from('cursos')
-        .select(`
-          id,
-          nombre,
-          grado,
-          grupo,
-          maestro_profiles:profiles!cursos_maestro_id_fkey(nombre, apellidos)
-        `)
-        .order('grado', { ascending: true })
-        .limit(5)
-
-      if (cursosData) {
-        setCursos(cursosData)
-      }
-
-      const { data: pagosData } = await supabase
-        .from('pagos')
-        .select(`
-          id,
-          concepto_nombre,
-          monto,
-          estado,
-          fecha_vencimiento,
-          alumnos (
-            matricula,
-            profiles (
-              nombre,
-              apellidos
-            )
-          )
-        `)
-        .in('estado', ['pendiente', 'vencido'])
-        .order('fecha_vencimiento', { ascending: true })
-        .limit(5)
-
-      if (pagosData) {
-        setPagosPendientes(pagosData)
-      }
 
     } catch (error) {
       const err = error as Error
@@ -471,98 +404,6 @@ export default function DirectivoDashboard() {
             </Card>
           </div>
         </section>
-
-        {/* Información Reciente */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Card className="hover:shadow-lg transition-shadow">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="text-lg">Cursos Recientes</CardTitle>
-                  <CardDescription>Últimos 5 cursos registrados</CardDescription>
-                </div>
-                <BookOpen className="h-5 w-5 text-gray-400" />
-              </div>
-            </CardHeader>
-            <CardContent>
-              {cursos.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  <BookOpen className="h-12 w-12 mx-auto mb-2 text-gray-300" />
-                  <p className="text-sm">No hay cursos registrados</p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {cursos.map((curso) => (
-                    <div key={curso.id} className="flex items-start justify-between p-3 border rounded-lg hover:bg-gray-50 transition-colors">
-                      <div className="flex-1">
-                        <h3 className="font-semibold text-gray-900">{curso.nombre}</h3>
-                        <p className="text-sm text-gray-600 mt-1">
-                          {curso.grado}° {curso.grupo}
-                        </p>
-                        <p className="text-xs text-gray-500 mt-1">
-                          Maestro: {curso.maestro_profiles.nombre} {curso.maestro_profiles.apellidos}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card className="hover:shadow-lg transition-shadow border-red-100">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="text-lg">Pagos Pendientes</CardTitle>
-                  <CardDescription>Próximos a vencer</CardDescription>
-                </div>
-                <DollarSign className="h-5 w-5 text-red-500" />
-              </div>
-            </CardHeader>
-            <CardContent>
-              {pagosPendientes.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  <DollarSign className="h-12 w-12 mx-auto mb-2 text-gray-300" />
-                  <p className="text-sm">No hay pagos pendientes</p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {pagosPendientes.map((pago) => (
-                    <div key={pago.id} className="flex items-start justify-between p-3 border border-red-100 rounded-lg hover:bg-red-50 transition-colors">
-                      <div className="flex-1">
-                        <h3 className="font-semibold text-gray-900">{pago.concepto_nombre}</h3>
-                        <p className="text-sm text-gray-600 mt-1">
-                          {pago.alumnos?.profiles ? (
-                            `${pago.alumnos.profiles.nombre} ${pago.alumnos.profiles.apellidos}`
-                          ) : (
-                            'Alumno no disponible'
-                          )}
-                        </p>
-                        <p className="text-xs text-gray-500 mt-1">
-                          Mat: {pago.alumnos?.matricula || 'N/A'}
-                        </p>
-                        <p className="text-xs text-red-600 mt-1 font-medium">
-                          Vence: {new Date(pago.fecha_vencimiento).toLocaleDateString('es-MX', {
-                            year: 'numeric',
-                            month: 'short',
-                            day: 'numeric'
-                          })}
-                        </p>
-                      </div>
-                      <div className="text-right ml-4">
-                        <div className="font-bold text-lg text-red-600">
-                          ${pago.monto.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
-                        </div>
-                        <p className="text-xs text-gray-500">MXN</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
       </main>
     </div>
   )

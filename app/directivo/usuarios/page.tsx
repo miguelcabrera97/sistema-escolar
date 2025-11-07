@@ -4,9 +4,11 @@ import { Button } from '@/components/ui/button'
 import { FormularioAlumno } from './FormularioAlumno'
 import { FormularioMaestro } from './FormularioMaestro'
 import { FormularioAuxiliar } from './FormularioAuxiliar'
+import { FormularioPadre } from './FormularioPadre'
 import { ListaAlumnos } from './ListaAlumnos'
 import { ListaMaestros } from './ListaMaestros'
 import { ListaAuxiliares } from './ListaAuxiliares'
+import { ListaPadres } from './ListaPadres'
 import { ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
 
@@ -41,10 +43,11 @@ export default async function GestionUsuariosPage() {
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 py-8">
         <Tabs defaultValue="alumnos" className="w-full">
-          <TabsList className="grid w-full grid-cols-3 mb-8">
+          <TabsList className="grid w-full grid-cols-4 mb-8">
             <TabsTrigger value="alumnos">Alumnos</TabsTrigger>
             <TabsTrigger value="maestros">Maestros</TabsTrigger>
             <TabsTrigger value="auxiliares">Auxiliares</TabsTrigger>
+            <TabsTrigger value="padres">Padres/Directivos</TabsTrigger>
           </TabsList>
 
           {/* Tab de Alumnos */}
@@ -63,6 +66,12 @@ export default async function GestionUsuariosPage() {
           <TabsContent value="auxiliares" className="space-y-6">
             <FormularioAuxiliar />
             <ListaAuxiliares />
+          </TabsContent>
+
+          {/* Tab de Padres y Directivos */}
+          <TabsContent value="padres" className="space-y-6">
+            <FormularioPadre />
+            <ListaPadres />
           </TabsContent>
         </Tabs>
       </main>

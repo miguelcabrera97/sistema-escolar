@@ -1,6 +1,6 @@
 'use server'
 
-import { supabase } from '@/lib/supabase'
+import { createServerSupabaseClient } from '@/lib/supabase-server'
 
 export interface Boleta {
   id: string
@@ -34,6 +34,7 @@ interface Result {
  */
 export async function subirBoleta(formData: FormData): Promise<Result> {
   try {
+    const supabase = await createServerSupabaseClient()
     const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) {
@@ -127,6 +128,7 @@ export async function subirBoleta(formData: FormData): Promise<Result> {
  */
 export async function obtenerBoletasAlumno(alumnoId: string): Promise<Result> {
   try {
+    const supabase = await createServerSupabaseClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
       return { success: false, error: 'No autenticado' }
@@ -204,6 +206,7 @@ export async function obtenerBoletasAlumno(alumnoId: string): Promise<Result> {
  */
 export async function obtenerTodasLasBoletas(): Promise<Result> {
   try {
+    const supabase = await createServerSupabaseClient()
     const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) {
@@ -260,6 +263,7 @@ export async function obtenerTodasLasBoletas(): Promise<Result> {
  */
 export async function eliminarBoleta(boletaId: string): Promise<Result> {
   try {
+    const supabase = await createServerSupabaseClient()
     const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) {
@@ -318,6 +322,7 @@ export async function eliminarBoleta(boletaId: string): Promise<Result> {
  */
 export async function obtenerUrlDescargaBoleta(boletaId: string): Promise<Result> {
   try {
+    const supabase = await createServerSupabaseClient()
     // Obtener información de la boleta
     const { data: boleta, error } = await supabase
       .from('boletas')

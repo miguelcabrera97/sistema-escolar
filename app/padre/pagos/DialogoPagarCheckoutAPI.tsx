@@ -50,8 +50,6 @@ export function DialogoPagarCheckoutAPI({ pago, open, onOpenChange, onSuccess }:
     expirationDate: '',
     securityCode: '',
     email: '',
-    identificationType: 'RFC',
-    identificationNumber: '',
     installments: 1
   })
 
@@ -83,7 +81,7 @@ export function DialogoPagarCheckoutAPI({ pago, open, onOpenChange, onSuccess }:
     try {
       // Validaciones básicas
       if (!formData.cardNumber || !formData.cardholderName || !formData.expirationDate ||
-          !formData.securityCode || !formData.email || !formData.identificationNumber) {
+          !formData.securityCode || !formData.email) {
         setError('Por favor completa todos los campos')
         setLoading(false)
         return
@@ -103,9 +101,7 @@ export function DialogoPagarCheckoutAPI({ pago, open, onOpenChange, onSuccess }:
         cardholderName: formData.cardholderName,
         cardExpirationMonth: month,
         cardExpirationYear: `20${year}`,
-        securityCode: formData.securityCode,
-        identificationType: formData.identificationType,
-        identificationNumber: formData.identificationNumber
+        securityCode: formData.securityCode
       }
 
       // Obtener el payment method id
@@ -136,8 +132,8 @@ export function DialogoPagarCheckoutAPI({ pago, open, onOpenChange, onSuccess }:
         issuerId: paymentMethods.results[0].issuer?.id,
         installments: formData.installments,
         email: formData.email,
-        identificationType: formData.identificationType,
-        identificationNumber: formData.identificationNumber
+        identificationType: 'RFC',
+        identificationNumber: 'XAXX010101000' // RFC genérico para pagos sin identificación
       })
 
       if (result.success) {
@@ -152,8 +148,6 @@ export function DialogoPagarCheckoutAPI({ pago, open, onOpenChange, onSuccess }:
             expirationDate: '',
             securityCode: '',
             email: '',
-            identificationType: 'RFC',
-            identificationNumber: '',
             installments: 1
           })
           setSuccess(false)
@@ -305,36 +299,6 @@ export function DialogoPagarCheckoutAPI({ pago, open, onOpenChange, onSuccess }:
                   disabled={loading || success || !mpLoaded}
                   required
                 />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="identificationType">Tipo de documento</Label>
-                  <select
-                    id="identificationType"
-                    name="identificationType"
-                    value={formData.identificationType}
-                    onChange={handleInputChange}
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                    disabled={loading || success || !mpLoaded}
-                    required
-                  >
-                    <option value="RFC">RFC</option>
-                    <option value="CURP">CURP</option>
-                  </select>
-                </div>
-                <div>
-                  <Label htmlFor="identificationNumber">Número</Label>
-                  <Input
-                    id="identificationNumber"
-                    name="identificationNumber"
-                    value={formData.identificationNumber}
-                    onChange={handleInputChange}
-                    placeholder="RFC/CURP"
-                    disabled={loading || success || !mpLoaded}
-                    required
-                  />
-                </div>
               </div>
             </div>
 

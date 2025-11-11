@@ -784,7 +784,7 @@ export async function crearPreferenciaMercadoPago(pagoId: string): Promise<Resul
           failure: `${appUrl}/padre/pagos?status=failure`,
           pending: `${appUrl}/padre/pagos?status=pending`
         },
-        auto_return: 'approved',
+        auto_return: 'all',
         notification_url: `${appUrl}/api/webhooks/mercadopago`,
         external_reference: pagoId,
         statement_descriptor: 'SISTEMA ESCOLAR',

@@ -825,6 +825,155 @@ export async function crearPreferenciaMercadoPago(pagoId: string): Promise<Resul
 }
 
 // ============================================
+// CREAR PAGO CON CHECKOUT API (ORDERS)
+// ============================================
+
+export async function crearPagoCheckoutAPI(
+  pagoId: string,
+  paymentData: {
+    token: string
+    paymentMethodId: string
+    issuerId?: string
+    installments: number
+    email: string
+    identificationType: string
+    identificationNumber: string
+  }
+): Promise<Result> {
+  try {
+    const supabase = await createServerSupabaseClient()
+
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { success: false, error: 'No autenticado' }
+
+    // Obtener el pago
+    const { data: pago, error: pagoError } = await supabase
+      .from('pagos')
+      .select('*')
+      .eq('id', pagoId)
+      .single()
+
+    if (pagoError || !pago) {
+      return { success: false, error: 'Pago no encontrado' }
+    }
+
+    if (pago.estado !== 'pendiente' && pago.estado !== 'vencido') {
+      return { success: false, error: 'Este pago ya fue procesado' }
+    }
+
+    // Verificar que el usuario sea el padre del pago
+    const { data: padre } = await supabase
+      .from('padres')
+      .select('id, user_id')
+      .eq('user_id', user.id)
+      .single()
+
+    if (!padre || padre.id !== pago.padre_id) {
+      return { success: false, error: 'No autorizado' }
+    }
+
+    // Obtener información del padre
+    const { data: padreProfile } = await supabase
+      .from('profiles')
+      .select('email, nombre, apellidos')
+      .eq('id', padre.user_id)
+      .single()
+
+    // Obtener información del alumno
+    const { data: alumno } = await supabase
+      .from('alumnos')
+      .select('matricula, user_id')
+      .eq('id', pago.alumno_id)
+      .single()
+
+    const { data: alumnoProfile } = alumno ? await supabase
+      .from('profiles')
+      .select('nombre, apellidos')
+      .eq('id', alumno.user_id)
+      .single() : { data: null }
+
+    // Importar dinámicamente el SDK de Mercado Pago
+    const { mercadoPagoPayment } = await import('@/lib/mercadopago')
+
+    // Crear el pago usando la API de Orders
+    const payment = await mercadoPagoPayment.create({
+      body: {
+        transaction_amount: Number(pago.monto),
+        token: paymentData.token,
+        description: pago.descripcion || `Pago de ${pago.concepto || 'concepto'} - ${alumnoProfile?.nombre || ''} ${alumnoProfile?.apellidos || ''}`,
+        installments: paymentData.installments,
+        payment_method_id: paymentData.paymentMethodId,
+        issuer_id: paymentData.issuerId,
+        payer: {
+          email: paymentData.email,
+          identification: {
+            type: paymentData.identificationType,
+            number: paymentData.identificationNumber
+          }
+        },
+        external_reference: pagoId,
+        statement_descriptor: 'SISTEMA ESCOLAR',
+        notification_url: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/webhooks/mercadopago`
+      }
+    })
+
+    if (!payment.id) {
+      return { success: false, error: 'Error al procesar el pago' }
+    }
+
+    // Guardar la transacción en la base de datos
+    const { error: transError } = await supabase
+      .from('transacciones_mercadopago')
+      .upsert({
+        pago_id: pagoId,
+        payment_id: String(payment.id),
+        status: payment.status,
+        status_detail: payment.status_detail,
+        transaction_amount: payment.transaction_amount,
+        net_amount: payment.transaction_details?.net_received_amount,
+        fee_amount: payment.fee_details?.reduce((sum: number, fee: any) => sum + fee.amount, 0),
+        payer_email: payment.payer?.email,
+        payer_identification: payment.payer?.identification?.number,
+        payment_data: payment
+      })
+
+    if (transError) {
+      console.error('Error al guardar transacción:', transError)
+    }
+
+    // Actualizar el estado del pago según el resultado
+    if (payment.status === 'approved') {
+      await supabase
+        .from('pagos')
+        .update({
+          estado: 'pagado',
+          metodo_pago: 'mercadopago',
+          fecha_pago: new Date().toISOString(),
+          referencia_pago: String(payment.id)
+        })
+        .eq('id', pagoId)
+    }
+
+    return {
+      success: true,
+      data: {
+        payment_id: payment.id,
+        status: payment.status,
+        status_detail: payment.status_detail,
+        payment_method_id: payment.payment_method_id,
+        transaction_amount: payment.transaction_amount
+      }
+    }
+  } catch (error: any) {
+    console.error('Error al procesar pago:', error)
+    return {
+      success: false,
+      error: error.message || 'Error inesperado al procesar el pago'
+    }
+  }
+}
+
+// ============================================
 // OBTENER DATOS COMPLETOS DE PAGO PARA RECIBO
 // ============================================
 

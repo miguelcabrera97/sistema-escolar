@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { DollarSign, CheckCircle, Clock, AlertCircle, CreditCard, FileText, ArrowLeft, Download } from 'lucide-react'
 import { obtenerPagosPadre, obtenerDatosPagoParaRecibo } from '@/app/actions/pagos-actions'
-import { DialogoPagarMercadoPago } from './DialogoPagarMercadoPago'
+import { DialogoPagarCheckoutAPI } from './DialogoPagarCheckoutAPI'
 import { DialogoPagoManual } from './DialogoPagoManual'
 import { descargarReciboPDF } from '@/lib/recibo-pdf'
 
@@ -388,7 +388,7 @@ export default function PagosPadreContent() {
       </main>
 
       {/* Diálogos */}
-      <DialogoPagarMercadoPago
+      <DialogoPagarCheckoutAPI
         pago={pagoSeleccionado}
         open={dialogoMercadoPagoAbierto}
         onOpenChange={setDialogoMercadoPagoAbierto}

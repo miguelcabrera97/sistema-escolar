@@ -4,7 +4,8 @@
       "Bash(tree:*)",
       "Bash(npm run dev:*)",
       "Bash(timeout:*)",
-      "Bash(npx tsx:*)"
+      "Bash(npx tsx:*)",
+      "Bash(nul)"
     ]
   },
   "enableAllProjectMcpServers": true,

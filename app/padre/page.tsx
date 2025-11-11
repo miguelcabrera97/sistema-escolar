@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { DollarSign, FileText, User, LogOut, CreditCard, Award } from 'lucide-react'
+import { DollarSign, FileText, User, LogOut, CreditCard, Award, Lock } from 'lucide-react'
 
 export default function PadreDashboard() {
   const [padre, setPadre] = useState<any>(null)
@@ -142,14 +142,20 @@ export default function PadreDashboard() {
         <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8 flex justify-between items-center">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">
-              Portal de Padres - {padre?.profiles?.nombre} 
+              Portal de Padres - {padre?.profiles?.nombre}
             </h1>
             <p className="text-sm text-gray-500">Seguimiento académico y pagos</p>
           </div>
-          <Button variant="ghost" onClick={handleLogout}>
-            <LogOut className="h-4 w-4 mr-2" />
-            Salir
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => router.push('/padre/cambiar-password')}>
+              <Lock className="h-4 w-4 mr-2" />
+              Cambiar Contraseña
+            </Button>
+            <Button variant="ghost" onClick={handleLogout}>
+              <LogOut className="h-4 w-4 mr-2" />
+              Salir
+            </Button>
+          </div>
         </div>
       </header>
 

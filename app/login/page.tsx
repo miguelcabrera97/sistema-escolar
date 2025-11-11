@@ -85,7 +85,16 @@ export default function LoginPage() {
             </div>
 
             <div>
-              <Label htmlFor="password">Contraseña</Label>
+              <div className="flex justify-between items-center mb-1">
+                <Label htmlFor="password">Contraseña</Label>
+                <button
+                  type="button"
+                  onClick={() => router.push('/recuperar-password')}
+                  className="text-sm text-blue-600 hover:text-blue-800 hover:underline"
+                >
+                  ¿Olvidaste tu contraseña?
+                </button>
+              </div>
               <Input
                 id="password"
                 type="password"

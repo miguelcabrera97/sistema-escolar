@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { BookOpen, FileText, Users, Plus } from 'lucide-react'
+import { BookOpen, FileText, Users, Plus, Lock } from 'lucide-react'
 
 interface Profile {
   nombre: string
@@ -127,12 +127,18 @@ export default function MaestroDashboard() {
               </h1>
               <p className="text-gray-600">Panel de Maestro</p>
             </div>
-            <Button variant="outline" onClick={() => {
-              supabase.auth.signOut()
-              router.push('/login')
-            }}>
-              Cerrar Sesión
-            </Button>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => router.push('/maestro/cambiar-password')}>
+                <Lock className="h-4 w-4 mr-2" />
+                Cambiar Contraseña
+              </Button>
+              <Button variant="outline" onClick={() => {
+                supabase.auth.signOut()
+                router.push('/login')
+              }}>
+                Cerrar Sesión
+              </Button>
+            </div>
           </div>
         </div>
       </header>

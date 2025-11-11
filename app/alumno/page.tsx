@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { BookOpen, FileText, Calendar, Award, User } from 'lucide-react'
+import { BookOpen, FileText, Calendar, Award, User, Lock } from 'lucide-react'
 
 interface Profile {
   nombre: string
@@ -233,12 +233,18 @@ export default function AlumnoDashboard() {
                 Matrícula: {alumno?.matricula} - {alumno?.grado} {alumno?.grupo}
               </p>
             </div>
-            <Button variant="outline" onClick={() => {
-              supabase.auth.signOut()
-              router.push('/login')
-            }}>
-              Cerrar Sesión
-            </Button>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => router.push('/alumno/cambiar-password')}>
+                <Lock className="h-4 w-4 mr-2" />
+                Cambiar Contraseña
+              </Button>
+              <Button variant="outline" onClick={() => {
+                supabase.auth.signOut()
+                router.push('/login')
+              }}>
+                Cerrar Sesión
+              </Button>
+            </div>
           </div>
         </div>
       </header>

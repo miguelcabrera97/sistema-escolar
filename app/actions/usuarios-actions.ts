@@ -1,6 +1,7 @@
 'use server'
 
 import { createServerSupabaseClient } from '@/lib/supabase-server'
+import { supabaseAdmin } from '@/lib/supabase-admin'
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 
@@ -284,16 +285,15 @@ export async function crearAlumno(prevState: any, formData: FormData): Promise<A
 
     const supabase = await createServerSupabaseClient()
 
-    // 1. Crear usuario en auth
-    const { data: authData, error: authError } = await supabase.auth.signUp({
+    // 1. Crear usuario en auth con email confirmado automáticamente
+    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email: email,
       password: password || 'temporal123',
-      options: {
-        data: {
-          nombre: nombre,
-          apellidos: apellidos,
-          role: 'alumno',
-        },
+      email_confirm: true,
+      user_metadata: {
+        nombre: nombre,
+        apellidos: apellidos,
+        role: 'alumno',
       },
     })
 
@@ -644,16 +644,15 @@ export async function crearMaestro(data: CrearMaestroData): Promise<ActionResult
   try {
     const supabase = await createServerSupabaseClient()
 
-    // 1. Crear usuario en auth
-    const { data: authData, error: authError } = await supabase.auth.signUp({
+    // 1. Crear usuario en auth con email confirmado automáticamente
+    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email: data.email,
       password: data.password,
-      options: {
-        data: {
-          nombre: data.nombre,
-          apellidos: data.apellidos,
-          role: 'maestro',
-        },
+      email_confirm: true,
+      user_metadata: {
+        nombre: data.nombre,
+        apellidos: data.apellidos,
+        role: 'maestro',
       },
     })
 
@@ -755,16 +754,15 @@ export async function crearAuxiliar(data: CrearAuxiliarData): Promise<ActionResu
   try {
     const supabase = await createServerSupabaseClient()
 
-    // 1. Crear usuario en auth
-    const { data: authData, error: authError } = await supabase.auth.signUp({
+    // 1. Crear usuario en auth con email confirmado automáticamente
+    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email: data.email,
       password: data.password,
-      options: {
-        data: {
-          nombre: data.nombre,
-          apellidos: data.apellidos,
-          role: 'auxiliar_calificaciones',
-        },
+      email_confirm: true,
+      user_metadata: {
+        nombre: data.nombre,
+        apellidos: data.apellidos,
+        role: 'auxiliar_calificaciones',
       },
     })
 
@@ -837,16 +835,15 @@ export async function crearPadreODirectivo(prevState: any, formData: FormData): 
 
     const supabase = await createServerSupabaseClient()
 
-    // 1. Crear usuario en auth
-    const { data: authData, error: authError } = await supabase.auth.signUp({
+    // 1. Crear usuario en auth con email confirmado automáticamente
+    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email: email,
       password: password,
-      options: {
-        data: {
-          nombre: nombre,
-          apellidos: apellidos,
-          role: role,
-        },
+      email_confirm: true,
+      user_metadata: {
+        nombre: nombre,
+        apellidos: apellidos,
+        role: role,
       },
     })
 

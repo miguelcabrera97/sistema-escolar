@@ -14,7 +14,7 @@ import { descargarReciboPDF } from '@/lib/recibo-pdf'
 
 interface Pago {
   id: string
-  concepto_nombre: string
+  concepto: string
   descripcion: string | null
   monto: number
   estado: string
@@ -259,7 +259,7 @@ export default function PagosPadreContent() {
                         <div className="flex items-start justify-between mb-4">
                           <div className="flex-1">
                             <div className="flex items-center gap-2 mb-2">
-                              <h3 className="text-lg font-bold">{pago.concepto_nombre}</h3>
+                              <h3 className="text-lg font-bold">{pago.concepto}</h3>
                               <Badge variant={getBadgeVariant(pago.estado)}>
                                 {pago.estado === 'vencido' && <AlertCircle className="h-3 w-3 mr-1" />}
                                 {getEstadoTexto(pago.estado)}
@@ -329,7 +329,7 @@ export default function PagosPadreContent() {
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
                             <div className="flex items-center gap-2 mb-2">
-                              <h3 className="text-lg font-bold">{pago.concepto_nombre}</h3>
+                              <h3 className="text-lg font-bold">{pago.concepto}</h3>
                               <Badge variant="default">
                                 <CheckCircle className="h-3 w-3 mr-1" />
                                 Pagado

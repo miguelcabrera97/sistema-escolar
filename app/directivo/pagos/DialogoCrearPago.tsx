@@ -9,20 +9,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Loader2, Printer, CreditCard } from 'lucide-react'
-import { crearPago, obtenerConceptosPago, obtenerPadresConAlumnos } from '@/app/actions/pagos-actions'
+import { obtenerPadresConAlumnos } from '@/app/actions/pagos-actions'
 import { supabase } from '@/lib/supabase'
 
 interface Props {
   open: boolean
   onOpenChange: (open: boolean) => void
   onSuccess: () => void
-}
-
-interface Concepto {
-  id: string
-  nombre: string
-  descripcion: string | null
-  monto_default: number
 }
 
 interface Padre {
@@ -58,7 +51,6 @@ interface ReciboData {
 }
 
 export function DialogoCrearPago({ open, onOpenChange, onSuccess }: Props) {
-  const [conceptos, setConceptos] = useState<Concepto[]>([])
   const [padres, setPadres] = useState<Padre[]>([])
   const [loading, setLoading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
@@ -67,6 +59,7 @@ export function DialogoCrearPago({ open, onOpenChange, onSuccess }: Props) {
   const reciboRef = useRef<HTMLDivElement>(null)
 
   const [conceptoId, setConceptoId] = useState('')
+  const [conceptoNombre, setConceptoNombre] = useState('')
   const [padreId, setPadreId] = useState('')
   const [alumnoId, setAlumnoId] = useState('')
   const [monto, setMonto] = useState('')
@@ -84,14 +77,7 @@ export function DialogoCrearPago({ open, onOpenChange, onSuccess }: Props) {
   const cargarDatos = async () => {
     setLoading(true)
     try {
-      const [conceptosResult, padresResult] = await Promise.all([
-        obtenerConceptosPago(),
-        obtenerPadresConAlumnos()
-      ])
-
-      if (conceptosResult.success) {
-        setConceptos(conceptosResult.data || [])
-      }
+      const padresResult = await obtenerPadresConAlumnos()
 
       if (padresResult.success) {
         setPadres(padresResult.data || [])
@@ -105,6 +91,7 @@ export function DialogoCrearPago({ open, onOpenChange, onSuccess }: Props) {
 
   const limpiarFormulario = () => {
     setConceptoId('')
+    setConceptoNombre('')
     setPadreId('')
     setAlumnoId('')
     setMonto('')
@@ -112,14 +99,6 @@ export function DialogoCrearPago({ open, onOpenChange, onSuccess }: Props) {
     setFechaVencimiento('')
     setTabActivo('pago')
     setReciboGenerado(null)
-  }
-
-  const handleConceptoChange = (conceptoId: string) => {
-    setConceptoId(conceptoId)
-    const concepto = conceptos.find(c => c.id === conceptoId)
-    if (concepto && concepto.monto_default > 0) {
-      setMonto(concepto.monto_default.toString())
-    }
   }
 
   const handlePadreChange = (padreId: string) => {
@@ -130,29 +109,28 @@ export function DialogoCrearPago({ open, onOpenChange, onSuccess }: Props) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!conceptoId || !padreId || !alumnoId || !monto || !fechaVencimiento) {
+    if (!conceptoNombre || !padreId || !alumnoId || !monto || !fechaVencimiento) {
       alert('Por favor completa todos los campos requeridos')
       return
     }
 
     setSubmitting(true)
     try {
-      const result = await crearPago({
-        concepto_id: conceptoId,
-        padre_id: padreId,
+      // Crear el pago directamente sin concepto_id, usando el nombre del concepto
+      await supabase.from('pagos').insert({
         alumno_id: alumnoId,
+        padre_id: padreId,
+        concepto: conceptoNombre,
         monto: parseFloat(monto),
-        descripcion: descripcion || undefined,
-        fecha_vencimiento: fechaVencimiento
+        descripcion: descripcion || null,
+        estado: 'pendiente',
+        fecha_vencimiento: fechaVencimiento,
+        metodo_pago: 'en_linea'
       })
 
-      if (result.success) {
-        alert('Pago creado exitosamente')
-        onOpenChange(false)
-        onSuccess()
-      } else {
-        alert('Error: ' + result.error)
-      }
+      alert('Pago creado exitosamente')
+      onOpenChange(false)
+      onSuccess()
     } catch (error) {
       console.error('Error:', error)
       alert('Error al crear el pago')
@@ -173,7 +151,7 @@ export function DialogoCrearPago({ open, onOpenChange, onSuccess }: Props) {
   }
 
   const handleGenerarRecibo = async () => {
-    if (!conceptoId || !padreId || !alumnoId || !monto) {
+    if (!conceptoNombre || !padreId || !alumnoId || !monto) {
       alert('Por favor completa todos los campos requeridos')
       return
     }
@@ -182,9 +160,8 @@ export function DialogoCrearPago({ open, onOpenChange, onSuccess }: Props) {
     try {
       const padre = padres.find(p => p.id === padreId)
       const alumnoRel = padre?.padre_alumno.find(rel => rel.alumno_id === alumnoId)
-      const concepto = conceptos.find(c => c.id === conceptoId)
 
-      if (!padre || !alumnoRel || !concepto) {
+      if (!padre || !alumnoRel) {
         alert('Error al obtener los datos')
         return
       }
@@ -200,7 +177,7 @@ export function DialogoCrearPago({ open, onOpenChange, onSuccess }: Props) {
         }),
         alumno: alumnoRel.alumnos,
         padre: padre,
-        concepto: concepto.nombre,
+        concepto: conceptoNombre,
         monto: parseFloat(monto),
         descripcion: descripcion || ''
       }
@@ -209,7 +186,7 @@ export function DialogoCrearPago({ open, onOpenChange, onSuccess }: Props) {
       await supabase.from('pagos').insert({
         alumno_id: alumnoId,
         padre_id: padreId,
-        concepto: concepto.nombre,
+        concepto: conceptoNombre,
         monto: parseFloat(monto),
         descripcion: descripcion || null,
         estado: 'pendiente',
@@ -476,18 +453,13 @@ export function DialogoCrearPago({ open, onOpenChange, onSuccess }: Props) {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label>Concepto de Pago *</Label>
-                <Select value={conceptoId} onValueChange={handleConceptoChange}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecciona un concepto" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {conceptos.map((concepto) => (
-                      <SelectItem key={concepto.id} value={concepto.id}>
-                        {concepto.nombre}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Input
+                  type="text"
+                  placeholder="Ej: Colegiatura, Inscripción, Material..."
+                  value={conceptoNombre}
+                  onChange={(e) => setConceptoNombre(e.target.value)}
+                  required
+                />
               </div>
 
               <div>
@@ -603,18 +575,12 @@ export function DialogoCrearPago({ open, onOpenChange, onSuccess }: Props) {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label>Concepto de Pago *</Label>
-                    <Select value={conceptoId} onValueChange={handleConceptoChange}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecciona un concepto" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {conceptos.map((concepto) => (
-                          <SelectItem key={concepto.id} value={concepto.id}>
-                            {concepto.nombre}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Input
+                      type="text"
+                      placeholder="Ej: Colegiatura, Inscripción, Material..."
+                      value={conceptoNombre}
+                      onChange={(e) => setConceptoNombre(e.target.value)}
+                    />
                   </div>
 
                   <div>

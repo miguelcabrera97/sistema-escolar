@@ -11,7 +11,7 @@ import { registrarPagoManual } from '@/app/actions/pagos-actions'
 
 interface Pago {
   id: string
-  concepto_nombre: string
+  concepto: string
   descripcion: string | null
   monto: number
   alumnos: {
@@ -111,7 +111,7 @@ export function DialogoPagoManual({ pago, open, onOpenChange, onSuccess }: Props
           <div className="bg-gray-50 p-4 rounded-lg space-y-2">
             <div className="flex justify-between">
               <span className="text-sm text-gray-600">Concepto:</span>
-              <span className="text-sm font-medium">{pago.concepto_nombre}</span>
+              <span className="text-sm font-medium">{pago.concepto}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-sm text-gray-600">Alumno:</span>

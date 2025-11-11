@@ -9,19 +9,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Loader2, Users } from 'lucide-react'
-import { crearPagosMasivos, obtenerConceptosPago, obtenerPadresConAlumnos } from '@/app/actions/pagos-actions'
+import { crearPagosMasivos, obtenerPadresConAlumnos } from '@/app/actions/pagos-actions'
 
 interface Props {
   open: boolean
   onOpenChange: (open: boolean) => void
   onSuccess: () => void
-}
-
-interface Concepto {
-  id: string
-  nombre: string
-  descripcion: string | null
-  monto_default: number
 }
 
 interface Padre {
@@ -47,12 +40,12 @@ interface Padre {
 }
 
 export function DialogoCrearPagosMasivos({ open, onOpenChange, onSuccess }: Props) {
-  const [conceptos, setConceptos] = useState<Concepto[]>([])
   const [padres, setPadres] = useState<Padre[]>([])
   const [loading, setLoading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
 
   const [conceptoId, setConceptoId] = useState('')
+  const [conceptoNombre, setConceptoNombre] = useState('')
   const [padresSeleccionados, setPadresSeleccionados] = useState<Set<string>>(new Set())
   const [monto, setMonto] = useState('')
   const [descripcion, setDescripcion] = useState('')
@@ -70,14 +63,7 @@ export function DialogoCrearPagosMasivos({ open, onOpenChange, onSuccess }: Prop
   const cargarDatos = async () => {
     setLoading(true)
     try {
-      const [conceptosResult, padresResult] = await Promise.all([
-        obtenerConceptosPago(),
-        obtenerPadresConAlumnos()
-      ])
-
-      if (conceptosResult.success) {
-        setConceptos(conceptosResult.data || [])
-      }
+      const padresResult = await obtenerPadresConAlumnos()
 
       if (padresResult.success) {
         setPadres(padresResult.data || [])
@@ -91,19 +77,12 @@ export function DialogoCrearPagosMasivos({ open, onOpenChange, onSuccess }: Prop
 
   const limpiarFormulario = () => {
     setConceptoId('')
+    setConceptoNombre('')
     setPadresSeleccionados(new Set())
     setMonto('')
     setDescripcion('')
     setFechaVencimiento('')
     setBusqueda('')
-  }
-
-  const handleConceptoChange = (conceptoId: string) => {
-    setConceptoId(conceptoId)
-    const concepto = conceptos.find(c => c.id === conceptoId)
-    if (concepto && concepto.monto_default > 0) {
-      setMonto(concepto.monto_default.toString())
-    }
   }
 
   const handleTogglePadre = (padreId: string) => {
@@ -127,7 +106,7 @@ export function DialogoCrearPagosMasivos({ open, onOpenChange, onSuccess }: Prop
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!conceptoId || padresSeleccionados.size === 0 || !monto || !fechaVencimiento) {
+    if (!conceptoNombre || padresSeleccionados.size === 0 || !monto || !fechaVencimiento) {
       alert('Por favor completa todos los campos requeridos y selecciona al menos un padre')
       return
     }
@@ -147,7 +126,7 @@ export function DialogoCrearPagosMasivos({ open, onOpenChange, onSuccess }: Prop
     setSubmitting(true)
     try {
       const result = await crearPagosMasivos({
-        concepto_id: conceptoId,
+        concepto: conceptoNombre,
         padre_ids: Array.from(padresSeleccionados),
         monto: parseFloat(monto),
         descripcion: descripcion || undefined,
@@ -207,18 +186,13 @@ export function DialogoCrearPagosMasivos({ open, onOpenChange, onSuccess }: Prop
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label>Concepto de Pago *</Label>
-                  <Select value={conceptoId} onValueChange={handleConceptoChange}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecciona un concepto" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {conceptos.map((concepto) => (
-                        <SelectItem key={concepto.id} value={concepto.id}>
-                          {concepto.nombre}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Input
+                    type="text"
+                    placeholder="Ej: Colegiatura, Inscripción, Material..."
+                    value={conceptoNombre}
+                    onChange={(e) => setConceptoNombre(e.target.value)}
+                    required
+                  />
                 </div>
 
                 <div>

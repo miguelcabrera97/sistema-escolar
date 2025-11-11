@@ -156,7 +156,7 @@ export async function crearPago(data: CrearPagoData): Promise<Result> {
 // ============================================
 
 export interface CrearPagosMasivosData {
-  concepto_id: string
+  concepto: string
   padre_ids: string[] // Array de padre_id
   monto: number
   descripcion?: string
@@ -181,17 +181,6 @@ export async function crearPagosMasivos(data: CrearPagosMasivosData): Promise<Re
       return { success: false, error: 'No autorizado' }
     }
 
-    // Obtener el concepto
-    const { data: concepto } = await supabase
-      .from('conceptos_pago')
-      .select('nombre')
-      .eq('id', data.concepto_id)
-      .single()
-
-    if (!concepto) {
-      return { success: false, error: 'Concepto no encontrado' }
-    }
-
     // Obtener los alumnos de cada padre
     const { data: relaciones } = await supabase
       .from('padre_alumno')
@@ -204,7 +193,7 @@ export async function crearPagosMasivos(data: CrearPagosMasivosData): Promise<Re
 
     // Crear un pago por cada relación padre-alumno
     const pagos = relaciones.map(rel => ({
-      concepto: concepto.nombre,  // Usar 'concepto' en lugar de 'concepto_id' y 'concepto_nombre'
+      concepto: data.concepto,
       padre_id: rel.padre_id,
       alumno_id: rel.alumno_id,
       descripcion: data.descripcion || null,

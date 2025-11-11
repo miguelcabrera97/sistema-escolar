@@ -238,7 +238,7 @@ export default function PadreDashboard() {
                         <CardDescription>Pagos y adeudos</CardDescription>
                       </div>
                       <div className='flex justify-between'>
-                        <Button>Realizar Pago</Button>
+                        
                         <Button onClick={() => router.push('/padre/pagos')}> <CreditCard className="h-4 w-4 mr-2" />Ver Pagos</Button>
                       </div>
                       

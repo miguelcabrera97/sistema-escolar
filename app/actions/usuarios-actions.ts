@@ -925,3 +925,74 @@ export async function obtenerPadresYDirectivos(): Promise<ActionResult> {
     return { success: false, error: error.message }
   }
 }
+
+// ============================================
+// FUNCIONES PARA PADRES
+// ============================================
+
+export async function editarPadre(prevState: any, formData: FormData): Promise<ActionResult> {
+  try {
+    const supabase = await createServerSupabaseClient()
+
+    const id = formData.get('id') as string
+    const nombre = formData.get('nombre') as string
+    const apellidos = formData.get('apellidos') as string
+    const email = formData.get('email') as string
+    const telefono = formData.get('telefono') as string
+
+    if (!id || !nombre || !apellidos || !email) {
+      return { success: false, error: 'Faltan campos requeridos' }
+    }
+
+    // Actualizar perfil
+    const { error: profileError } = await supabase
+      .from('profiles')
+      .update({
+        nombre,
+        apellidos,
+        email,
+        telefono: telefono || null
+      })
+      .eq('id', id)
+
+    if (profileError) {
+      return { success: false, error: profileError.message }
+    }
+
+    revalidatePath('/directivo/usuarios')
+    return { success: true, message: 'Padre actualizado exitosamente' }
+  } catch (error) {
+    console.error('Error:', error)
+    return { success: false, error: 'Error inesperado' }
+  }
+}
+
+export async function toggleActivoPadre(id: string, activo: boolean): Promise<ActionResult> {
+  try {
+    const supabase = await createServerSupabaseClient()
+
+    // Actualizar el campo activo en profiles
+    const { error } = await supabase
+      .from('profiles')
+      .update({ activo })
+      .eq('id', id)
+
+    if (error) {
+      return { success: false, error: error.message }
+    }
+
+    revalidatePath('/directivo/usuarios')
+    return { success: true, message: `Padre ${activo ? 'activado' : 'desactivado'} exitosamente` }
+  } catch (error) {
+    console.error('Error:', error)
+    return { success: false, error: 'Error inesperado' }
+  }
+}
+
+export async function desactivarPadre(id: string): Promise<ActionResult> {
+  return toggleActivoPadre(id, false)
+}
+
+export async function reactivarPadre(id: string): Promise<ActionResult> {
+  return toggleActivoPadre(id, true)
+}

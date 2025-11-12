@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useRef, useState, useMemo } from 'react'
 import { subirBoleta } from '@/app/actions/boletas-actions'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { Alumno } from '@/app/actions/usuarios-actions'
+import { Search } from 'lucide-react'
 
 interface FormularioSubirBoletaProps {
   alumnos: Alumno[]
@@ -21,9 +22,23 @@ export default function FormularioSubirBoleta({ alumnos, onBoletaSubida }: Formu
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
 
-  // Estados para los valores de los Select
+  // Estado para el valor del Select de alumno
   const [alumnoSeleccionado, setAlumnoSeleccionado] = useState<string>('')
-  const [periodoSeleccionado, setPeriodoSeleccionado] = useState<string>('')
+
+  // Estado para el buscador
+  const [busqueda, setBusqueda] = useState<string>('')
+
+  // Filtrar alumnos según la búsqueda
+  const alumnosFiltrados = useMemo(() => {
+    if (!busqueda.trim()) return alumnos
+
+    const terminoBusqueda = busqueda.toLowerCase()
+    return alumnos.filter((alumno) => {
+      const nombreCompleto = `${alumno.profiles.nombre} ${alumno.profiles.apellidos}`.toLowerCase()
+      const matricula = alumno.matricula.toLowerCase()
+      return nombreCompleto.includes(terminoBusqueda) || matricula.includes(terminoBusqueda)
+    })
+  }, [alumnos, busqueda])
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -40,7 +55,7 @@ export default function FormularioSubirBoleta({ alumnos, onBoletaSubida }: Formu
       setSuccess('Boleta subida exitosamente.')
       formRef.current.reset()
       setAlumnoSeleccionado('')
-      setPeriodoSeleccionado('')
+      setBusqueda('')
       onBoletaSubida() // Llamar a la función de callback
     } else {
       setError(result.error || 'Ocurrió un error inesperado.')
@@ -61,9 +76,8 @@ export default function FormularioSubirBoleta({ alumnos, onBoletaSubida }: Formu
       </CardHeader>
       <CardContent>
         <form ref={formRef} onSubmit={handleSubmit} className="space-y-4">
-          {/* Campos ocultos para enviar los valores de los Select */}
+          {/* Campo oculto para enviar el valor del Select de alumno */}
           <input type="hidden" name="alumno_id" value={alumnoSeleccionado} />
-          <input type="hidden" name="periodo" value={periodoSeleccionado} />
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
@@ -73,26 +87,41 @@ export default function FormularioSubirBoleta({ alumnos, onBoletaSubida }: Formu
                   <SelectValue placeholder="Seleccione un alumno" />
                 </SelectTrigger>
                 <SelectContent>
-                  {alumnos.map((alumno) => (
-                    <SelectItem key={alumno.id} value={alumno.id}>
-                      {`${alumno.profiles.nombre} ${alumno.profiles.apellidos} (${alumno.matricula})`}
-                    </SelectItem>
-                  ))}
+                  <div className="px-2 py-2 border-b sticky top-0 bg-white z-10">
+                    <div className="relative">
+                      <Search className="absolute left-2 top-2.5 h-4 w-4 text-gray-400" />
+                      <Input
+                        placeholder="Buscar por nombre o matrícula..."
+                        value={busqueda}
+                        onChange={(e) => setBusqueda(e.target.value)}
+                        className="pl-8"
+                      />
+                    </div>
+                  </div>
+                  <div className="max-h-[300px] overflow-y-auto">
+                    {alumnosFiltrados.length > 0 ? (
+                      alumnosFiltrados.map((alumno) => (
+                        <SelectItem key={alumno.id} value={alumno.id}>
+                          {`${alumno.profiles.nombre} ${alumno.profiles.apellidos} (${alumno.matricula})`}
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <div className="px-2 py-6 text-center text-sm text-gray-500">
+                        No se encontraron alumnos
+                      </div>
+                    )}
+                  </div>
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
               <Label htmlFor="periodo">Periodo</Label>
-              <Select value={periodoSeleccionado} onValueChange={setPeriodoSeleccionado} required>
-                <SelectTrigger>
-                  <SelectValue placeholder="Seleccione un periodo" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Primer Trimestre">Primer Trimestre</SelectItem>
-                  <SelectItem value="Segundo Trimestre">Segundo Trimestre</SelectItem>
-                  <SelectItem value="Tercer Trimestre">Tercer Trimestre</SelectItem>
-                </SelectContent>
-              </Select>
+              <Input
+                id="periodo"
+                name="periodo"
+                placeholder="Ej: Primer Trimestre, Bimestre 1, etc."
+                required
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="ciclo_escolar">Ciclo Escolar</Label>

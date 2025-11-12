@@ -25,6 +25,7 @@ export interface DatosRecibo {
   nombreEscuela?: string
   direccionEscuela?: string
   telefonoEscuela?: string
+  logoEscuela?: string // URL o path del logo
 }
 
 /**
@@ -42,9 +43,10 @@ export function generarReciboPDF(datos: DatosRecibo): jsPDF {
   const nombreEscuela = datos.nombreEscuela || 'SISTEMA ESCOLAR'
   const direccion = datos.direccionEscuela || ''
   const telefono = datos.telefonoEscuela || ''
+  const logoUrl = datos.logoEscuela || '/assets/logo-escuela.png'
 
   // Generar primera copia (Original) - parte superior
-  generarRecibo(doc, datos, 10, 'ORIGINAL', nombreEscuela, direccion, telefono)
+  generarRecibo(doc, datos, 10, 'ORIGINAL', nombreEscuela, direccion, telefono, logoUrl)
 
   // Línea punteada de corte
   doc.setLineDash([2, 2])
@@ -58,7 +60,7 @@ export function generarReciboPDF(datos: DatosRecibo): jsPDF {
   doc.text('✂ Cortar por aquí', 105, 139, { align: 'center' })
 
   // Generar segunda copia (Copia) - parte inferior
-  generarRecibo(doc, datos, 145, 'COPIA', nombreEscuela, direccion, telefono)
+  generarRecibo(doc, datos, 145, 'COPIA', nombreEscuela, direccion, telefono, logoUrl)
 
   return doc
 }
@@ -73,7 +75,8 @@ function generarRecibo(
   tipo: 'ORIGINAL' | 'COPIA',
   nombreEscuela: string,
   direccion: string,
-  telefono: string
+  telefono: string,
+  logoUrl: string
 ) {
   const pageWidth = doc.internal.pageSize.getWidth()
   const marginLeft = 15
@@ -82,12 +85,30 @@ function generarRecibo(
 
   let currentY = startY
 
-  // Encabezado - Nombre de la escuela
-  doc.setFontSize(16)
-  doc.setFont('helvetica', 'bold')
-  doc.setTextColor(0, 0, 0)
-  doc.text(nombreEscuela, pageWidth / 2, currentY, { align: 'center' })
-  currentY += 6
+  // Logo de la escuela (si existe)
+  try {
+    // El logo se cargará de forma asíncrona, por ahora dejamos espacio
+    const logoSize = 20 // Tamaño del logo en mm
+    const logoX = marginLeft
+    const logoY = currentY
+
+    // Nota: jsPDF requiere que las imágenes estén en base64 o se carguen de forma especial
+    // Por ahora, dejamos un placeholder y ajustamos el diseño
+
+    // Encabezado - Nombre de la escuela (a la derecha del logo)
+    doc.setFontSize(16)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(0, 0, 0)
+    doc.text(nombreEscuela, marginLeft + logoSize + 5, currentY + 7)
+    currentY += logoSize + 2
+  } catch (error) {
+    // Si no hay logo, usar diseño centrado original
+    doc.setFontSize(16)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(0, 0, 0)
+    doc.text(nombreEscuela, pageWidth / 2, currentY, { align: 'center' })
+    currentY += 6
+  }
 
   if (direccion) {
     doc.setFontSize(9)

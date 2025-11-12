@@ -16,6 +16,7 @@ interface FormularioAlumnoProps {
     matricula: string
     grado: string
     grupo: string
+    curp?: string
     profiles: {
       nombre: string
       apellidos: string
@@ -33,7 +34,7 @@ interface FormularioAlumnoProps {
       }
     }>
   }
-  onClose: () => void
+  onClose?: () => void
 }
 
 type Padre = {
@@ -90,7 +91,7 @@ export function FormularioAlumno({ alumno, onClose }: FormularioAlumnoProps) {
   useEffect(() => {
     if (state.success) {
       alert(state.message)
-      onClose()
+      onClose?.()
     }
   }, [state.success, state.message, onClose])
 
@@ -277,9 +278,11 @@ export function FormularioAlumno({ alumno, onClose }: FormularioAlumnoProps) {
 
           {/* Botones */}
           <div className="flex justify-end gap-3 pt-4">
-            <Button type="button" variant="outline" onClick={onClose} disabled={isLoading}>
-              Cancelar
-            </Button>
+            {onClose && (
+              <Button type="button" variant="outline" onClick={onClose} disabled={isLoading}>
+                Cancelar
+              </Button>
+            )}
             <Button type="submit" disabled={isLoading}>
               {isLoading ? 'Guardando...' : alumno ? 'Guardar Cambios' : 'Crear Alumno'}
             </Button>

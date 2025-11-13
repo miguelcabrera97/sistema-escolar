@@ -5,7 +5,8 @@
       "Bash(npm run dev:*)",
       "Bash(timeout:*)",
       "Bash(npx tsx:*)",
-      "Bash(nul)"
+      "Bash(nul)",
+      "Bash(npx supabase:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

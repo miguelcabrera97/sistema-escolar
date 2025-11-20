@@ -159,7 +159,10 @@ export async function crearGrado(formData: FormData): Promise<ActionResult> {
       return { success: false, error: 'Nivel educativo no encontrado' }
     }
 
-    const nombre_completo = `${nombre}° ${nivelData.nombre}`
+    const isNumeric = /^\d+$/.test(nombre)
+    const nombre_completo = isNumeric
+      ? `${nombre}° ${nivelData.nombre}`
+      : `${nombre} ${nivelData.nombre}`
 
     const { error } = await supabase.from('grados').insert([
       {

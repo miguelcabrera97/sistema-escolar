@@ -76,12 +76,11 @@ export function FormularioGrado() {
 
             {/* Nombre del Grado */}
             <div className="space-y-2">
-              <Label htmlFor="nombre">Número de Grado *</Label>
+              <Label htmlFor="nombre">Nombre o Número de Grado *</Label>
               <Input
                 id="nombre"
                 name="nombre"
-                placeholder="Ej: 1, 2, 3"
-                maxLength={2}
+                placeholder="Ej: 1, 2, Pre-First, Maternal"
                 required
               />
             </div>

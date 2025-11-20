@@ -42,7 +42,7 @@ ORDER BY ordinal_position;
 
 -- PASO 5: Verificar relaciones padre-alumno existentes
 SELECT
-  pa.id as relacion_id,
+  -- pa.id as relacion_id, -- COMENTADO POR ERROR: column pa.id does not exist
   pa.padre_id,
   pa.alumno_id,
   prof_padre.email as padre_email,

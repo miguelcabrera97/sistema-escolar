@@ -153,7 +153,7 @@ export async function obtenerBoletasAlumno(alumnoId: string): Promise<Result> {
       if (padreData) {
         const { data: relacion } = await supabase
           .from('padre_alumno')
-          .select('id')
+          .select('padre_id')
           .eq('padre_id', padreData.id)
           .eq('alumno_id', alumnoId)
           .single()

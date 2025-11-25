@@ -47,6 +47,9 @@ export default function LoginPage() {
             case 'directivo':
               router.push('/directivo')
               break
+            case 'auxiliar_calificaciones':
+              router.push('/auxiliar')
+              break
             default:
               alert('Rol no reconocido')
           }

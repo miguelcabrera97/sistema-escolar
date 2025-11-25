@@ -48,7 +48,7 @@ export async function subirBoleta(formData: FormData): Promise<Result> {
       .eq('id', user.id)
       .single()
 
-    if (profile?.role !== 'directivo') {
+    if (profile?.role !== 'directivo' && profile?.role !== 'auxiliar_calificaciones') {
       return { success: false, error: 'No autorizado' }
     }
 
@@ -220,7 +220,7 @@ export async function obtenerTodasLasBoletas(): Promise<Result> {
       .eq('id', user.id)
       .single()
 
-    if (profile?.role !== 'directivo') {
+    if (profile?.role !== 'directivo' && profile?.role !== 'auxiliar_calificaciones') {
       return { success: false, error: 'No autorizado' }
     }
 
@@ -277,7 +277,7 @@ export async function eliminarBoleta(boletaId: string): Promise<Result> {
       .eq('id', user.id)
       .single()
 
-    if (profile?.role !== 'directivo') {
+    if (profile?.role !== 'directivo' && profile?.role !== 'auxiliar_calificaciones') {
       return { success: false, error: 'No autorizado' }
     }
 

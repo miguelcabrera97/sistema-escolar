@@ -74,46 +74,46 @@ export default function AuxiliarDashboard() {
         setAuxiliar(profileData)
       }
 
-      // Obtener cursos asignados al auxiliar
-      const { data: cursosAsignados } = await supabase
-        .from('curso_auxiliares')
+      // Obtener TODOS los cursos (acceso global)
+      const { data: cursosData } = await supabase
+        .from('cursos')
         .select(`
-          cursos (
             id,
             nombre,
             descripcion,
             grado,
             grupo,
             maestro_id
-          )
         `)
-        .eq('auxiliar_id', user.id)
+        .order('grado')
+        .order('grupo')
 
-      if (cursosAsignados) {
-        // Extraer los cursos y obtener info de maestros
-        const cursosData = cursosAsignados.map(ca => ca.cursos).filter(Boolean)
+      if (cursosData && cursosData.length > 0) {
+        const maestroIds = cursosData.map((c: any) => c.maestro_id).filter(Boolean)
 
-        if (cursosData.length > 0) {
-          const maestroIds = cursosData.map((c: any) => c.maestro_id).filter(Boolean)
-
-          const { data: maestros } = await supabase
+        // Obtener info de maestros si hay IDs
+        let maestros: any[] = []
+        if (maestroIds.length > 0) {
+          const { data: maestrosData } = await supabase
             .from('profiles')
             .select('id, nombre, apellidos')
             .in('id', maestroIds)
 
-          const cursosConMaestro = cursosData.map((curso: any) => {
-            const maestro = maestros?.find(m => m.id === curso.maestro_id)
-            return {
-              ...curso,
-              maestro: maestro ? {
-                nombre: maestro.nombre,
-                apellidos: maestro.apellidos
-              } : null
-            }
-          })
-
-          setCursos(cursosConMaestro)
+          if (maestrosData) maestros = maestrosData
         }
+
+        const cursosConMaestro = cursosData.map((curso: any) => {
+          const maestro = maestros.find(m => m.id === curso.maestro_id)
+          return {
+            ...curso,
+            maestro: maestro ? {
+              nombre: maestro.nombre,
+              apellidos: maestro.apellidos
+            } : null
+          }
+        })
+
+        setCursos(cursosConMaestro)
       }
 
       // Obtener TODAS las tareas del sistema (sin filtrar por maestro)
@@ -186,12 +186,18 @@ export default function AuxiliarDashboard() {
               </h1>
               <p className="text-gray-600">Auxiliar de Calificaciones</p>
             </div>
-            <Button variant="outline" onClick={() => {
-              supabase.auth.signOut()
-              router.push('/login')
-            }}>
-              Cerrar Sesión
-            </Button>
+            <div className="flex gap-2">
+              <Button onClick={() => router.push('/auxiliar/boletas')}>
+                <FileText className="mr-2 h-4 w-4" />
+                Gestionar Boletas
+              </Button>
+              <Button variant="outline" onClick={() => {
+                supabase.auth.signOut()
+                router.push('/login')
+              }}>
+                Cerrar Sesión
+              </Button>
+            </div>
           </div>
         </div>
       </header>
@@ -201,12 +207,12 @@ export default function AuxiliarDashboard() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Cursos Asignados</CardTitle>
+              <CardTitle className="text-sm font-medium">Total Cursos</CardTitle>
               <GraduationCap className="h-4 w-4 text-purple-600" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{cursos.length}</div>
-              <p className="text-xs text-muted-foreground">Asignación automática</p>
+              <p className="text-xs text-muted-foreground">Disponibles en el sistema</p>
             </CardContent>
           </Card>
 
@@ -249,8 +255,8 @@ export default function AuxiliarDashboard() {
           {/* Cursos Asignados */}
           <Card>
             <CardHeader>
-              <CardTitle>Mis Cursos Asignados</CardTitle>
-              <CardDescription>Cursos asignados automáticamente al crearse</CardDescription>
+              <CardTitle>Todos los Cursos</CardTitle>
+              <CardDescription>Acceso global a cursos del sistema</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
@@ -302,37 +308,37 @@ export default function AuxiliarDashboard() {
               <CardTitle>Tareas Recientes</CardTitle>
               <CardDescription>Últimas tareas del sistema</CardDescription>
             </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {tareas.length === 0 ? (
-                <p className="text-gray-500 text-center py-4">No hay tareas en el sistema</p>
-              ) : (
-                tareas.map((tarea) => (
-                  <div key={tarea.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50">
-                    <div>
-                      <h3 className="font-semibold">{tarea.titulo}</h3>
-                      <p className="text-sm text-gray-600">
-                        {tarea.cursos.nombre} - {tarea.cursos.grado}° {tarea.cursos.grupo}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        Vencimiento: {new Date(tarea.fecha_vencimiento).toLocaleDateString('es-MX')}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        Puntos: {tarea.puntos_maximos}
-                      </p>
+            <CardContent>
+              <div className="space-y-4">
+                {tareas.length === 0 ? (
+                  <p className="text-gray-500 text-center py-4">No hay tareas en el sistema</p>
+                ) : (
+                  tareas.map((tarea) => (
+                    <div key={tarea.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50">
+                      <div>
+                        <h3 className="font-semibold">{tarea.titulo}</h3>
+                        <p className="text-sm text-gray-600">
+                          {tarea.cursos.nombre} - {tarea.cursos.grado}° {tarea.cursos.grupo}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          Vencimiento: {new Date(tarea.fecha_vencimiento).toLocaleDateString('es-MX')}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          Puntos: {tarea.puntos_maximos}
+                        </p>
+                      </div>
+                      <Button
+                        size="sm"
+                        onClick={() => router.push(`/auxiliar/tarea/${tarea.id}/entregas`)}
+                      >
+                        Ver Entregas
+                      </Button>
                     </div>
-                    <Button
-                      size="sm"
-                      onClick={() => router.push(`/auxiliar/tarea/${tarea.id}/entregas`)}
-                    >
-                      Ver Entregas
-                    </Button>
-                  </div>
-                ))
-              )}
-            </div>
-          </CardContent>
-        </Card>
+                  ))
+                )}
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </main>
     </div>

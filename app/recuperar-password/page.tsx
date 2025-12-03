@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { ArrowLeft, Mail, CheckCircle, AlertCircle } from 'lucide-react'
+import { solicitarRestablecimientoPassword } from '@/app/actions/auth-actions'
 
 export default function RecuperarPassword() {
   const router = useRouter()
@@ -30,15 +31,10 @@ export default function RecuperarPassword() {
     setLoading(true)
 
     try {
-      // Obtener la URL base para el redirect
-      const redirectTo = `${window.location.origin}/restablecer-password`
+      const result = await solicitarRestablecimientoPassword(email)
 
-      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: redirectTo,
-      })
-
-      if (resetError) {
-        setError('Error al enviar el correo: ' + resetError.message)
+      if (!result.success) {
+        setError(result.error || 'Error al enviar el correo')
         return
       }
 

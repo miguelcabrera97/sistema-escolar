@@ -57,7 +57,7 @@ export async function middleware(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
 
   // Rutas públicas que no requieren autenticación
-  const publicPaths = ['/login', '/']
+  const publicPaths = ['/login', '/', '/recuperar-password', '/restablecer-password']
   const isPublicPath = publicPaths.some(path => request.nextUrl.pathname === path)
 
   // Si el usuario no está autenticado y no está en una ruta pública

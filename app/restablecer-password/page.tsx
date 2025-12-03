@@ -25,19 +25,33 @@ export default function RestablecerPassword() {
   useEffect(() => {
     // Verificar si hay una sesión válida de recuperación de contraseña
     const checkSession = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession()
-
-        if (session) {
+      // Suscribirse a cambios de autenticación
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+        if (event === 'PASSWORD_RECOVERY' || (event === 'SIGNED_IN' && session)) {
           setValidSession(true)
-        } else {
-          setError('Enlace inválido o expirado. Por favor solicita un nuevo enlace de recuperación.')
+          setCheckingSession(false)
+        } else if (event === 'SIGNED_OUT') {
+          setValidSession(false)
+          setCheckingSession(false)
         }
-      } catch (err) {
-        console.error('Error al verificar sesión:', err)
-        setError('Error al verificar el enlace de recuperación')
-      } finally {
-        setCheckingSession(false)
+      })
+
+      // Verificar sesión inicial
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session) {
+        setValidSession(true)
+      }
+
+      // Si no hay sesión inicial, esperamos un momento a que el listener procese
+      // o mostramos error si pasa mucho tiempo
+      if (!session) {
+        setTimeout(() => {
+          setCheckingSession(false)
+        }, 2000)
+      }
+
+      return () => {
+        subscription.unsubscribe()
       }
     }
 

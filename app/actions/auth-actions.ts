@@ -1,7 +1,7 @@
 'use server'
 
 import { supabaseAdmin } from '@/lib/supabase-admin'
-import { resend } from '@/lib/resend'
+import { getResendClient } from '@/lib/resend'
 
 interface Result {
     success: boolean
@@ -37,7 +37,7 @@ export async function solicitarRestablecimientoPassword(email: string): Promise<
         const recoveryLink = properties.action_link
 
         // 3. Enviar correo con Resend
-        const { error: emailError } = await resend.emails.send({
+        const { error: emailError } = await getResendClient().emails.send({
             from: process.env.EMAIL_FROM || 'onboarding@resend.dev',
             to: email,
             subject: 'Restablecer tu contraseña - Sistema Escolar',

@@ -114,15 +114,7 @@ export default function LoginPage() {
             </Button>
           </form>
 
-          <div className="mt-6 text-sm text-gray-600">
-            <p className="font-semibold mb-2">Usuarios de prueba:</p>
-            <ul className="space-y-1 text-xs">
-              <li>Alumno: juan.perez@estudiante.edu / 123456</li>
-              <li>Maestro: carlos.martinez@escuela.edu / 123456</li>
-              <li>Padre: jorge.perez@padre.com / 123456</li>
-              <li>Directivo: directora@escuela.edu / 123456</li>
-            </ul>
-          </div>
+
         </CardContent>
       </Card>
     </div>

@@ -87,7 +87,7 @@ export default function PagosPadreContent() {
       const result = await obtenerDatosPagoParaRecibo(pagoId)
 
       if (result.success && result.data) {
-        descargarReciboPDF(result.data)
+        await descargarReciboPDF(result.data)
       } else {
         alert('Error: ' + result.error)
       }
@@ -250,11 +250,10 @@ export default function PagosPadreContent() {
                     {pagosPendientes.map((pago) => (
                       <div
                         key={pago.id}
-                        className={`p-6 border-2 rounded-lg ${
-                          pago.estado === 'vencido'
+                        className={`p-6 border-2 rounded-lg ${pago.estado === 'vencido'
                             ? 'border-red-300 bg-red-50'
                             : 'border-gray-200 bg-white'
-                        }`}
+                          }`}
                       >
                         <div className="flex items-start justify-between mb-4">
                           <div className="flex-1">

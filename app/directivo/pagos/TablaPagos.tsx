@@ -21,6 +21,7 @@ interface Pago {
   metodo_pago: string | null
   referencia_pago: string | null
   comprobante_url: string | null
+  pagado_verificado_por: string | null
   padres: {
     id: string
     profiles: {
@@ -105,7 +106,7 @@ export function TablaPagos({ pagos, onSuccess }: Props) {
       const result = await obtenerDatosPagoParaRecibo(pagoId)
 
       if (result.success && result.data) {
-        descargarReciboPDF(result.data)
+        await descargarReciboPDF(result.data)
       } else {
         alert('Error: ' + result.error)
       }

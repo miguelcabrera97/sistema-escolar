@@ -1060,6 +1060,9 @@ export async function obtenerDatosPagoParaRecibo(pagoId: string): Promise<Result
     }
 
     // Formatear datos para el recibo
+    const gradoNum = parseInt(alumno.grado)
+    const nivelEducativo = !isNaN(gradoNum) ? (gradoNum > 6 ? 'Secundaria/Bachillerato' : 'Primaria') : 'Nivel Básico'
+
     const datosRecibo = {
       numeroRecibo: pago.id.substring(0, 8).toUpperCase(),
       fechaPago: new Date(pago.fecha_pago || '').toLocaleDateString('es-MX', {
@@ -1077,11 +1080,14 @@ export async function obtenerDatosPagoParaRecibo(pagoId: string): Promise<Result
       alumnoMatricula: alumno.matricula,
       alumnoGrado: alumno.grado,
       alumnoGrupo: alumno.grupo,
+      nivelEducativo: nivelEducativo,
       padreNombre: padreProfile?.nombre || '',
       padreApellidos: padreProfile?.apellidos || '',
-      nombreEscuela: 'SISTEMA ESCOLAR', // Puedes hacer esto configurable
-      direccionEscuela: '', // Puedes hacer esto configurable
-      telefonoEscuela: '' // Puedes hacer esto configurable
+      nombreEscuela: 'GRUPO EDUCATIVO SUD S. C.',
+      rfcEscuela: 'GES130503G38',
+      direccionEscuela: 'Paseo de la Candelaria Mz. 66 Lt. 11, Hacienda Ojo de Agua, Tecámac,\nEstado de México. C. P: 55770',
+      telefonoEscuela: '',
+      logoEscuela: '/logo.png'
     }
 
     return { success: true, data: datosRecibo }

@@ -23,7 +23,7 @@ export async function solicitarRestablecimientoPassword(email: string): Promise<
             type: 'recovery',
             email: email,
             options: {
-                redirectTo: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/restablecer-password`
+                redirectTo: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/auth/callback?next=/restablecer-password`
             }
         })
 

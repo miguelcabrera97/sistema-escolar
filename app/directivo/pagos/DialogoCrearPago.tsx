@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Loader2, Printer, CreditCard } from 'lucide-react'
 import { obtenerPadresConAlumnos } from '@/app/actions/pagos-actions'
 import { supabase } from '@/lib/supabase'
+import { BuscadorPadres } from './BuscadorPadres'
 
 interface Props {
   open: boolean
@@ -450,118 +451,111 @@ export function DialogoCrearPago({ open, onOpenChange, onSuccess }: Props) {
 
             <TabsContent value="pago">
               <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>Concepto de Pago *</Label>
-                <Input
-                  type="text"
-                  placeholder="Ej: Colegiatura, Inscripción, Material..."
-                  value={conceptoNombre}
-                  onChange={(e) => setConceptoNombre(e.target.value)}
-                  required
-                />
-              </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>Concepto de Pago *</Label>
+                    <Input
+                      type="text"
+                      placeholder="Ej: Colegiatura, Inscripción, Material..."
+                      value={conceptoNombre}
+                      onChange={(e) => setConceptoNombre(e.target.value)}
+                      required
+                    />
+                  </div>
 
-              <div>
-                <Label>Monto (MXN) *</Label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  placeholder="0.00"
-                  value={monto}
-                  onChange={(e) => setMonto(e.target.value)}
-                  required
-                />
-              </div>
-            </div>
+                  <div>
+                    <Label>Monto (MXN) *</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="0.00"
+                      value={monto}
+                      onChange={(e) => setMonto(e.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
 
-            <div>
-              <Label>Padre *</Label>
-              <Select value={padreId} onValueChange={handlePadreChange}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecciona un padre" />
-                </SelectTrigger>
-                <SelectContent>
-                  {padres.map((padre) => (
-                    <SelectItem key={padre.id} value={padre.id}>
-                      {padre.profiles.nombre} {padre.profiles.apellidos} - {padre.profiles.email}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+                <div>
+                  <Label>Padre *</Label>
+                  <BuscadorPadres
+                    padres={padres}
+                    seleccionadoId={padreId}
+                    onSeleccionar={handlePadreChange}
+                  />
+                </div>
 
-            <div>
-              <Label>Alumno *</Label>
-              <Select
-                value={alumnoId}
-                onValueChange={setAlumnoId}
-                disabled={!padreId}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder={
-                    padreId
-                      ? "Selecciona un alumno"
-                      : "Primero selecciona un padre"
-                  } />
-                </SelectTrigger>
-                <SelectContent>
-                  {alumnosDisponibles.map((rel) => (
-                    <SelectItem key={rel.alumno_id} value={rel.alumno_id}>
-                      {rel.alumnos.profiles.nombre} {rel.alumnos.profiles.apellidos} - {rel.alumnos.matricula} ({rel.alumnos.grado}° {rel.alumnos.grupo})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {padreId && alumnosDisponibles.length === 0 && (
-                <p className="text-xs text-red-500 mt-1">
-                  Este padre no tiene alumnos asignados
-                </p>
-              )}
-            </div>
+                <div>
+                  <Label>Alumno *</Label>
+                  <Select
+                    value={alumnoId}
+                    onValueChange={setAlumnoId}
+                    disabled={!padreId}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={
+                        padreId
+                          ? "Selecciona un alumno"
+                          : "Primero selecciona un padre"
+                      } />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {alumnosDisponibles.map((rel) => (
+                        <SelectItem key={rel.alumno_id} value={rel.alumno_id}>
+                          {rel.alumnos.profiles.nombre} {rel.alumnos.profiles.apellidos} - {rel.alumnos.matricula} ({rel.alumnos.grado}° {rel.alumnos.grupo})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {padreId && alumnosDisponibles.length === 0 && (
+                    <p className="text-xs text-red-500 mt-1">
+                      Este padre no tiene alumnos asignados
+                    </p>
+                  )}
+                </div>
 
-            <div>
-              <Label>Descripción (opcional)</Label>
-              <Textarea
-                placeholder="Información adicional sobre el pago..."
-                value={descripcion}
-                onChange={(e) => setDescripcion(e.target.value)}
-                rows={3}
-              />
-            </div>
+                <div>
+                  <Label>Descripción (opcional)</Label>
+                  <Textarea
+                    placeholder="Información adicional sobre el pago..."
+                    value={descripcion}
+                    onChange={(e) => setDescripcion(e.target.value)}
+                    rows={3}
+                  />
+                </div>
 
-            <div>
-              <Label>Fecha de Vencimiento *</Label>
-              <Input
-                type="date"
-                value={fechaVencimiento}
-                onChange={(e) => setFechaVencimiento(e.target.value)}
-                required
-              />
-            </div>
+                <div>
+                  <Label>Fecha de Vencimiento *</Label>
+                  <Input
+                    type="date"
+                    value={fechaVencimiento}
+                    onChange={(e) => setFechaVencimiento(e.target.value)}
+                    required
+                  />
+                </div>
 
-            <div className="flex justify-end gap-2 pt-4">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => onOpenChange(false)}
-                disabled={submitting}
-              >
-                Cancelar
-              </Button>
-              <Button type="submit" disabled={submitting}>
-                {submitting ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Creando...
-                  </>
-                ) : (
-                  'Crear Pago'
-                )}
-              </Button>
-            </div>
-          </form>
+                <div className="flex justify-end gap-2 pt-4">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => onOpenChange(false)}
+                    disabled={submitting}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button type="submit" disabled={submitting}>
+                    {submitting ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Creando...
+                      </>
+                    ) : (
+                      'Crear Pago'
+                    )}
+                  </Button>
+                </div>
+              </form>
             </TabsContent>
 
             <TabsContent value="recibo">
@@ -598,18 +592,11 @@ export function DialogoCrearPago({ open, onOpenChange, onSuccess }: Props) {
 
                 <div>
                   <Label>Padre *</Label>
-                  <Select value={padreId} onValueChange={handlePadreChange}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecciona un padre" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {padres.map((padre) => (
-                        <SelectItem key={padre.id} value={padre.id}>
-                          {padre.profiles.nombre} {padre.profiles.apellidos} - {padre.profiles.email}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <BuscadorPadres
+                    padres={padres}
+                    seleccionadoId={padreId}
+                    onSeleccionar={handlePadreChange}
+                  />
                 </div>
 
                 <div>

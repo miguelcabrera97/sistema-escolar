@@ -46,7 +46,7 @@ export function DialogoCrearPagosMasivos({ open, onOpenChange, onSuccess }: Prop
 
   const [conceptoId, setConceptoId] = useState('')
   const [conceptoNombre, setConceptoNombre] = useState('')
-  const [padresSeleccionados, setPadresSeleccionados] = useState<Set<string>>(new Set())
+  const [alumnosSeleccionados, setAlumnosSeleccionados] = useState<Set<string>>(new Set())
   const [monto, setMonto] = useState('')
   const [descripcion, setDescripcion] = useState('')
   const [fechaVencimiento, setFechaVencimiento] = useState('')
@@ -78,46 +78,70 @@ export function DialogoCrearPagosMasivos({ open, onOpenChange, onSuccess }: Prop
   const limpiarFormulario = () => {
     setConceptoId('')
     setConceptoNombre('')
-    setPadresSeleccionados(new Set())
+    setAlumnosSeleccionados(new Set())
     setMonto('')
     setDescripcion('')
     setFechaVencimiento('')
     setBusqueda('')
   }
 
-  const handleTogglePadre = (padreId: string) => {
-    const newSet = new Set(padresSeleccionados)
-    if (newSet.has(padreId)) {
-      newSet.delete(padreId)
+  const handleTogglePadre = (padre: Padre) => {
+    const newSet = new Set(alumnosSeleccionados)
+    const alumnosDelPadre = padre.padre_alumno.map(pa => `${padre.id}_${pa.alumno_id}`)
+
+    // Verificar si todos los alumnos de este padre están seleccionados
+    const todosSeleccionados = alumnosDelPadre.every(id => newSet.has(id))
+
+    if (todosSeleccionados) {
+      // Deseleccionar todos
+      alumnosDelPadre.forEach(id => newSet.delete(id))
     } else {
-      newSet.add(padreId)
+      // Seleccionar todos
+      alumnosDelPadre.forEach(id => newSet.add(id))
     }
-    setPadresSeleccionados(newSet)
+
+    setAlumnosSeleccionados(newSet)
+  }
+
+  const handleToggleAlumno = (padreId: string, alumnoId: string) => {
+    const id = `${padreId}_${alumnoId}`
+    const newSet = new Set(alumnosSeleccionados)
+    if (newSet.has(id)) {
+      newSet.delete(id)
+    } else {
+      newSet.add(id)
+    }
+    setAlumnosSeleccionados(newSet)
   }
 
   const handleSeleccionarTodos = () => {
-    if (padresSeleccionados.size === padresFiltrados.length) {
-      setPadresSeleccionados(new Set())
+    const totalAlumnosFiltrados = padresFiltrados.flatMap(p =>
+      p.padre_alumno.map(pa => `${p.id}_${pa.alumno_id}`)
+    )
+
+    if (alumnosSeleccionados.size === totalAlumnosFiltrados.length) {
+      setAlumnosSeleccionados(new Set())
     } else {
-      setPadresSeleccionados(new Set(padresFiltrados.map(p => p.id)))
+      setAlumnosSeleccionados(new Set(totalAlumnosFiltrados))
     }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!conceptoNombre || padresSeleccionados.size === 0 || !monto || !fechaVencimiento) {
-      alert('Por favor completa todos los campos requeridos y selecciona al menos un padre')
+    if (!conceptoNombre || alumnosSeleccionados.size === 0 || !monto || !fechaVencimiento) {
+      alert('Por favor completa todos los campos requeridos y selecciona al menos un alumno')
       return
     }
 
-    const totalPagos = padres
-      .filter(p => padresSeleccionados.has(p.id))
-      .reduce((sum, p) => sum + p.padre_alumno.length, 0)
+    const payloadAlumnos = Array.from(alumnosSeleccionados).map(id => {
+      const [padre_id, alumno_id] = id.split('_')
+      return { padre_id, alumno_id }
+    })
 
     if (!confirm(
-      `Se crearán ${totalPagos} pagos para ${padresSeleccionados.size} padres.\n` +
-      `Monto total: $${(parseFloat(monto) * totalPagos).toLocaleString('es-MX', { minimumFractionDigits: 2 })}\n\n` +
+      `Se crearán ${payloadAlumnos.length} pagos.\n` +
+      `Monto total: $${(parseFloat(monto) * payloadAlumnos.length).toLocaleString('es-MX', { minimumFractionDigits: 2 })}\n\n` +
       `¿Continuar?`
     )) {
       return
@@ -127,7 +151,7 @@ export function DialogoCrearPagosMasivos({ open, onOpenChange, onSuccess }: Prop
     try {
       const result = await crearPagosMasivos({
         concepto: conceptoNombre,
-        padre_ids: Array.from(padresSeleccionados),
+        alumnos: payloadAlumnos,
         monto: parseFloat(monto),
         descripcion: descripcion || undefined,
         fecha_vencimiento: fechaVencimiento
@@ -163,13 +187,16 @@ export function DialogoCrearPagosMasivos({ open, onOpenChange, onSuccess }: Prop
     )
   })
 
+  // Calcular total de alumnos filtrados para el botón "Seleccionar Todos"
+  const totalAlumnosVisibles = padresFiltrados.reduce((acc, p) => acc + p.padre_alumno.length, 0)
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Crear Pagos Masivos</DialogTitle>
           <DialogDescription>
-            Genera cobros para múltiples padres al mismo tiempo
+            Genera cobros para múltiples alumnos al mismo tiempo
           </DialogDescription>
         </DialogHeader>
 
@@ -230,17 +257,17 @@ export function DialogoCrearPagosMasivos({ open, onOpenChange, onSuccess }: Prop
               </div>
             </div>
 
-            {/* Selección de padres */}
+            {/* Selección de alumnos */}
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <h3 className="font-semibold text-sm">Seleccionar Padres</h3>
+                <h3 className="font-semibold text-sm">Seleccionar Alumnos</h3>
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
                   onClick={handleSeleccionarTodos}
                 >
-                  {padresSeleccionados.size === padresFiltrados.length
+                  {alumnosSeleccionados.size === totalAlumnosVisibles && totalAlumnosVisibles > 0
                     ? 'Deseleccionar Todos'
                     : 'Seleccionar Todos'}
                 </Button>
@@ -252,14 +279,13 @@ export function DialogoCrearPagosMasivos({ open, onOpenChange, onSuccess }: Prop
                 onChange={(e) => setBusqueda(e.target.value)}
               />
 
-              {padresSeleccionados.size > 0 && (
+              {alumnosSeleccionados.size > 0 && (
                 <div className="p-3 bg-blue-50 rounded-lg">
                   <p className="text-sm font-medium text-blue-900">
-                    {padresSeleccionados.size} padre{padresSeleccionados.size !== 1 ? 's' : ''} seleccionado{padresSeleccionados.size !== 1 ? 's' : ''}
+                    {alumnosSeleccionados.size} alumno{alumnosSeleccionados.size !== 1 ? 's' : ''} seleccionado{alumnosSeleccionados.size !== 1 ? 's' : ''}
                   </p>
                   <p className="text-xs text-blue-700 mt-1">
-                    Se crearán {padres.filter(p => padresSeleccionados.has(p.id))
-                      .reduce((sum, p) => sum + p.padre_alumno.length, 0)} pagos en total
+                    Monto total a generar: ${(parseFloat(monto || '0') * alumnosSeleccionados.size).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
                   </p>
                 </div>
               )}
@@ -268,37 +294,66 @@ export function DialogoCrearPagosMasivos({ open, onOpenChange, onSuccess }: Prop
                 {padresFiltrados.length === 0 ? (
                   <div className="text-center py-8 text-gray-500">
                     <Users className="h-12 w-12 mx-auto text-gray-300 mb-2" />
-                    <p>No se encontraron padres</p>
+                    <p>No se encontraron alumnos</p>
                   </div>
                 ) : (
                   <div className="divide-y">
-                    {padresFiltrados.map((padre) => (
-                      <div
-                        key={padre.id}
-                        className="p-4 hover:bg-gray-50 cursor-pointer"
-                        onClick={() => handleTogglePadre(padre.id)}
-                      >
-                        <div className="flex items-start gap-3">
-                          <Checkbox
-                            checked={padresSeleccionados.has(padre.id)}
-                            onCheckedChange={() => handleTogglePadre(padre.id)}
-                          />
-                          <div className="flex-1">
-                            <p className="font-medium">
-                              {padre.profiles.nombre} {padre.profiles.apellidos}
-                            </p>
-                            <p className="text-sm text-gray-600">{padre.profiles.email}</p>
-                            <div className="mt-2 space-y-1">
-                              {padre.padre_alumno.map((rel) => (
-                                <p key={rel.alumno_id} className="text-xs text-gray-500">
-                                  • {rel.alumnos.profiles.nombre} {rel.alumnos.profiles.apellidos} - {rel.alumnos.matricula} ({rel.alumnos.grado}° {rel.alumnos.grupo})
-                                </p>
-                              ))}
+                    {padresFiltrados.map((padre) => {
+                      const todosSusAlumnosSeleccionados = padre.padre_alumno.every(
+                        pa => alumnosSeleccionados.has(`${padre.id}_${pa.alumno_id}`)
+                      )
+                      const algunAlumnoSeleccionado = padre.padre_alumno.some(
+                        pa => alumnosSeleccionados.has(`${padre.id}_${pa.alumno_id}`)
+                      )
+
+                      return (
+                        <div key={padre.id} className="p-4 hover:bg-gray-50">
+                          <div className="flex items-center gap-3 mb-2">
+                            <Checkbox
+                              // Radix Checkbox 'indeterminate' state handling might be custom for 'some' but not 'all'
+                              // Standard HTML checkbox uses indeterminate prop. Radix UI checkox uses 'indeterminate' value for checked.
+                              checked={
+                                todosSusAlumnosSeleccionados
+                                  ? true
+                                  : algunAlumnoSeleccionado
+                                    ? 'indeterminate'
+                                    : false
+                              }
+                              onCheckedChange={() => handleTogglePadre(padre)}
+                            />
+                            <div>
+                              <p className="font-semibold text-sm">
+                                {padre.profiles.nombre} {padre.profiles.apellidos}
+                              </p>
+                              <p className="text-xs text-gray-500">{padre.profiles.email}</p>
                             </div>
                           </div>
+
+                          <div className="ml-8 space-y-2 border-l-2 border-gray-100 pl-4 py-1">
+                            {padre.padre_alumno.map((rel) => (
+                              <div
+                                key={rel.alumno_id}
+                                className="flex items-center gap-3 cursor-pointer p-1 hover:bg-gray-100 rounded"
+                                onClick={() => handleToggleAlumno(padre.id, rel.alumno_id)}
+                              >
+                                <Checkbox
+                                  checked={alumnosSeleccionados.has(`${padre.id}_${rel.alumno_id}`)}
+                                  onCheckedChange={() => handleToggleAlumno(padre.id, rel.alumno_id)}
+                                />
+                                <div className="text-sm">
+                                  <span className="font-medium text-gray-700">
+                                    {rel.alumnos.profiles.nombre} {rel.alumnos.profiles.apellidos}
+                                  </span>
+                                  <span className="text-gray-500 ml-2 text-xs">
+                                    • {rel.alumnos.matricula} • {rel.alumnos.grado}° {rel.alumnos.grupo}
+                                  </span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      )
+                    })}
                   </div>
                 )}
               </div>
@@ -313,14 +368,14 @@ export function DialogoCrearPagosMasivos({ open, onOpenChange, onSuccess }: Prop
               >
                 Cancelar
               </Button>
-              <Button type="submit" disabled={submitting || padresSeleccionados.size === 0}>
+              <Button type="submit" disabled={submitting || alumnosSeleccionados.size === 0}>
                 {submitting ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                     Creando...
                   </>
                 ) : (
-                  `Crear ${padresSeleccionados.size > 0 ? padresSeleccionados.size : ''} Pago${padresSeleccionados.size !== 1 ? 's' : ''}`
+                  `Crear ${alumnosSeleccionados.size > 0 ? alumnosSeleccionados.size : ''} Pago${alumnosSeleccionados.size !== 1 ? 's' : ''}`
                 )}
               </Button>
             </div>

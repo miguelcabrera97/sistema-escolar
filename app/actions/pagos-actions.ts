@@ -157,7 +157,7 @@ export async function crearPago(data: CrearPagoData): Promise<Result> {
 
 export interface CrearPagosMasivosData {
   concepto: string
-  padre_ids: string[] // Array de padre_id
+  alumnos: { padre_id: string; alumno_id: string }[] // Array de objetos con padre_id y alumno_id
   monto: number
   descripcion?: string
   fecha_vencimiento: string
@@ -181,21 +181,15 @@ export async function crearPagosMasivos(data: CrearPagosMasivosData): Promise<Re
       return { success: false, error: 'No autorizado' }
     }
 
-    // Obtener los alumnos de cada padre
-    const { data: relaciones } = await supabase
-      .from('padre_alumno')
-      .select('padre_id, alumno_id')
-      .in('padre_id', data.padre_ids)
-
-    if (!relaciones || relaciones.length === 0) {
-      return { success: false, error: 'No se encontraron alumnos para los padres seleccionados' }
+    if (!data.alumnos || data.alumnos.length === 0) {
+      return { success: false, error: 'No se seleccionaron alumnos para el pago' }
     }
 
-    // Crear un pago por cada relación padre-alumno
-    const pagos = relaciones.map(rel => ({
+    // Crear un pago por cada relación padre-alumno seleccionada
+    const pagos = data.alumnos.map(item => ({
       concepto: data.concepto,
-      padre_id: rel.padre_id,
-      alumno_id: rel.alumno_id,
+      padre_id: item.padre_id,
+      alumno_id: item.alumno_id,
       descripcion: data.descripcion || null,
       monto: data.monto,
       fecha_vencimiento: data.fecha_vencimiento,
@@ -1060,8 +1054,24 @@ export async function obtenerDatosPagoParaRecibo(pagoId: string): Promise<Result
     }
 
     // Formatear datos para el recibo
-    const gradoNum = parseInt(alumno.grado)
-    const nivelEducativo = !isNaN(gradoNum) ? (gradoNum > 6 ? 'Secundaria/Bachillerato' : 'Primaria') : 'Nivel Básico'
+    // Formatear datos para el recibo
+    const gradoStr = (alumno.grado || '').toLowerCase();
+    let nivelEducativo = 'Nivel Básico';
+
+    if (gradoStr.includes('prepa') || gradoStr.includes('bachillerato')) {
+      nivelEducativo = 'Preparatoria';
+    } else if (gradoStr.includes('secundaria')) {
+      nivelEducativo = 'Secundaria';
+    } else if (gradoStr.includes('primaria')) {
+      nivelEducativo = 'Primaria';
+    } else if (gradoStr.includes('preescolar') || gradoStr.includes('kinder')) {
+      nivelEducativo = 'Preescolar';
+    } else {
+      const gradoNum = parseInt(alumno.grado)
+      if (!isNaN(gradoNum)) {
+        nivelEducativo = gradoNum > 6 ? 'Secundaria/Bachillerato' : 'Primaria';
+      }
+    }
 
     const datosRecibo = {
       numeroRecibo: pago.id.substring(0, 8).toUpperCase(),

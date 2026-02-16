@@ -1,7 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { useFormState } from 'react-dom'
+import { useState, useEffect, useActionState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -30,7 +29,7 @@ const initialState = {
 
 export function DialogoEditarPadre({ padre, open, onOpenChange, onSuccess }: DialogoEditarPadreProps) {
   const [loading, setLoading] = useState(false)
-  const [state, formAction] = useFormState(editarPadre, initialState)
+  const [state, formAction] = useActionState(editarPadre, initialState)
 
   useEffect(() => {
     if (state.success) {

@@ -31,7 +31,7 @@ export default function DirectivoDashboard() {
   const obtenerDatos = useCallback(async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser()
-      
+
       if (!user) {
         router.push('/login')
         return
@@ -363,25 +363,7 @@ export default function DirectivoDashboard() {
               </CardContent>
             </Card>
 
-            <Card
-              className="hover:shadow-lg transition-all cursor-pointer hover:border-indigo-300 group"
-              onClick={() => router.push('/directivo/relaciones-padre-alumno')}
-            >
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="flex items-center gap-3 mb-2">
-                      <div className="h-12 w-12 rounded-lg bg-indigo-100 flex items-center justify-center group-hover:bg-indigo-200 transition-colors">
-                        <LinkIcon className="h-6 w-6 text-indigo-600" />
-                      </div>
-                      <h3 className="font-bold text-lg text-gray-900">Relaciones</h3>
-                    </div>
-                    <p className="text-sm text-gray-600">Vincular padres con alumnos</p>
-                  </div>
-                  <ArrowRight className="h-5 w-5 text-gray-400 group-hover:text-indigo-600 group-hover:translate-x-1 transition-all" />
-                </div>
-              </CardContent>
-            </Card>
+
           </div>
         </section>
       </main>

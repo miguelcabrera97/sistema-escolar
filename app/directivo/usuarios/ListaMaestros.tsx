@@ -8,9 +8,10 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { obtenerMaestros, desactivarMaestro, reactivarMaestro } from '@/app/actions/usuarios-actions'
-import { Loader2, GraduationCap, Pencil, Trash2, RefreshCw, Search, Filter, X } from 'lucide-react'
+import { Loader2, GraduationCap, Pencil, Trash2, RefreshCw, Search, Filter, X, Key } from 'lucide-react'
 import { DialogoEditarMaestro } from './DialogoEditarMaestro'
 import { DialogoConfirmarEliminacion } from './DialogoConfirmarEliminacion'
+import { DialogoRestablecerPassword } from './DialogoRestablecerPassword'
 
 interface Maestro {
   id: string
@@ -28,9 +29,9 @@ export function ListaMaestros() {
   const [dialogoEditarAbierto, setDialogoEditarAbierto] = useState(false)
   const [maestroEliminar, setMaestroEliminar] = useState<Maestro | null>(null)
   const [dialogoEliminarAbierto, setDialogoEliminarAbierto] = useState(false)
+  const [maestroPassword, setMaestroPassword] = useState<Maestro | null>(null)
+  const [dialogoPasswordAbierto, setDialogoPasswordAbierto] = useState(false)
   const [loadingEliminar, setLoadingEliminar] = useState(false)
-
-  // Estados para búsqueda y filtros
   const [busqueda, setBusqueda] = useState('')
   const [filtroEstado, setFiltroEstado] = useState<string>('todos')
 
@@ -52,6 +53,11 @@ export function ListaMaestros() {
   const handleEditar = (maestro: Maestro) => {
     setMaestroEditar(maestro)
     setDialogoEditarAbierto(true)
+  }
+
+  const handlePassword = (maestro: Maestro) => {
+    setMaestroPassword(maestro)
+    setDialogoPasswordAbierto(true)
   }
 
   const handleEliminar = (maestro: Maestro) => {
@@ -257,6 +263,15 @@ export function ListaMaestros() {
                           <Button
                             variant="ghost"
                             size="sm"
+                            onClick={() => handlePassword(maestro)}
+                            disabled={!maestro.activo}
+                            title="Restablecer Contraseña"
+                          >
+                            <Key className="h-4 w-4 text-amber-600" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
                             onClick={() => handleEditar(maestro)}
                             disabled={!maestro.activo}
                           >
@@ -289,6 +304,13 @@ export function ListaMaestros() {
           )}
         </CardContent>
       </Card>
+
+      <DialogoRestablecerPassword
+        usuario={maestroPassword ? { ...maestroPassword, user_id: maestroPassword.id } : null}
+        open={dialogoPasswordAbierto}
+        onOpenChange={setDialogoPasswordAbierto}
+        onSuccess={() => alert('Contraseña actualizada correctamente')}
+      />
 
       <DialogoEditarMaestro
         maestro={maestroEditar}

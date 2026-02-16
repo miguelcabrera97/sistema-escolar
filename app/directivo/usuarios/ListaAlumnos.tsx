@@ -8,9 +8,10 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { obtenerAlumnos, desactivarAlumno, reactivarAlumno, type Alumno } from '@/app/actions/usuarios-actions'
-import { Loader2, Users, Pencil, Trash2, RefreshCw, Search, Filter, X } from 'lucide-react'
+import { Loader2, Users, Pencil, Trash2, RefreshCw, Search, Filter, X, Key } from 'lucide-react'
 import { DialogoEditarAlumno } from './DialogoEditarAlumno'
 import { DialogoConfirmarEliminacion } from './DialogoConfirmarEliminacion'
+import { DialogoRestablecerPassword } from './DialogoRestablecerPassword'
 
 export function ListaAlumnos() {
   const [alumnos, setAlumnos] = useState<Alumno[]>([])
@@ -20,6 +21,8 @@ export function ListaAlumnos() {
   const [alumnoEliminar, setAlumnoEliminar] = useState<Alumno | null>(null)
   const [dialogoEliminarAbierto, setDialogoEliminarAbierto] = useState(false)
   const [loadingEliminar, setLoadingEliminar] = useState(false)
+  const [alumnoPassword, setAlumnoPassword] = useState<Alumno | null>(null)
+  const [dialogoPasswordAbierto, setDialogoPasswordAbierto] = useState(false)
 
   // Estados para búsqueda y filtros
   const [busqueda, setBusqueda] = useState('')
@@ -45,6 +48,11 @@ export function ListaAlumnos() {
   const handleEditar = (alumno: Alumno) => {
     setAlumnoEditar(alumno)
     setDialogoEditarAbierto(true)
+  }
+
+  const handlePassword = (alumno: Alumno) => {
+    setAlumnoPassword(alumno)
+    setDialogoPasswordAbierto(true)
   }
 
   const handleEliminar = (alumno: Alumno) => {
@@ -320,6 +328,15 @@ export function ListaAlumnos() {
                           <Button
                             variant="ghost"
                             size="sm"
+                            onClick={() => handlePassword(alumno)}
+                            disabled={!alumno.profiles.activo}
+                            title="Restablecer Contraseña"
+                          >
+                            <Key className="h-4 w-4 text-amber-600" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
                             onClick={() => handleEditar(alumno)}
                             disabled={!alumno.profiles.activo}
                           >
@@ -352,6 +369,13 @@ export function ListaAlumnos() {
           )}
         </CardContent>
       </Card>
+
+      <DialogoRestablecerPassword
+        usuario={alumnoPassword}
+        open={dialogoPasswordAbierto}
+        onOpenChange={setDialogoPasswordAbierto}
+        onSuccess={() => alert('Contraseña actualizada correctamente')}
+      />
 
       <DialogoEditarAlumno
         alumno={alumnoEditar}

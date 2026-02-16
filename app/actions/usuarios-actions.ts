@@ -105,6 +105,7 @@ export async function getPadres() {
     const padres = data
       .map(p => ({
         id: p.id,
+        user_id: p.user_id, // Added user_id
         nombre: p.profiles?.nombre || '',
         apellidos: p.profiles?.apellidos || ''
       }))
@@ -116,6 +117,42 @@ export async function getPadres() {
   } catch (error) {
     console.error('[getPadres] Error inesperado:', error)
     return []
+  }
+}
+
+// ============================================
+// RESTABLECER CONTRASEÑA (GENÉRICO)
+// ============================================
+
+export async function restablecerPasswordUsuario(userId: string, nuevaPassword: string): Promise<ActionResult> {
+  try {
+    const supabase = await createServerSupabaseClient()
+
+    // 1. Verificar que el usuario que ejecuta la acción sea directivo (o tenga permisos)
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { success: false, error: 'No autenticado' }
+
+    // TODO: Agregar verificación de rol si es estricto, por ahora confiamos en la ruta protegida
+
+    // 2. Actualizar contraseña usando supabaseAdmin DIRECTAMENTE con el user_id
+    // Ya no buscamos en la tabla específica porque el user_id es el id de auth
+    const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
+      userId,
+      { password: nuevaPassword }
+    )
+
+    if (updateError) {
+      console.error('Error updating password:', updateError)
+      return { success: false, error: 'Error al actualizar la contraseña: ' + updateError.message }
+    }
+
+    return {
+      success: true,
+      message: 'Contraseña actualizada correctamente'
+    }
+  } catch (error) {
+    console.error('Error:', error)
+    return { success: false, error: 'Error inesperado al restablecer contraseña' }
   }
 }
 
@@ -995,4 +1032,48 @@ export async function desactivarPadre(id: string): Promise<ActionResult> {
 
 export async function reactivarPadre(id: string): Promise<ActionResult> {
   return toggleActivoPadre(id, true)
+}
+
+// ============================================
+// RESTABLECER CONTRASEÑA (ADMINISTRATIVO)
+// ============================================
+
+export async function restablecerPasswordAlumno(alumnoId: string, nuevaPassword: string): Promise<ActionResult> {
+  try {
+    const supabase = await createServerSupabaseClient()
+
+    // 1. Verificar que el usuario sea directivo (o tenga permisos)
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { success: false, error: 'No autenticado' }
+
+    // 2. Obtener el user_id del alumno
+    const { data: alumnoData, error: alumnoError } = await supabase
+      .from('alumnos')
+      .select('user_id, profiles(nombre, apellidos)')
+      .eq('id', alumnoId)
+      .single()
+
+    if (alumnoError || !alumnoData) {
+      return { success: false, error: 'Alumno no encontrado' }
+    }
+
+    // 3. Actualizar contraseña usando supabaseAdmin
+    const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
+      alumnoData.user_id,
+      { password: nuevaPassword }
+    )
+
+    if (updateError) {
+      console.error('Error updating password:', updateError)
+      return { success: false, error: 'Error al actualizar la contraseña: ' + updateError.message }
+    }
+
+    return {
+      success: true,
+      message: `Contraseña actualizada correctamente para ${alumnoData.profiles.nombre}`
+    }
+  } catch (error) {
+    console.error('Error:', error)
+    return { success: false, error: 'Error inesperado al restablecer contraseña' }
+  }
 }

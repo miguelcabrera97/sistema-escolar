@@ -8,9 +8,10 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { obtenerPadresYDirectivos, desactivarPadre, reactivarPadre } from '@/app/actions/usuarios-actions'
-import { Loader2, Users, Pencil, Trash2, RefreshCw, Search, Filter, X } from 'lucide-react'
+import { Loader2, Users, Pencil, Trash2, RefreshCw, Search, Filter, X, Key } from 'lucide-react'
 import { DialogoEditarPadre } from './DialogoEditarPadre'
 import { DialogoConfirmarEliminacion } from './DialogoConfirmarEliminacion'
+import { DialogoRestablecerPassword } from './DialogoRestablecerPassword'
 
 interface Usuario {
   id: string
@@ -29,6 +30,8 @@ export function ListaPadres() {
   const [dialogoEditarAbierto, setDialogoEditarAbierto] = useState(false)
   const [padreEliminar, setPadreEliminar] = useState<Usuario | null>(null)
   const [dialogoEliminarAbierto, setDialogoEliminarAbierto] = useState(false)
+  const [padrePassword, setPadrePassword] = useState<Usuario | null>(null)
+  const [dialogoPasswordAbierto, setDialogoPasswordAbierto] = useState(false)
   const [loadingEliminar, setLoadingEliminar] = useState(false)
 
   // Estados para búsqueda y filtros
@@ -53,6 +56,11 @@ export function ListaPadres() {
   const handleEditar = (padre: Usuario) => {
     setPadreEditar(padre)
     setDialogoEditarAbierto(true)
+  }
+
+  const handlePassword = (padre: Usuario) => {
+    setPadrePassword(padre)
+    setDialogoPasswordAbierto(true)
   }
 
   const handleEliminar = (padre: Usuario) => {
@@ -320,6 +328,15 @@ export function ListaPadres() {
                             <Button
                               variant="ghost"
                               size="sm"
+                              onClick={() => handlePassword(padre)}
+                              disabled={!padre.activo}
+                              title="Restablecer Contraseña"
+                            >
+                              <Key className="h-4 w-4 text-amber-600" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
                               onClick={() => handleEditar(padre)}
                               disabled={!padre.activo}
                             >
@@ -353,6 +370,13 @@ export function ListaPadres() {
           </CardContent>
         </Card>
       </div>
+
+      <DialogoRestablecerPassword
+        usuario={padrePassword ? { ...padrePassword, user_id: padrePassword.id } : null}
+        open={dialogoPasswordAbierto}
+        onOpenChange={setDialogoPasswordAbierto}
+        onSuccess={() => alert('Contraseña actualizada correctamente')}
+      />
 
       <DialogoEditarPadre
         padre={padreEditar}

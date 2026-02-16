@@ -9,6 +9,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Loader2, FileText, Info } from 'lucide-react'
 import { registrarPagoManual } from '@/app/actions/pagos-actions'
 import { supabase } from '@/lib/supabase'
+import imageCompression from 'browser-image-compression'
 
 interface Pago {
   id: string
@@ -49,13 +50,32 @@ export function DialogoPagoManual({ pago, open, onOpenChange, onSuccess }: Props
 
       // 1. Subir archivo si existe
       if (comprobante) {
-        const fileExt = comprobante.name.split('.').pop()
+        let archivoASubir = comprobante;
+
+        // Comprimir si es imagen
+        if (comprobante.type.startsWith('image/')) {
+          const options = {
+            maxSizeMB: 0.5, // Máximo 0.5MB
+            maxWidthOrHeight: 1920,
+            useWebWorker: true,
+            initialQuality: 0.7,
+          }
+          try {
+            console.log('Comprimiendo imagen...', comprobante.size / 1024 / 1024, 'MB');
+            archivoASubir = await imageCompression(comprobante, options);
+            console.log('Imagen comprimida:', archivoASubir.size / 1024 / 1024, 'MB');
+          } catch (error) {
+            console.error('Error al comprimir imagen, se usará la original:', error);
+          }
+        }
+
+        const fileExt = archivoASubir.name.split('.').pop()
         const fileName = `${pago.id}_${Date.now()}.${fileExt}`
         const filePath = `${fileName}`
 
         const { error: uploadError, data } = await supabase.storage
           .from('comprobantes-pagos')
-          .upload(filePath, comprobante)
+          .upload(filePath, archivoASubir)
 
         if (uploadError) {
           throw new Error('Error al subir comprobante: ' + uploadError.message)

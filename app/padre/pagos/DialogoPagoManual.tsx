@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Loader2, FileText, Info } from 'lucide-react'
 import { registrarPagoManual } from '@/app/actions/pagos-actions'
+import { supabase } from '@/lib/supabase'
 
 interface Pago {
   id: string
@@ -44,9 +45,32 @@ export function DialogoPagoManual({ pago, open, onOpenChange, onSuccess }: Props
 
     setLoading(true)
     try {
-      // Por ahora, solo enviamos la referencia sin el archivo
-      // En producción, subirías el archivo a Supabase Storage primero
-      const result = await registrarPagoManual(pago.id, referencia)
+      let comprobanteUrl = undefined;
+
+      // 1. Subir archivo si existe
+      if (comprobante) {
+        const fileExt = comprobante.name.split('.').pop()
+        const fileName = `${pago.id}_${Date.now()}.${fileExt}`
+        const filePath = `${fileName}`
+
+        const { error: uploadError, data } = await supabase.storage
+          .from('comprobantes-pagos')
+          .upload(filePath, comprobante)
+
+        if (uploadError) {
+          throw new Error('Error al subir comprobante: ' + uploadError.message)
+        }
+
+        // Obtener URL pública
+        const { data: { publicUrl } } = supabase.storage
+          .from('comprobantes-pagos')
+          .getPublicUrl(filePath)
+
+        comprobanteUrl = publicUrl
+      }
+
+      // 2. Registrar pago con URL (si hubo archivo)
+      const result = await registrarPagoManual(pago.id, referencia, comprobanteUrl)
 
       if (result.success) {
         alert('¡Pago registrado!\n\nTu pago será verificado por la dirección de la escuela. Te notificaremos cuando sea aprobado.')
@@ -57,8 +81,9 @@ export function DialogoPagoManual({ pago, open, onOpenChange, onSuccess }: Props
         alert('Error: ' + result.error)
       }
     } catch (error) {
-      console.error('Error:', error)
-      alert('Error al registrar el pago')
+      const err = error as Error
+      console.error('Error:', err)
+      alert(err.message || 'Error al registrar el pago')
     } finally {
       setLoading(false)
     }

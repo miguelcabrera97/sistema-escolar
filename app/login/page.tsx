@@ -1,19 +1,55 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, Suspense, useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Image from 'next/image'
 import { supabase } from '@/lib/supabase'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { AlertCircle } from 'lucide-react'
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const errorParam = searchParams.get('error')
+
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
+
+  // Handle implicit flow (hash fragment)
+  useEffect(() => {
+    const handleHash = async () => {
+      const hash = window.location.hash
+      if (hash && hash.includes('access_token')) {
+        // Extract params from hash
+        const params = new URLSearchParams(hash.substring(1)) // remove #
+        const accessToken = params.get('access_token')
+        const refreshToken = params.get('refresh_token')
+        const type = params.get('type')
+
+        if (accessToken && type === 'recovery') {
+          setLoading(true)
+          const { error } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken || '',
+          })
+
+          if (!error) {
+            router.push('/restablecer-password')
+          } else {
+            alert('Error al procesar el enlace de recuperación.')
+            setLoading(false)
+          }
+        }
+      }
+    }
+
+    handleHash()
+  }, [router])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -83,6 +119,17 @@ export default function LoginPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
+          {errorParam && (
+            <Alert variant="destructive" className="mb-4 text-left">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                {errorParam === 'auth-code-error' && "El enlace de recuperación es inválido o ha expirado."}
+                {errorParam === 'auth-callback-error' && "Error al verificar el enlace de recuperación."}
+                {errorParam !== 'auth-code-error' && errorParam !== 'auth-callback-error' && errorParam}
+              </AlertDescription>
+            </Alert>
+          )}
+
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
               <Label htmlFor="email">Correo Electrónico</Label>
@@ -123,10 +170,16 @@ export default function LoginPage() {
               {loading ? 'Iniciando sesión...' : 'Iniciar Sesión'}
             </Button>
           </form>
-
-
         </CardContent>
       </Card>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div>Cargando...</div>}>
+      <LoginForm />
+    </Suspense>
   )
 }

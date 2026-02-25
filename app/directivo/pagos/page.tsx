@@ -8,9 +8,8 @@ import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { obtenerPagosDirectivo } from '@/app/actions/pagos-actions'
 import { migrarPadresExistentes, obtenerEstadisticasMigracion } from '@/app/actions/migrar-padres-actions'
-import { ArrowLeft, DollarSign, Plus, Filter, CheckCircle, Clock, XCircle, Users } from 'lucide-react'
+import { ArrowLeft, DollarSign, Plus, CheckCircle, Clock, XCircle, Users } from 'lucide-react'
 import { DialogoCrearPago } from './DialogoCrearPago'
-import { DialogoCrearPagosMasivos } from './DialogoCrearPagosMasivos'
 import { TablaPagos } from './TablaPagos'
 
 interface Pago {
@@ -25,6 +24,7 @@ interface Pago {
   metodo_pago: string | null
   referencia_pago: string | null
   comprobante_url: string | null
+  pagado_verificado_por: string | null
   padres: {
     id: string
     profiles: {
@@ -50,7 +50,6 @@ export default function DirectivoPagos() {
   const [pagos, setPagos] = useState<Pago[]>([])
   const [loading, setLoading] = useState(true)
   const [dialogoCrearAbierto, setDialogoCrearAbierto] = useState(false)
-  const [dialogoMasivosAbierto, setDialogoMasivosAbierto] = useState(false)
   const [tabActivo, setTabActivo] = useState('todos')
   const [necesitaMigracion, setNecesitaMigracion] = useState(false)
   const [migrandoPadres, setMigrandoPadres] = useState(false)
@@ -181,7 +180,7 @@ export default function DirectivoPagos() {
                   {migrandoPadres ? 'Migrando...' : 'Migrar Padres'}
                 </Button>
               )}
-              <Button variant="outline" onClick={() => setDialogoMasivosAbierto(true)}>
+              <Button variant="outline" onClick={() => router.push('/directivo/pagos/masivos')}>
                 <Plus className="h-4 w-4 mr-2" />
                 Pagos Masivos
               </Button>
@@ -297,18 +296,14 @@ export default function DirectivoPagos() {
         </Card>
       </main>
 
-      {/* Diálogos */}
-      <DialogoCrearPago
-        open={dialogoCrearAbierto}
-        onOpenChange={setDialogoCrearAbierto}
-        onSuccess={handleSuccess}
-      />
-
-      <DialogoCrearPagosMasivos
-        open={dialogoMasivosAbierto}
-        onOpenChange={setDialogoMasivosAbierto}
-        onSuccess={handleSuccess}
-      />
+      {/* Diálogo crear pago */}
+      {dialogoCrearAbierto && (
+        <DialogoCrearPago
+          open={dialogoCrearAbierto}
+          onOpenChange={setDialogoCrearAbierto}
+          onSuccess={handleSuccess}
+        />
+      )}
     </div>
   )
 }

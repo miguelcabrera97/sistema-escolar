@@ -1,56 +1,18 @@
 'use server'
 
 import { createServerSupabaseClient } from '@/lib/supabase-server'
-
-export interface Boleta {
-  id: string
-  alumno_id: string
-  periodo: string
-  ciclo_escolar: string
-  archivo_url: string
-  archivo_nombre: string
-  fecha_subida: string
-  notas?: string
-  subido_por?: string
-  subido_por_nombre?: string
-}
-
-export interface SubirBoletaData {
-  alumno_id: string
-  periodo: string
-  ciclo_escolar: string
-  archivo: File
-  notas?: string
-}
-
-interface Result {
-  success: boolean
-  data?: any
-  error?: string
-}
+import { requireServerRole } from '@/lib/auth-server'
+import { Result } from '@/lib/types'
+import { revalidatePath } from 'next/cache'
 
 /**
  * Subir una boleta en PDF para un alumno
  */
 export async function subirBoleta(formData: FormData): Promise<Result> {
   try {
-    const supabase = await createServerSupabaseClient()
-    const { data: { user } } = await supabase.auth.getUser()
-
-    if (!user) {
-      return { success: false, error: 'No autenticado' }
-    }
-
-    // Verificar que sea directivo
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
-
-    if (profile?.role !== 'directivo' && profile?.role !== 'auxiliar_calificaciones') {
-      return { success: false, error: 'No autorizado' }
-    }
+    const auth = await requireServerRole(['directivo', 'auxiliar_calificaciones'])
+    if (!auth.success || !auth.data) return { success: false, error: auth.error || 'No autorizado' }
+    const { supabase, userId } = auth.data
 
     const alumno_id = formData.get('alumno_id') as string
     const periodo = formData.get('periodo') as string
@@ -102,7 +64,7 @@ export async function subirBoleta(formData: FormData): Promise<Result> {
       ciclo_escolar,
       archivo_url: publicUrl,
       archivo_nombre: archivo.name,
-      subido_por: user.id,
+      subido_por: userId,
       notas: notas || null
     }
 
@@ -115,6 +77,7 @@ export async function subirBoleta(formData: FormData): Promise<Result> {
       return { success: false, error: 'Error al guardar la boleta' }
     }
 
+    revalidatePath('/directivo/boletas')
     return { success: true, data: { message: 'Boleta subida exitosamente' } }
 
   } catch (error) {
@@ -128,18 +91,14 @@ export async function subirBoleta(formData: FormData): Promise<Result> {
  */
 export async function obtenerBoletasAlumno(alumnoId: string): Promise<Result> {
   try {
-    const supabase = await createServerSupabaseClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      return { success: false, error: 'No autenticado' }
-    }
+    const auth = await requireServerRole(['directivo', 'padre', 'alumno'])
+    if (!auth.success || !auth.data) return { success: false, error: auth.error || 'No autorizado' }
+    const { supabase, userId, role } = auth.data
 
-    // Verificar autorización
-    const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
     const { data: alumno } = await supabase.from('alumnos').select('user_id').eq('id', alumnoId).single()
 
-    const esDirectivo = profile?.role === 'directivo'
-    const esAlumno = alumno?.user_id === user.id
+    const esDirectivo = role === 'directivo'
+    const esAlumno = alumno?.user_id === userId
 
     // Verificar si es padre del alumno
     let esPadre = false
@@ -147,7 +106,7 @@ export async function obtenerBoletasAlumno(alumnoId: string): Promise<Result> {
       const { data: padreData } = await supabase
         .from('padres')
         .select('id')
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
         .single()
 
       if (padreData) {
@@ -188,10 +147,13 @@ export async function obtenerBoletasAlumno(alumnoId: string): Promise<Result> {
     }
 
     // Formatear datos
-    const boletasFormateadas = boletas?.map(b => ({
-      ...b,
-      subido_por_nombre: b.profiles ? `${b.profiles.nombre} ${b.profiles.apellidos}` : 'Sistema'
-    })) || []
+    const boletasFormateadas = boletas?.map(b => {
+      const profile = Array.isArray(b.profiles) ? b.profiles[0] : b.profiles
+      return {
+        ...b,
+        subido_por_nombre: profile ? `${profile.nombre} ${profile.apellidos}` : 'Sistema'
+      }
+    }) || []
 
     return { success: true, data: boletasFormateadas }
 

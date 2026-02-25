@@ -2,7 +2,9 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase'
+
+const supabase = createClient()
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { BookOpen, FileText, Users, Plus, Lock } from 'lucide-react'
@@ -45,7 +47,7 @@ export default function MaestroDashboard() {
   const obtenerDatos = useCallback(async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser()
-      
+
       if (!user) {
         router.push('/login')
         return
@@ -89,7 +91,11 @@ export default function MaestroDashboard() {
         .limit(5)
 
       if (tareasData) {
-        setTareas(tareasData)
+        const tareasProcesadas = tareasData.map((t: any) => ({
+          ...t,
+          cursos: Array.isArray(t.cursos) ? t.cursos[0] : t.cursos
+        }))
+        setTareas(tareasProcesadas)
       }
 
     } catch (err) {
@@ -208,8 +214,8 @@ export default function MaestroDashboard() {
                           {curso.grado} {curso.grupo}
                         </p>
                       </div>
-                      <Button 
-                        size="sm" 
+                      <Button
+                        size="sm"
                         variant="outline"
                         onClick={() => router.push(`/maestro/curso/${curso.id}`)}
                       >
@@ -243,8 +249,8 @@ export default function MaestroDashboard() {
                           Fecha: {new Date(tarea.fecha_entrega).toLocaleDateString()}
                         </p>
                       </div>
-                      <Button 
-                        size="sm" 
+                      <Button
+                        size="sm"
                         variant="outline"
                         onClick={() => router.push(`/maestro/tarea/${tarea.id}/entregas`)}
                       >

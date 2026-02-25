@@ -1,12 +1,9 @@
 'use server'
 
 import { createServerSupabaseClient } from '@/lib/supabase-server'
-
-interface Result {
-  success: boolean
-  data?: any
-  error?: string
-}
+import { requireServerRole } from '@/lib/auth-server'
+import { Result } from '@/lib/types'
+import { revalidatePath } from 'next/cache'
 
 // ===== CREAR CURSO =====
 
@@ -20,7 +17,9 @@ interface CrearCursoData {
 
 export async function crearCurso(data: CrearCursoData): Promise<Result> {
   try {
-    const supabase = await createServerSupabaseClient()
+    const auth = await requireServerRole(['directivo'])
+    if (!auth.success || !auth.data) return { success: false, error: auth.error || 'No autorizado' }
+    const { supabase } = auth.data
 
     // Verificar que el maestro existe y está activo
     const { data: maestro, error: maestroError } = await supabase
@@ -63,6 +62,7 @@ export async function crearCurso(data: CrearCursoData): Promise<Result> {
       return { success: false, error: `Error de base de datos: ${error.message}. Verifica que el maestro exista en auth.users` }
     }
 
+    revalidatePath('/directivo/cursos')
     return { success: true, data: curso }
   } catch (error) {
     console.error('Error general:', error)
@@ -74,34 +74,25 @@ export async function crearCurso(data: CrearCursoData): Promise<Result> {
 
 export async function obtenerCursosAuxiliar(auxiliarId: string): Promise<Result> {
   try {
-    const supabase = await createServerSupabaseClient()
-
-    // Verificar que el usuario sea auxiliar de calificaciones
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', auxiliarId)
-      .single()
-
-    if (profile?.role !== 'auxiliar_calificaciones') {
-      return { success: false, error: 'Solo auxiliares pueden usar esta función' }
-    }
+    const auth = await requireServerRole(['auxiliar_calificaciones'])
+    if (!auth.success || !auth.data) return { success: false, error: auth.error || 'No autorizado' }
+    const { supabase } = auth.data
 
     // Obtener cursos asignados al auxiliar
     const { data: cursosAsignados, error } = await supabase
       .from('curso_auxiliares')
       .select(`
-        curso_id,
-        cursos (
-          id,
-          nombre,
-          descripcion,
-          grado,
-          grupo,
-          maestro_id,
-          created_at
-        )
-      `)
+          curso_id,
+          cursos (
+            id,
+            nombre,
+            descripcion,
+            grado,
+            grupo,
+            maestro_id,
+            created_at
+          )
+        `)
       .eq('auxiliar_id', auxiliarId)
 
     if (error) {
@@ -110,11 +101,12 @@ export async function obtenerCursosAuxiliar(auxiliarId: string): Promise<Result>
     }
 
     // Extraer solo los datos del curso
-    const cursos = cursosAsignados?.map(ca => ca.cursos).filter(c => c !== null) || []
+    const cursosRaw = cursosAsignados as any[]
+    const cursosManaged = cursosRaw?.map(ca => ca.cursos).filter(c => c !== null) || []
 
     // Obtener información de los maestros
-    if (cursos.length > 0) {
-      const maestroIds = cursos.map(c => c.maestro_id).filter(Boolean)
+    if (cursosManaged.length > 0) {
+      const maestroIds = cursosManaged.map(c => c.maestro_id).filter(Boolean)
 
       if (maestroIds.length > 0) {
         const { data: maestros } = await supabase
@@ -123,7 +115,7 @@ export async function obtenerCursosAuxiliar(auxiliarId: string): Promise<Result>
           .in('id', maestroIds)
 
         // Combinar información
-        const cursosConMaestro = cursos.map(curso => {
+        const cursosConMaestro = cursosManaged.map(curso => {
           const maestro = maestros?.find(m => m.id === curso.maestro_id)
           return {
             ...curso,
@@ -139,7 +131,7 @@ export async function obtenerCursosAuxiliar(auxiliarId: string): Promise<Result>
       }
     }
 
-    return { success: true, data: cursos }
+    return { success: true, data: cursosManaged }
   } catch (error) {
     console.error('Error general:', error)
     return { success: false, error: 'Error al obtener cursos del auxiliar' }
@@ -150,8 +142,9 @@ export async function obtenerCursosAuxiliar(auxiliarId: string): Promise<Result>
 
 export async function obtenerCursos(): Promise<Result> {
   try {
-    console.log('[obtenerCursos] Iniciando consulta...')
-    const supabase = await createServerSupabaseClient()
+    const auth = await requireServerRole(['directivo', 'maestro', 'auxiliar_calificaciones'])
+    if (!auth.success || !auth.data) return { success: false, error: auth.error || 'No autorizado' }
+    const { supabase } = auth.data
 
     // Obtener cursos
     const { data: cursos, error: cursosError } = await supabase
@@ -205,7 +198,6 @@ export async function obtenerCursos(): Promise<Result> {
     return { success: true, data: cursosConMaestros }
 
   } catch (error) {
-    console.error('[obtenerCursos] Error inesperado:', error)
     return { success: false, error: 'Error al obtener cursos' }
   }
 }
@@ -214,7 +206,9 @@ export async function obtenerCursos(): Promise<Result> {
 
 export async function obtenerCursoPorId(cursoId: string): Promise<Result> {
   try {
-    const supabase = await createServerSupabaseClient()
+    const auth = await requireServerRole(['directivo', 'maestro', 'auxiliar_calificaciones', 'padre', 'alumno'])
+    if (!auth.success || !auth.data) return { success: false, error: auth.error || 'No autorizado' }
+    const { supabase } = auth.data
 
     const { data: curso, error } = await supabase
       .from('cursos')
@@ -241,6 +235,7 @@ export async function obtenerCursoPorId(cursoId: string): Promise<Result> {
       return { success: false, error: error.message }
     }
 
+    revalidatePath('/directivo/cursos')
     return { success: true, data: curso }
   } catch (error) {
     console.error('Error:', error)
@@ -261,7 +256,9 @@ interface EditarCursoData {
 
 export async function editarCurso(data: EditarCursoData): Promise<Result> {
   try {
-    const supabase = await createServerSupabaseClient()
+    const auth = await requireServerRole(['directivo'])
+    if (!auth.success || !auth.data) return { success: false, error: auth.error || 'No autorizado' }
+    const { supabase } = auth.data
 
     // Verificar que el maestro existe y está activo
     const { data: maestro, error: maestroError } = await supabase
@@ -298,6 +295,7 @@ export async function editarCurso(data: EditarCursoData): Promise<Result> {
       return { success: false, error: error.message }
     }
 
+    revalidatePath('/directivo/cursos')
     return { success: true, data: curso }
   } catch (error) {
     console.error('Error:', error)
@@ -309,7 +307,9 @@ export async function editarCurso(data: EditarCursoData): Promise<Result> {
 
 export async function eliminarCurso(cursoId: string): Promise<Result> {
   try {
-    const supabase = await createServerSupabaseClient()
+    const auth = await requireServerRole(['directivo'])
+    if (!auth.success || !auth.data) return { success: false, error: auth.error || 'No autorizado' }
+    const { supabase } = auth.data
 
     // Verificar si hay tareas asociadas
     const { data: tareas, error: tareasError } = await supabase
@@ -366,7 +366,9 @@ interface InscribirAlumnosData {
 
 export async function inscribirAlumnos(data: InscribirAlumnosData): Promise<Result> {
   try {
-    const supabase = await createServerSupabaseClient()
+    const auth = await requireServerRole(['directivo'])
+    if (!auth.success || !auth.data) return { success: false, error: auth.error || 'No autorizado' }
+    const { supabase } = auth.data
 
     // Verificar que el curso existe y obtener su grado y grupo
     const { data: curso, error: cursoError } = await supabase
@@ -439,10 +441,11 @@ export async function inscribirAlumnos(data: InscribirAlumnosData): Promise<Resu
       return { success: false, error: error.message }
     }
 
+    revalidatePath(`/directivo/cursos/${data.curso_id}`)
     return {
       success: true,
       data: {
-        inscritos: nuevasInscripciones.length,
+        inscritos: nuevasInscripciones?.length || 0,
         yaInscritos: data.alumno_ids.length - alumnosNuevos.length
       }
     }
@@ -456,7 +459,9 @@ export async function inscribirAlumnos(data: InscribirAlumnosData): Promise<Resu
 
 export async function obtenerAlumnosInscritos(cursoId: string): Promise<Result> {
   try {
-    const supabase = await createServerSupabaseClient()
+    const auth = await requireServerRole(['directivo', 'maestro', 'auxiliar_calificaciones'])
+    if (!auth.success || !auth.data) return { success: false, error: auth.error || 'No autorizado' }
+    const { supabase } = auth.data
 
     // Obtener inscripciones primero
     const { data: inscripciones, error: inscripcionesError } = await supabase
@@ -540,7 +545,9 @@ export async function obtenerAlumnosInscritos(cursoId: string): Promise<Result> 
 
 export async function desinscribirAlumno(inscripcionId: string): Promise<Result> {
   try {
-    const supabase = await createServerSupabaseClient()
+    const auth = await requireServerRole(['directivo'])
+    if (!auth.success || !auth.data) return { success: false, error: auth.error || 'No autorizado' }
+    const { supabase } = auth.data
 
     const { error } = await supabase
       .from('inscripciones')
@@ -563,7 +570,9 @@ export async function desinscribirAlumno(inscripcionId: string): Promise<Result>
 
 export async function obtenerAlumnosDisponibles(cursoId: string): Promise<Result> {
   try {
-    const supabase = await createServerSupabaseClient()
+    const auth = await requireServerRole(['directivo'])
+    if (!auth.success || !auth.data) return { success: false, error: auth.error || 'No autorizado' }
+    const { supabase } = auth.data
 
     // Primero obtener el grado y grupo del curso
     const { data: curso, error: cursoError } = await supabase

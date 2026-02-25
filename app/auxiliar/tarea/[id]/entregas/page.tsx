@@ -2,7 +2,9 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter, useParams } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase'
+
+const supabase = createClient()
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -91,7 +93,14 @@ export default function AuxiliarEntregasTarea() {
         .eq('tarea_id', tareaId)
         .order('fecha_entrega', { ascending: false })
 
-      setEntregas(entregasData || [])
+      const entregasProcesadas = (entregasData || []).map((e: any) => {
+        const alumnoObj = Array.isArray(e.alumnos) ? e.alumnos[0] : e.alumnos
+        if (alumnoObj && Array.isArray(alumnoObj.profiles)) {
+          alumnoObj.profiles = alumnoObj.profiles[0]
+        }
+        return { ...e, alumnos: alumnoObj }
+      })
+      setEntregas(entregasProcesadas)
     } catch (error) {
       console.error('Error:', error)
     } finally {
@@ -183,12 +192,6 @@ export default function AuxiliarEntregasTarea() {
                         <p className="text-xs text-gray-400">Información de contacto restringida</p>
                       </div>
                       <div className="flex items-center gap-3">
-                        {entrega.status === 'calificada' && tarea && (
-                          <div className="text-right">
-                            <div className="text-2xl font-bold text-green-600">{entrega.calificacion}</div>
-                            <div className="text-xs text-gray-500">Calificación</div>
-                          </div>
-                        )}
                         <Badge variant={entrega.status === 'calificada' ? 'default' : entrega.status === 'entregada' ? 'secondary' : 'destructive'}>
                           {entrega.status === 'calificada' && <CheckCircle className="h-3 w-3 mr-1" />}
                           {entrega.status === 'entregada' && <Clock className="h-3 w-3 mr-1" />}
@@ -218,43 +221,11 @@ export default function AuxiliarEntregasTarea() {
                           </div>
                         )}
 
-                        {calificando === entrega.id ? (
-                          <div className="p-4 bg-blue-50 rounded-lg space-y-4">
-                            <div>
-                              <Label>Calificación</Label>
-                              <Input
-                                type="number"
-                                min="0"
-                                value={formCalificar.calificacion}
-                                onChange={(e) => setFormCalificar({ ...formCalificar, calificacion: e.target.value })}
-                              />
-                            </div>
-                            <div>
-                              <Label>Retroalimentación</Label>
-                              <textarea
-                                value={formCalificar.retroalimentacion}
-                                onChange={(e) => setFormCalificar({ ...formCalificar, retroalimentacion: e.target.value })}
-                                className="w-full mt-1 px-3 py-2 border rounded-md min-h-[100px]"
-                              />
-                            </div>
-                            <div className="flex gap-2">
-                              <Button onClick={() => guardarCalificacion(entrega.id)} className="flex-1">Guardar</Button>
-                              <Button variant="outline" onClick={cancelarCalificacion}>Cancelar</Button>
-                            </div>
+                        {entrega.retroalimentacion && (
+                          <div className="p-3 bg-blue-50 rounded">
+                            <div className="text-xs font-medium text-blue-600 mb-1">Retroalimentación:</div>
+                            <p className="text-sm text-gray-700">{entrega.retroalimentacion}</p>
                           </div>
-                        ) : (
-                          <>
-                            {entrega.retroalimentacion && (
-                              <div className="p-3 bg-blue-50 rounded">
-                                <div className="text-xs font-medium text-blue-600 mb-1">Retroalimentación:</div>
-                                <p className="text-sm text-gray-700">{entrega.retroalimentacion}</p>
-                              </div>
-                            )}
-                            <div className="flex gap-2">
-                              {entrega.status === 'entregada' && <Button size="sm" onClick={() => iniciarCalificacion(entrega)}>Calificar</Button>}
-                              {entrega.status === 'calificada' && <Button size="sm" variant="outline" onClick={() => iniciarCalificacion(entrega)}>Editar</Button>}
-                            </div>
-                          </>
                         )}
                       </div>
                     )}

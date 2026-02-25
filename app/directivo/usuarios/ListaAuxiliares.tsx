@@ -5,18 +5,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
-import { obtenerAuxiliares, desactivarMaestro, reactivarMaestro } from '@/app/actions/usuarios-actions'
+import { obtenerAuxiliares, desactivarAuxiliar, reactivarAuxiliar } from '@/app/actions/usuarios-actions'
 import { Loader2, UserX, UserCheck, Key } from 'lucide-react'
 import { DialogoRestablecerPassword } from './DialogoRestablecerPassword'
 
-interface Auxiliar {
-  id: string
-  nombre: string
-  apellidos: string
-  email: string
-  telefono: string | null
-  activo: boolean
-}
+import { type Auxiliar } from '@/app/types/usuarios'
 
 export function ListaAuxiliares() {
   const [auxiliares, setAuxiliares] = useState<Auxiliar[]>([])
@@ -49,8 +42,8 @@ export function ListaAuxiliares() {
     if (!confirm('¿Estás seguro de que deseas desactivar este auxiliar?')) return
 
     setProcesando(auxiliarId)
-    // Nota: Usamos las funciones de maestro porque el comportamiento es el mismo
-    const result = await desactivarMaestro(auxiliarId)
+    // Nota: Usamos las funciones de auxiliar
+    const result = await desactivarAuxiliar(auxiliarId)
     if (result.success) {
       await cargarAuxiliares()
     } else {
@@ -61,7 +54,7 @@ export function ListaAuxiliares() {
 
   const handleReactivar = async (auxiliarId: string) => {
     setProcesando(auxiliarId)
-    const result = await reactivarMaestro(auxiliarId)
+    const result = await reactivarAuxiliar(auxiliarId)
     if (result.success) {
       await cargarAuxiliares()
     } else {

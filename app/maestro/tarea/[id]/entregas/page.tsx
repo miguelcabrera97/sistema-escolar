@@ -2,7 +2,9 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter, useParams } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase'
+
+const supabase = createClient()
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -89,7 +91,14 @@ export default function EntregasTarea() {
         .eq('tarea_id', tareaId)
         .order('fecha_entrega', { ascending: false })
 
-      setEntregas(entregasData || [])
+      const entregasProcesadas = (entregasData || []).map((e: any) => {
+        const alumnoObj = Array.isArray(e.alumnos) ? e.alumnos[0] : e.alumnos
+        if (alumnoObj && Array.isArray(alumnoObj.profiles)) {
+          alumnoObj.profiles = alumnoObj.profiles[0]
+        }
+        return { ...e, alumnos: alumnoObj }
+      })
+      setEntregas(entregasProcesadas)
     } catch (error) {
       console.error('Error:', error)
     } finally {

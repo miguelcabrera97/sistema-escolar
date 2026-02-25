@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
@@ -52,12 +52,16 @@ export function DialogoCrearPagosMasivos({ open, onOpenChange, onSuccess }: Prop
   const [fechaVencimiento, setFechaVencimiento] = useState('')
   const [busqueda, setBusqueda] = useState('')
 
+  const prevOpenRef = useRef(false)
+
   useEffect(() => {
     if (open) {
       cargarDatos()
-    } else {
+    } else if (prevOpenRef.current) {
+      // Solo limpiar cuando se cierra (transiciona de true a false)
       limpiarFormulario()
     }
+    prevOpenRef.current = open
   }, [open])
 
   const cargarDatos = async () => {

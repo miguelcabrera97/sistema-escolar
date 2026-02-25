@@ -2,7 +2,9 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter, useParams } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase'
+
+const supabase = createClient()
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -55,7 +57,7 @@ export default function TareaDetalle() {
   const [entrega, setEntrega] = useState<Entrega | null>(null)
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
-  
+
   const [archivo, setArchivo] = useState<File | null>(null)
   const [comentarios, setComentarios] = useState('')
 
@@ -230,12 +232,12 @@ export default function TareaDetalle() {
               </div>
               <Badge variant={
                 entrega?.status === 'calificada' ? (entrega.calificacion === 'Entregado' ? 'default' : 'destructive') :
-                entrega?.status === 'entregada' ? 'secondary' :
-                vencida ? 'destructive' : 'outline'
+                  entrega?.status === 'entregada' ? 'secondary' :
+                    vencida ? 'destructive' : 'outline'
               }>
                 {entrega?.status === 'calificada' ? entrega.calificacion :
-                 entrega?.status === 'entregada' ? 'Entregada' :
-                 vencida ? 'Vencida' : 'Pendiente'}
+                  entrega?.status === 'entregada' ? 'Entregada' :
+                    vencida ? 'Vencida' : 'Pendiente'}
               </Badge>
             </div>
           </CardHeader>
@@ -285,7 +287,7 @@ export default function TareaDetalle() {
                   {entrega.calificacion || 'Pendiente'}
                 </span>
               </div>
-              
+
               {entrega.retroalimentacion && (
                 <div>
                   <h4 className="font-semibold text-sm text-gray-700 mb-1">
@@ -302,15 +304,15 @@ export default function TareaDetalle() {
                   <h4 className="font-semibold text-sm text-gray-700 mb-1">
                     Tu entrega:
                   </h4>
-                  
-                    <Button
-  variant="link"
-  onClick={() => window.open(entrega.archivo_url || '', '_blank')}
-  className="inline-flex items-center gap-2 p-0 h-auto"
->
-  <FileText className="h-4 w-4" />
-  Ver archivo entregado
-</Button>
+
+                  <Button
+                    variant="link"
+                    onClick={() => window.open(entrega.archivo_url || '', '_blank')}
+                    className="inline-flex items-center gap-2 p-0 h-auto"
+                  >
+                    <FileText className="h-4 w-4" />
+                    Ver archivo entregado
+                  </Button>
                 </div>
               )}
 
@@ -339,7 +341,7 @@ export default function TareaDetalle() {
                 {entrega ? 'Actualizar Entrega' : 'Entregar Tarea'}
               </CardTitle>
               <CardDescription>
-                {entrega 
+                {entrega
                   ? 'Puedes actualizar tu entrega hasta que el maestro la califique'
                   : 'Sube tu trabajo y agrega comentarios si es necesario'
                 }

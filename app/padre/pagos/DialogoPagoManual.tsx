@@ -8,7 +8,9 @@ import { Input } from '@/components/ui/input'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Loader2, FileText, Info } from 'lucide-react'
 import { registrarPagoManual } from '@/app/actions/pagos-actions'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase'
+
+const supabase = createClient()
 import imageCompression from 'browser-image-compression'
 
 interface Pago {

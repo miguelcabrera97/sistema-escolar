@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase'
+
+const supabase = createClient()
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -105,7 +107,7 @@ export default function CursoDetalle() {
         const alumnosFormateados = alumnosData.map((item: any) => ({
           id: item.alumnos.id,
           matricula: item.alumnos.matricula,
-          profiles: item.alumnos.profiles
+          profiles: Array.isArray(item.alumnos.profiles) ? item.alumnos.profiles[0] : item.alumnos.profiles
         }))
         setAlumnos(alumnosFormateados)
       }

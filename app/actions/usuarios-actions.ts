@@ -4,6 +4,7 @@ import { createServerSupabaseClient } from '@/lib/supabase-server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
+import { Result } from '@/lib/types'
 
 // ============================================
 // SCHEMAS DE VALIDACIÓN
@@ -26,50 +27,8 @@ const AlumnoSchema = z.object({
 // TIPOS E INTERFACES
 // ============================================
 
-export interface Alumno {
-  id: string
-  matricula: string
-  curp?: string
-  grado: string
-  grupo: string
-  user_id: string
-  profiles: {
-    nombre: string
-    apellidos: string
-    email?: string
-    activo: boolean
-  }
-}
+import { Alumno, Maestro, Auxiliar } from '@/app/types/usuarios'
 
-export interface Maestro {
-  id: string
-  user_id: string
-  especialidad?: string
-  activo: boolean
-  profiles: {
-    nombre: string
-    apellidos: string
-    email?: string
-  }
-}
-
-export interface Auxiliar {
-  id: string
-  user_id: string
-  activo: boolean
-  profiles: {
-    nombre: string
-    apellidos: string
-    email?: string
-  }
-}
-
-interface ActionResult {
-  success?: boolean
-  message?: string
-  errors?: Record<string, string[]>
-  error?: string
-}
 
 // ============================================
 // FUNCIONES DE CONSULTA
@@ -79,7 +38,7 @@ export async function getPadres() {
   try {
     const supabase = await createServerSupabaseClient()
 
-    console.log('[getPadres] Iniciando consulta...')
+
 
     const { data, error } = await supabase
       .from('padres')
@@ -95,23 +54,26 @@ export async function getPadres() {
     }
 
     if (!data) {
-      console.log('[getPadres] No hay datos')
+
       return []
     }
 
-    console.log('[getPadres] Datos obtenidos:', data.length, 'padres')
+
 
     // Mapear y ordenar en JavaScript
     const padres = data
-      .map(p => ({
-        id: p.id,
-        user_id: p.user_id, // Added user_id
-        nombre: p.profiles?.nombre || '',
-        apellidos: p.profiles?.apellidos || ''
-      }))
-      .sort((a, b) => a.nombre.localeCompare(b.nombre))
+      .map(p => {
+        const profile = Array.isArray(p.profiles) ? p.profiles[0] : p.profiles
+        return {
+          id: p.id,
+          user_id: p.user_id,
+          nombre: profile?.nombre || '',
+          apellidos: profile?.apellidos || ''
+        }
+      })
+      .sort((a, b) => (a.nombre || '').localeCompare(b.nombre || ''))
 
-    console.log('[getPadres] Padres procesados:', padres.length)
+
 
     return padres
   } catch (error) {
@@ -124,7 +86,7 @@ export async function getPadres() {
 // RESTABLECER CONTRASEÑA (GENÉRICO)
 // ============================================
 
-export async function restablecerPasswordUsuario(userId: string, nuevaPassword: string): Promise<ActionResult> {
+export async function restablecerPasswordUsuario(userId: string, nuevaPassword: string): Promise<Result> {
   try {
     const supabase = await createServerSupabaseClient()
 
@@ -156,11 +118,11 @@ export async function restablecerPasswordUsuario(userId: string, nuevaPassword: 
   }
 }
 
-export async function obtenerAlumnos(): Promise<ActionResult> {
+export async function obtenerAlumnos(): Promise<Result> {
   try {
     const supabase = await createServerSupabaseClient()
 
-    console.log('[obtenerAlumnos] Iniciando consulta...')
+
 
     const { data, error } = await supabase
       .from('alumnos')
@@ -188,7 +150,7 @@ export async function obtenerAlumnos(): Promise<ActionResult> {
       return { success: false, error: error.message }
     }
 
-    console.log('[obtenerAlumnos] Datos obtenidos:', data?.length || 0, 'alumnos')
+
 
     return { success: true, data }
   } catch (error) {
@@ -197,7 +159,7 @@ export async function obtenerAlumnos(): Promise<ActionResult> {
   }
 }
 
-export async function obtenerAlumnosPorGradoGrupo(grado?: string, grupo?: string): Promise<ActionResult> {
+export async function obtenerAlumnosPorGradoGrupo(grado?: string, grupo?: string): Promise<Result> {
   try {
     const supabase = await createServerSupabaseClient()
 
@@ -233,7 +195,7 @@ export async function obtenerAlumnosPorGradoGrupo(grado?: string, grupo?: string
   }
 }
 
-export async function obtenerMaestros(): Promise<ActionResult> {
+export async function obtenerMaestros(): Promise<Result> {
   try {
     const supabase = await createServerSupabaseClient()
 
@@ -252,14 +214,18 @@ export async function obtenerMaestros(): Promise<ActionResult> {
     }
 
     // Transformar datos para que activo esté accesible
-    const maestrosTransformados = data?.map(m => ({
-      id: m.profiles.id || m.user_id,
-      nombre: m.profiles.nombre,
-      apellidos: m.profiles.apellidos,
-      email: m.profiles.email,
-      activo: m.profiles.activo,
-      especialidad: m.especialidad
-    })) || []
+    const maestrosTransformados = data?.map(m => {
+      const profile = Array.isArray(m.profiles) ? m.profiles[0] : m.profiles
+      return {
+        id: m.id,
+        user_id: m.user_id,
+        nombre: profile?.nombre || '',
+        apellidos: profile?.apellidos || '',
+        email: profile?.email || '',
+        activo: profile?.activo || false,
+        especialidad: m.especialidad
+      }
+    }) || []
 
     return { success: true, data: maestrosTransformados }
   } catch (error) {
@@ -268,7 +234,7 @@ export async function obtenerMaestros(): Promise<ActionResult> {
   }
 }
 
-export async function obtenerAuxiliares(): Promise<ActionResult> {
+export async function obtenerAuxiliares(): Promise<Result> {
   try {
     const supabase = await createServerSupabaseClient()
 
@@ -286,13 +252,17 @@ export async function obtenerAuxiliares(): Promise<ActionResult> {
     }
 
     // Transformar datos para que activo esté accesible
-    const auxiliaresTransformados = data?.map(a => ({
-      id: a.profiles.id || a.user_id,
-      nombre: a.profiles.nombre,
-      apellidos: a.profiles.apellidos,
-      email: a.profiles.email,
-      activo: a.profiles.activo
-    })) || []
+    const auxiliaresTransformados = data?.map(a => {
+      const profile = Array.isArray(a.profiles) ? a.profiles[0] : a.profiles
+      return {
+        id: a.id,
+        user_id: a.user_id,
+        nombre: profile?.nombre || '',
+        apellidos: profile?.apellidos || '',
+        email: profile?.email || '',
+        activo: profile?.activo || false
+      }
+    }) || []
 
     return { success: true, data: auxiliaresTransformados }
   } catch (error) {
@@ -305,7 +275,7 @@ export async function obtenerAuxiliares(): Promise<ActionResult> {
 // CREAR ALUMNO
 // ============================================
 
-export async function crearAlumno(prevState: any, formData: FormData): Promise<ActionResult> {
+export async function crearAlumno(prevState: any, formData: FormData): Promise<Result> {
   try {
     const rawFormData = Object.fromEntries(formData.entries())
 
@@ -314,6 +284,7 @@ export async function crearAlumno(prevState: any, formData: FormData): Promise<A
 
     if (!validatedFields.success) {
       return {
+        success: false,
         errors: validatedFields.error.flatten().fieldErrors,
       }
     }
@@ -335,14 +306,15 @@ export async function crearAlumno(prevState: any, formData: FormData): Promise<A
     })
 
     if (authError) {
-      console.error('Error creating auth user:', authError)
       return {
+        success: false,
         errors: { _form: [authError.message] },
       }
     }
 
     if (!authData.user) {
       return {
+        success: false,
         errors: { _form: ['No se pudo crear el usuario'] },
       }
     }
@@ -360,10 +332,10 @@ export async function crearAlumno(prevState: any, formData: FormData): Promise<A
     ])
 
     if (profileError) {
-      console.error('Error creating profile:', profileError)
       // Intentar eliminar el usuario de auth
       await supabase.auth.admin.deleteUser(authData.user.id)
       return {
+        success: false,
         errors: { _form: [profileError.message] },
       }
     }
@@ -380,8 +352,8 @@ export async function crearAlumno(prevState: any, formData: FormData): Promise<A
     ])
 
     if (alumnoError) {
-      console.error('Error creating alumno:', alumnoError)
       return {
+        success: false,
         errors: { _form: [alumnoError.message] },
       }
     }
@@ -413,6 +385,7 @@ export async function crearAlumno(prevState: any, formData: FormData): Promise<A
   } catch (error) {
     console.error('Error:', error)
     return {
+      success: false,
       errors: { _form: ['Error inesperado al crear alumno'] },
     }
   }
@@ -422,7 +395,7 @@ export async function crearAlumno(prevState: any, formData: FormData): Promise<A
 // EDITAR ALUMNO
 // ============================================
 
-export async function editarAlumno(prevState: any, formData: FormData): Promise<ActionResult> {
+export async function editarAlumno(prevState: any, formData: FormData): Promise<Result> {
   try {
     const rawFormData = Object.fromEntries(formData.entries())
 
@@ -430,6 +403,7 @@ export async function editarAlumno(prevState: any, formData: FormData): Promise<
 
     if (!validatedFields.success) {
       return {
+        success: false,
         errors: validatedFields.error.flatten().fieldErrors,
       }
     }
@@ -438,6 +412,7 @@ export async function editarAlumno(prevState: any, formData: FormData): Promise<
 
     if (!id) {
       return {
+        success: false,
         errors: { _form: ['El ID del alumno es requerido'] },
       }
     }
@@ -453,6 +428,7 @@ export async function editarAlumno(prevState: any, formData: FormData): Promise<
 
     if (alumnoQueryError || !alumnoData) {
       return {
+        success: false,
         errors: { _form: ['Alumno no encontrado'] },
       }
     }
@@ -468,8 +444,8 @@ export async function editarAlumno(prevState: any, formData: FormData): Promise<
       .eq('id', alumnoData.user_id)
 
     if (profileError) {
-      console.error('Error updating profile:', profileError)
       return {
+        success: false,
         errors: { _form: [profileError.message] },
       }
     }
@@ -486,8 +462,8 @@ export async function editarAlumno(prevState: any, formData: FormData): Promise<
       .eq('id', id)
 
     if (alumnoError) {
-      console.error('Error updating alumno:', alumnoError)
       return {
+        success: false,
         errors: { _form: [alumnoError.message] },
       }
     }
@@ -515,6 +491,7 @@ export async function editarAlumno(prevState: any, formData: FormData): Promise<
   } catch (error) {
     console.error('Error:', error)
     return {
+      success: false,
       errors: { _form: ['Error inesperado al actualizar alumno'] },
     }
   }
@@ -524,7 +501,7 @@ export async function editarAlumno(prevState: any, formData: FormData): Promise<
 // ACTIVAR/DESACTIVAR USUARIO
 // ============================================
 
-export async function toggleActivoAlumno(id: string, activo: boolean): Promise<ActionResult> {
+export async function toggleActivoAlumno(id: string, activo: boolean): Promise<Result> {
   try {
     const supabase = await createServerSupabaseClient()
 
@@ -557,7 +534,7 @@ export async function toggleActivoAlumno(id: string, activo: boolean): Promise<A
   }
 }
 
-export async function toggleActivoMaestro(id: string, activo: boolean): Promise<ActionResult> {
+export async function toggleActivoMaestro(id: string, activo: boolean): Promise<Result> {
   try {
     const supabase = await createServerSupabaseClient()
 
@@ -590,7 +567,7 @@ export async function toggleActivoMaestro(id: string, activo: boolean): Promise<
   }
 }
 
-export async function toggleActivoAuxiliar(id: string, activo: boolean): Promise<ActionResult> {
+export async function toggleActivoAuxiliar(id: string, activo: boolean): Promise<Result> {
   try {
     const supabase = await createServerSupabaseClient()
 
@@ -623,25 +600,6 @@ export async function toggleActivoAuxiliar(id: string, activo: boolean): Promise
   }
 }
 
-// ============================================
-// FUNCIONES DE COMPATIBILIDAD (LEGACY)
-// ============================================
-
-export async function desactivarAlumno(id: string): Promise<ActionResult> {
-  return toggleActivoAlumno(id, false)
-}
-
-export async function reactivarAlumno(id: string): Promise<ActionResult> {
-  return toggleActivoAlumno(id, true)
-}
-
-export async function desactivarMaestro(id: string): Promise<ActionResult> {
-  return toggleActivoMaestro(id, false)
-}
-
-export async function reactivarMaestro(id: string): Promise<ActionResult> {
-  return toggleActivoMaestro(id, true)
-}
 
 // ============================================
 // TIPOS LEGACY (COMPATIBILIDAD)
@@ -677,7 +635,7 @@ export interface CrearAuxiliarData {
 // FUNCIONES DE MAESTROS (LEGACY)
 // ============================================
 
-export async function crearMaestro(data: CrearMaestroData): Promise<ActionResult> {
+export async function crearMaestro(data: CrearMaestroData): Promise<Result> {
   try {
     const supabase = await createServerSupabaseClient()
 
@@ -734,7 +692,7 @@ export async function crearMaestro(data: CrearMaestroData): Promise<ActionResult
   }
 }
 
-export async function editarMaestro(data: EditarMaestroData): Promise<ActionResult> {
+export async function editarMaestro(data: EditarMaestroData): Promise<Result> {
   try {
     const supabase = await createServerSupabaseClient()
 
@@ -787,7 +745,7 @@ export async function editarMaestro(data: EditarMaestroData): Promise<ActionResu
 // FUNCIONES DE AUXILIARES (LEGACY)
 // ============================================
 
-export async function crearAuxiliar(data: CrearAuxiliarData): Promise<ActionResult> {
+export async function crearAuxiliar(data: CrearAuxiliarData): Promise<Result> {
   try {
     const supabase = await createServerSupabaseClient()
 
@@ -856,7 +814,7 @@ const PadreDirectivoSchema = z.object({
   role: z.enum(['padre', 'directivo']),
 })
 
-export async function crearPadreODirectivo(prevState: any, formData: FormData): Promise<ActionResult> {
+export async function crearPadreODirectivo(prevState: any, formData: FormData): Promise<Result> {
   try {
     const rawFormData = Object.fromEntries(formData.entries())
 
@@ -864,6 +822,7 @@ export async function crearPadreODirectivo(prevState: any, formData: FormData): 
 
     if (!validatedFields.success) {
       return {
+        success: false,
         errors: validatedFields.error.flatten().fieldErrors,
       }
     }
@@ -885,14 +844,15 @@ export async function crearPadreODirectivo(prevState: any, formData: FormData): 
     })
 
     if (authError) {
-      console.error('Error creating auth user:', authError)
       return {
+        success: false,
         errors: { _form: [authError.message] },
       }
     }
 
     if (!authData.user) {
       return {
+        success: false,
         errors: { _form: ['No se pudo crear el usuario'] },
       }
     }
@@ -911,9 +871,9 @@ export async function crearPadreODirectivo(prevState: any, formData: FormData): 
     ])
 
     if (profileError) {
-      console.error('Error creating profile:', profileError)
       await supabase.auth.admin.deleteUser(authData.user.id)
       return {
+        success: false,
         errors: { _form: [profileError.message] },
       }
     }
@@ -927,8 +887,8 @@ export async function crearPadreODirectivo(prevState: any, formData: FormData): 
       ])
 
       if (padreError) {
-        console.error('Error creating padre:', padreError)
         return {
+          success: false,
           errors: { _form: [padreError.message] },
         }
       }
@@ -942,7 +902,7 @@ export async function crearPadreODirectivo(prevState: any, formData: FormData): 
   }
 }
 
-export async function obtenerPadresYDirectivos(): Promise<ActionResult> {
+export async function obtenerPadresYDirectivos(): Promise<Result> {
   try {
     const supabase = await createServerSupabaseClient()
 
@@ -967,7 +927,7 @@ export async function obtenerPadresYDirectivos(): Promise<ActionResult> {
 // FUNCIONES PARA PADRES
 // ============================================
 
-export async function editarPadre(prevState: any, formData: FormData): Promise<ActionResult> {
+export async function editarPadre(prevState: any, formData: FormData): Promise<Result> {
   try {
     const supabase = await createServerSupabaseClient()
 
@@ -1004,7 +964,7 @@ export async function editarPadre(prevState: any, formData: FormData): Promise<A
   }
 }
 
-export async function toggleActivoPadre(id: string, activo: boolean): Promise<ActionResult> {
+export async function toggleActivoPadre(id: string, activo: boolean): Promise<Result> {
   try {
     const supabase = await createServerSupabaseClient()
 
@@ -1026,19 +986,30 @@ export async function toggleActivoPadre(id: string, activo: boolean): Promise<Ac
   }
 }
 
-export async function desactivarPadre(id: string): Promise<ActionResult> {
+export async function desactivarPadre(id: string): Promise<Result> {
   return toggleActivoPadre(id, false)
 }
 
-export async function reactivarPadre(id: string): Promise<ActionResult> {
+export async function reactivarPadre(id: string): Promise<Result> {
   return toggleActivoPadre(id, true)
 }
+
+// ============================================
+// ALIAS DE COMPATIBILIDAD (FASE 3.2)
+// ============================================
+
+export async function desactivarAlumno(id: string) { return toggleActivoAlumno(id, false) }
+export async function reactivarAlumno(id: string) { return toggleActivoAlumno(id, true) }
+export async function desactivarMaestro(id: string) { return toggleActivoMaestro(id, false) }
+export async function reactivarMaestro(id: string) { return toggleActivoMaestro(id, true) }
+export async function desactivarAuxiliar(id: string) { return toggleActivoAuxiliar(id, false) }
+export async function reactivarAuxiliar(id: string) { return toggleActivoAuxiliar(id, true) }
 
 // ============================================
 // RESTABLECER CONTRASEÑA (ADMINISTRATIVO)
 // ============================================
 
-export async function restablecerPasswordAlumno(alumnoId: string, nuevaPassword: string): Promise<ActionResult> {
+export async function restablecerPasswordAlumno(alumnoId: string, nuevaPassword: string): Promise<Result> {
   try {
     const supabase = await createServerSupabaseClient()
 
@@ -1068,9 +1039,10 @@ export async function restablecerPasswordAlumno(alumnoId: string, nuevaPassword:
       return { success: false, error: 'Error al actualizar la contraseña: ' + updateError.message }
     }
 
+    const profile = Array.isArray(alumnoData.profiles) ? alumnoData.profiles[0] : alumnoData.profiles
     return {
       success: true,
-      message: `Contraseña actualizada correctamente para ${alumnoData.profiles.nombre}`
+      message: `Contraseña actualizada correctamente para ${profile?.nombre || 'el alumno'}`
     }
   } catch (error) {
     console.error('Error:', error)

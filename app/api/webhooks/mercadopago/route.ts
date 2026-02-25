@@ -1,6 +1,39 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase-server'
 import { MercadoPagoConfig, Payment } from 'mercadopago'
+import crypto from 'crypto'
+
+/**
+ * Verifica la firma de Mercado Pago (HMAC-SHA256)
+ */
+function verifyWebhookSignature(xSignature: string, xRequestId: string, dataId: string): boolean {
+  const secret = process.env.MERCADOPAGO_WEBHOOK_SECRET
+  if (!secret) {
+    console.error('MERCADOPAGO_WEBHOOK_SECRET no está configurado')
+    return false
+  }
+
+  // Mercado Pago envía el header x-signature con formato ts=...,v1=...
+  const parts = xSignature.split(',')
+  const tsValue = parts.find(p => p.trim().startsWith('ts='))?.split('=')[1]
+  const v1Value = parts.find(p => p.trim().startsWith('v1='))?.split('=')[1]
+
+  if (!tsValue || !v1Value) {
+    console.error('Formato de x-signature inválido')
+    return false
+  }
+
+  // Según documentación de Mercado Pago para notificaciones V1/V2:
+  // El manifest se construye como: id:[data.id];request-id:[x-request-id];ts:[ts];
+  const manifest = `id:${dataId};request-id:${xRequestId};ts:${tsValue};`
+
+  const hmac = crypto
+    .createHmac('sha256', secret)
+    .update(manifest)
+    .digest('hex')
+
+  return hmac === v1Value
+}
 
 /**
  * Webhook de Mercado Pago
@@ -21,6 +54,22 @@ export async function POST(req: NextRequest) {
     if (!paymentId) {
       return NextResponse.json({ error: 'No payment ID' }, { status: 400 })
     }
+
+    // --- SEGURIDAD: VERIFICACIÓN DE FIRMA ---
+    const xSignature = req.headers.get('x-signature') || ''
+    const xRequestId = req.headers.get('x-request-id') || ''
+
+    // En entornos de desarrollo sin el secreto configurado, podríamos saltar esto
+    // pero para producción es CRÍTICO.
+    if (process.env.NODE_ENV === 'production' || process.env.MERCADOPAGO_WEBHOOK_SECRET) {
+      if (!verifyWebhookSignature(xSignature, xRequestId, paymentId.toString())) {
+        console.error('Firma de webhook inválida detectada')
+        return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
+      }
+    } else {
+      console.warn('⚠️ Saltando verificación de firma de webhook (entorno de desarrollo sin secreto)')
+    }
+    // ----------------------------------------
 
     // Configurar el cliente de Mercado Pago
     const client = new MercadoPagoConfig({

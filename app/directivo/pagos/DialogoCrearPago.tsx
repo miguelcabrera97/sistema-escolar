@@ -8,9 +8,11 @@ import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Loader2, Printer, CreditCard } from 'lucide-react'
+import { Loader2, Printer, CreditCard, XIcon } from 'lucide-react'
 import { obtenerPadresConAlumnos } from '@/app/actions/pagos-actions'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase'
+
+const supabase = createClient()
 import { BuscadorPadres } from './BuscadorPadres'
 
 interface Props {
@@ -67,12 +69,16 @@ export function DialogoCrearPago({ open, onOpenChange, onSuccess }: Props) {
   const [descripcion, setDescripcion] = useState('')
   const [fechaVencimiento, setFechaVencimiento] = useState('')
 
+  const prevOpenRef = useRef(false)
+
   useEffect(() => {
     if (open) {
       cargarDatos()
-    } else {
+    } else if (prevOpenRef.current) {
+      // Solo limpiar cuando se cierra (transiciona de true a false)
       limpiarFormulario()
     }
+    prevOpenRef.current = open
   }, [open])
 
   const cargarDatos = async () => {
@@ -317,6 +323,12 @@ export function DialogoCrearPago({ open, onOpenChange, onSuccess }: Props) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <button
+          onClick={() => onOpenChange(false)}
+          className="absolute top-4 right-4 opacity-70 hover:opacity-100"
+        >
+          <XIcon className="h-4 w-4" />
+        </button>
         <DialogHeader>
           <DialogTitle>Crear Nuevo Pago</DialogTitle>
           <DialogDescription>

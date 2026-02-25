@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
-import { Alumno } from '@/app/actions/usuarios-actions'
+import { Alumno } from '@/app/types/usuarios'
 import { Search } from 'lucide-react'
 
 interface FormularioSubirBoletaProps {
@@ -141,7 +141,7 @@ export default function FormularioSubirBoleta({ alumnos, onBoletaSubida }: Formu
             <Label htmlFor="notas">Notas (Opcional)</Label>
             <Textarea id="notas" name="notas" placeholder="Añadir notas o comentarios..." />
           </div>
-          
+
           {error && <p className="text-red-500 text-sm">{error}</p>}
           {success && <p className="text-green-500 text-sm">{success}</p>}
 

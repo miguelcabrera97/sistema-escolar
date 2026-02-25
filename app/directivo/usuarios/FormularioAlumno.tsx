@@ -20,7 +20,7 @@ interface FormularioAlumnoProps {
     profiles: {
       nombre: string
       apellidos: string
-      email?: string
+      email: string
     }
     padre_alumno?: Array<{
       padre_id: string
@@ -43,7 +43,7 @@ type Padre = {
   apellidos: string
 }
 
-const initialState = { errors: {} }
+const initialState: any = { success: false, errors: {} }
 
 export function FormularioAlumno({ alumno, onClose }: FormularioAlumnoProps) {
   const action = alumno ? editarAlumno : crearAlumno
@@ -95,9 +95,9 @@ export function FormularioAlumno({ alumno, onClose }: FormularioAlumnoProps) {
     }
   }, [state.success, state.message, onClose])
 
-  const handleSubmit = async (formData: FormData) => {
+  const handleSubmit = (formData: FormData) => {
     setIsLoading(true)
-    await formAction(formData)
+    formAction(formData)
     setIsLoading(false)
   }
 

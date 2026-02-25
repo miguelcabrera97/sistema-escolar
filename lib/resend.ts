@@ -13,7 +13,3 @@ export function getResendClient(): Resend {
   return resendClient;
 }
 
-// For backward compatibility - will throw at runtime if API key is missing
-export const resend = process.env.RESEND_API_KEY
-  ? new Resend(process.env.RESEND_API_KEY)
-  : (null as unknown as Resend);

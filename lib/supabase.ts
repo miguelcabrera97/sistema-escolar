@@ -10,5 +10,3 @@ export function createClient() {
   )
 }
 
-// Para compatibilidad con código anterior
-export const supabase = createClient()

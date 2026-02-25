@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Calendar, DollarSign, User, CreditCard, FileText, CheckCircle, ExternalLink, Check } from 'lucide-react'
+import { Calendar, DollarSign, User, CreditCard, FileText, CheckCircle, ExternalLink, Check, XIcon } from 'lucide-react'
 import { verificarPagoManual } from '@/app/actions/pagos-actions'
 
 interface Pago {
@@ -95,6 +95,12 @@ export function DialogoDetallePago({ pago, open, onOpenChange, onSuccess }: Prop
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
+        <button
+          onClick={() => onOpenChange(false)}
+          className="absolute top-4 right-4 opacity-70 hover:opacity-100"
+        >
+          <XIcon className="h-4 w-4" />
+        </button>
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between">
             <span>Detalle del Pago</span>

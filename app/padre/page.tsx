@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase'
+
+const supabase = createClient()
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -21,7 +23,7 @@ export default function PadreDashboard() {
   const obtenerDatos = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser()
-      
+
       if (!user) {
         router.push('/login')
         return
@@ -244,10 +246,10 @@ export default function PadreDashboard() {
                         <CardDescription>Pagos y adeudos</CardDescription>
                       </div>
                       <div className='flex justify-between'>
-                        
+
                         <Button onClick={() => router.push('/padre/pagos')}> <CreditCard className="h-4 w-4 mr-2" />Ver Pagos</Button>
                       </div>
-                      
+
                     </div>
                   </CardHeader>
                   <CardContent>

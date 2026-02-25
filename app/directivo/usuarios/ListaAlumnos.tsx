@@ -7,7 +7,8 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { obtenerAlumnos, desactivarAlumno, reactivarAlumno, type Alumno } from '@/app/actions/usuarios-actions'
+import { obtenerAlumnos, desactivarAlumno, reactivarAlumno } from '@/app/actions/usuarios-actions'
+import { type Alumno } from '@/app/types/usuarios'
 import { Loader2, Users, Pencil, Trash2, RefreshCw, Search, Filter, X, Key } from 'lucide-react'
 import { DialogoEditarAlumno } from './DialogoEditarAlumno'
 import { DialogoConfirmarEliminacion } from './DialogoConfirmarEliminacion'
@@ -313,7 +314,7 @@ export function ListaAlumnos() {
                       <TableCell>{alumno.grado}°</TableCell>
                       <TableCell>{alumno.grupo}</TableCell>
                       <TableCell className="text-sm text-gray-600">
-                        {alumno.profiles.email}
+                        {alumno.profiles.email || '-'}
                       </TableCell>
                       <TableCell className="text-sm text-gray-600">
                         {alumno.profiles.telefono || '-'}
@@ -371,7 +372,12 @@ export function ListaAlumnos() {
       </Card>
 
       <DialogoRestablecerPassword
-        usuario={alumnoPassword}
+        usuario={alumnoPassword ? {
+          user_id: alumnoPassword.user_id,
+          nombre: alumnoPassword.profiles.nombre,
+          apellidos: alumnoPassword.profiles.apellidos,
+          email: alumnoPassword.profiles.email
+        } : null}
         open={dialogoPasswordAbierto}
         onOpenChange={setDialogoPasswordAbierto}
         onSuccess={() => alert('Contraseña actualizada correctamente')}

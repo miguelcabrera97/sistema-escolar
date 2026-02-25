@@ -14,7 +14,7 @@ interface DialogoEditarMaestroProps {
     nombre: string
     apellidos: string
     email: string
-    telefono: string | null
+    telefono?: string | null
   } | null
   open: boolean
   onOpenChange: (open: boolean) => void

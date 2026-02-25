@@ -2,10 +2,14 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Users, BookOpen, FileText, DollarSign, GraduationCap, UserCog, Receipt, ArrowRight, LogOut, LinkIcon, UserPlus, List } from 'lucide-react'
+
+// Initialize supabase client outside to avoid multiple instances on re-renders if preferred,
+// but since this is a client component, createClient() is safe.
+const supabase = createClient()
 
 interface Stats {
   totalAlumnos: number

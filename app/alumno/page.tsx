@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase'
+
+const supabase = createClient()
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -71,7 +73,7 @@ export default function AlumnoDashboard() {
   const cargarDatos = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser()
-      
+
       if (!user) {
         router.push('/login')
         return
@@ -273,7 +275,7 @@ export default function AlumnoDashboard() {
             </CardContent>
           </Card>
 
-          
+
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -326,12 +328,12 @@ export default function AlumnoDashboard() {
                       <div className="flex items-center gap-2">
                         <Badge variant={
                           entrega?.status === 'calificada' ? 'default' :
-                          entrega?.status === 'entregada' ? 'secondary' :
-                          vencida ? 'destructive' : 'outline'
+                            entrega?.status === 'entregada' ? 'secondary' :
+                              vencida ? 'destructive' : 'outline'
                         }>
                           {entrega?.status === 'calificada' ? 'Calificada' :
-                           entrega?.status === 'entregada' ? 'Entregada' :
-                           vencida ? 'Vencida' : 'Pendiente'}
+                            entrega?.status === 'entregada' ? 'Entregada' :
+                              vencida ? 'Vencida' : 'Pendiente'}
                         </Badge>
                         <Button
                           size="sm"

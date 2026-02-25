@@ -9,13 +9,15 @@ import { Key, Eye, EyeOff, Loader2, RefreshCw } from 'lucide-react'
 import { restablecerPasswordUsuario } from '@/app/actions/usuarios-actions'
 
 export interface UsuarioGenerico {
-    id?: string // Opcional, solo para referencia si se necesita
-    user_id: string // OBLIGATORIO para el cambio de contraseña
+    id?: string
+    user_id: string
     nombre?: string
     apellidos?: string
-    profiles?: { // Retrocompatibilidad para Alumnos que tienen estructura anidada
+    email?: string
+    profiles?: {
         nombre: string
         apellidos: string
+        email?: string
     }
 }
 

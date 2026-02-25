@@ -13,14 +13,7 @@ import { DialogoEditarMaestro } from './DialogoEditarMaestro'
 import { DialogoConfirmarEliminacion } from './DialogoConfirmarEliminacion'
 import { DialogoRestablecerPassword } from './DialogoRestablecerPassword'
 
-interface Maestro {
-  id: string
-  nombre: string
-  apellidos: string
-  email: string
-  telefono: string | null
-  activo: boolean
-}
+import { type Maestro } from '@/app/types/usuarios'
 
 export function ListaMaestros() {
   const [maestros, setMaestros] = useState<Maestro[]>([])
@@ -306,7 +299,12 @@ export function ListaMaestros() {
       </Card>
 
       <DialogoRestablecerPassword
-        usuario={maestroPassword ? { ...maestroPassword, user_id: maestroPassword.id } : null}
+        usuario={maestroPassword ? {
+          user_id: maestroPassword.user_id,
+          nombre: maestroPassword.nombre,
+          apellidos: maestroPassword.apellidos,
+          email: maestroPassword.email
+        } : null}
         open={dialogoPasswordAbierto}
         onOpenChange={setDialogoPasswordAbierto}
         onSuccess={() => alert('Contraseña actualizada correctamente')}

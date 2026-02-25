@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase'
+
+const supabase = createClient()
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -165,9 +167,8 @@ export default function CalificacionesAlumno() {
                   return (
                     <div
                       key={boleta.id}
-                      className={`flex items-center justify-between p-6 border-2 rounded-lg hover:border-blue-300 transition-colors ${
-                        esVersionMasReciente ? 'bg-green-50 border-green-300' : 'bg-white'
-                      }`}
+                      className={`flex items-center justify-between p-6 border-2 rounded-lg hover:border-blue-300 transition-colors ${esVersionMasReciente ? 'bg-green-50 border-green-300' : 'bg-white'
+                        }`}
                     >
                       <div className="flex items-start gap-4">
                         <div className="p-3 bg-blue-100 rounded-lg">

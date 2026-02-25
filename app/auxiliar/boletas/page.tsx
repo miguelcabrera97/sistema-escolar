@@ -2,14 +2,17 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase'
+
+const supabase = createClient()
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { ArrowLeft, FileText, Trash2, Download, Search } from 'lucide-react'
 import { obtenerTodasLasBoletas, eliminarBoleta } from '@/app/actions/boletas-actions'
-import { obtenerAlumnos, Alumno } from '@/app/actions/usuarios-actions'
+import { obtenerAlumnos } from '@/app/actions/usuarios-actions'
+import { Alumno } from '@/app/types/usuarios'
 import FormularioSubirBoleta from '@/app/directivo/boletas/FormularioSubirBoleta'
 
 interface Boleta {
@@ -21,7 +24,7 @@ interface Boleta {
     archivo_nombre: string
     fecha_subida: string
     notas?: string
-    alumnos: {
+    alumnos?: {
         matricula: string
         grado: string
         grupo: string
@@ -29,7 +32,7 @@ interface Boleta {
             nombre: string
             apellidos: string
         }
-    }
+    } | any
 }
 
 export default function AuxiliarBoletas() {
@@ -86,10 +89,13 @@ export default function AuxiliarBoletas() {
 
     const boletasFiltradas = boletas.filter(boleta => {
         const busquedaLower = busqueda.toLowerCase()
+        const alumno = Array.isArray(boleta.alumnos) ? boleta.alumnos[0] : boleta.alumnos
+        const profiles = alumno?.profiles ? (Array.isArray(alumno.profiles) ? alumno.profiles[0] : alumno.profiles) : null
+
         return (
-            boleta.alumnos.matricula.toLowerCase().includes(busquedaLower) ||
-            boleta.alumnos.profiles.nombre.toLowerCase().includes(busquedaLower) ||
-            boleta.alumnos.profiles.apellidos.toLowerCase().includes(busquedaLower) ||
+            alumno?.matricula?.toLowerCase().includes(busquedaLower) ||
+            profiles?.nombre?.toLowerCase().includes(busquedaLower) ||
+            profiles?.apellidos?.toLowerCase().includes(busquedaLower) ||
             boleta.periodo.toLowerCase().includes(busquedaLower) ||
             boleta.ciclo_escolar.toLowerCase().includes(busquedaLower)
         )
@@ -180,71 +186,76 @@ export default function AuxiliarBoletas() {
                             </div>
                         ) : (
                             <div className="space-y-3">
-                                {boletasConVersion.map((boleta) => (
-                                    <div
-                                        key={boleta.id}
-                                        className={`flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 ${boleta.esVersionMasReciente ? 'border-green-300 bg-green-50/30' : ''
-                                            }`}
-                                    >
-                                        <div className="flex-1">
-                                            <div className="flex items-center gap-2 mb-1">
-                                                <FileText className="h-4 w-4 text-blue-600" />
-                                                <span className="font-semibold">
-                                                    {boleta.alumnos.profiles.nombre} {boleta.alumnos.profiles.apellidos}
-                                                </span>
-                                                <Badge variant="outline">{boleta.alumnos.matricula}</Badge>
-                                                {boleta.tieneVersiones && (
-                                                    <>
-                                                        {boleta.esVersionMasReciente ? (
-                                                            <Badge variant="default" className="bg-green-600">
-                                                                Versión Actual
-                                                            </Badge>
-                                                        ) : (
-                                                            <Badge variant="secondary">
-                                                                Versión {boleta.numeroVersion} de {boleta.totalVersiones}
-                                                            </Badge>
-                                                        )}
-                                                    </>
+                                {boletasConVersion.map((boleta) => {
+                                    const alumno = Array.isArray(boleta.alumnos) ? boleta.alumnos[0] : boleta.alumnos
+                                    const profiles = alumno?.profiles ? (Array.isArray(alumno.profiles) ? alumno.profiles[0] : alumno.profiles) : null
+
+                                    return (
+                                        <div
+                                            key={boleta.id}
+                                            className={`flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 ${boleta.esVersionMasReciente ? 'border-green-300 bg-green-50/30' : ''
+                                                }`}
+                                        >
+                                            <div className="flex-1">
+                                                <div className="flex items-center gap-2 mb-1">
+                                                    <FileText className="h-4 w-4 text-blue-600" />
+                                                    <span className="font-semibold">
+                                                        {profiles?.nombre || ''} {profiles?.apellidos || ''}
+                                                    </span>
+                                                    <Badge variant="outline">{alumno?.matricula || '-'}</Badge>
+                                                    {boleta.tieneVersiones && (
+                                                        <>
+                                                            {boleta.esVersionMasReciente ? (
+                                                                <Badge variant="default" className="bg-green-600">
+                                                                    Versión Actual
+                                                                </Badge>
+                                                            ) : (
+                                                                <Badge variant="secondary">
+                                                                    Versión {boleta.numeroVersion} de {boleta.totalVersiones}
+                                                                </Badge>
+                                                            )}
+                                                        </>
+                                                    )}
+                                                </div>
+                                                <div className="text-sm text-gray-600">
+                                                    <span className="font-medium">{boleta.periodo}</span> • {boleta.ciclo_escolar} • {alumno?.grado || '-'}° {alumno?.grupo || '-'}
+                                                </div>
+                                                <div className="text-xs text-gray-500 mt-1">
+                                                    Subido: {new Date(boleta.fecha_subida).toLocaleString('es-MX', {
+                                                        year: 'numeric',
+                                                        month: 'short',
+                                                        day: 'numeric',
+                                                        hour: '2-digit',
+                                                        minute: '2-digit'
+                                                    })}
+                                                </div>
+                                                {boleta.notas && (
+                                                    <div className="text-xs text-gray-500 mt-1 italic">
+                                                        {boleta.notas}
+                                                    </div>
                                                 )}
                                             </div>
-                                            <div className="text-sm text-gray-600">
-                                                <span className="font-medium">{boleta.periodo}</span> • {boleta.ciclo_escolar} • {boleta.alumnos.grado}° {boleta.alumnos.grupo}
-                                            </div>
-                                            <div className="text-xs text-gray-500 mt-1">
-                                                Subido: {new Date(boleta.fecha_subida).toLocaleString('es-MX', {
-                                                    year: 'numeric',
-                                                    month: 'short',
-                                                    day: 'numeric',
-                                                    hour: '2-digit',
-                                                    minute: '2-digit'
-                                                })}
-                                            </div>
-                                            {boleta.notas && (
-                                                <div className="text-xs text-gray-500 mt-1 italic">
-                                                    {boleta.notas}
-                                                </div>
-                                            )}
-                                        </div>
 
-                                        <div className="flex items-center gap-2">
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={() => window.open(boleta.archivo_url, '_blank')}
-                                            >
-                                                <Download className="h-4 w-4 mr-1" />
-                                                Ver PDF
-                                            </Button>
-                                            <Button
-                                                variant="destructive"
-                                                size="sm"
-                                                onClick={() => handleEliminarBoleta(boleta.id)}
-                                            >
-                                                <Trash2 className="h-4 w-4" />
-                                            </Button>
+                                            <div className="flex items-center gap-2">
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() => window.open(boleta.archivo_url, '_blank')}
+                                                >
+                                                    <Download className="h-4 w-4 mr-1" />
+                                                    Ver PDF
+                                                </Button>
+                                                <Button
+                                                    variant="destructive"
+                                                    size="sm"
+                                                    onClick={() => handleEliminarBoleta(boleta.id)}
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                            </div>
                                         </div>
-                                    </div>
-                                ))}
+                                    )
+                                })}
                             </div>
                         )}
                     </CardContent>

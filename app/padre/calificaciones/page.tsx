@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase'
+
+const supabase = createClient()
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -90,15 +92,19 @@ export default function CalificacionesPadre() {
 
       if (relacionesData && relacionesData.length > 0) {
         // Transformar los datos para que coincidan con la interfaz Alumno
-        const hijosData = relacionesData
-          .filter(rel => rel.alumnos) // Filtrar nulos
-          .map(rel => ({
-            id: rel.alumnos!.id,
-            matricula: rel.alumnos!.matricula,
-            grado: rel.alumnos!.grado,
-            grupo: rel.alumnos!.grupo,
-            profiles: rel.alumnos!.profiles
-          }))
+        const hijosData: Alumno[] = relacionesData
+          .filter(rel => rel.alumnos)
+          .map(rel => {
+            const rawAlumno = Array.isArray(rel.alumnos) ? rel.alumnos[0] : rel.alumnos
+            const profiles = Array.isArray(rawAlumno.profiles) ? rawAlumno.profiles[0] : rawAlumno.profiles
+            return {
+              id: rawAlumno.id,
+              matricula: rawAlumno.matricula,
+              grado: rawAlumno.grado,
+              grupo: rawAlumno.grupo,
+              profiles: profiles
+            }
+          })
 
         setHijos(hijosData)
         setHijoSeleccionado(hijosData[0].id) // Seleccionar el primer hijo por defecto
@@ -285,9 +291,8 @@ export default function CalificacionesPadre() {
                   return (
                     <div
                       key={boleta.id}
-                      className={`flex items-center justify-between p-6 border-2 rounded-lg hover:border-blue-300 transition-colors ${
-                        esVersionMasReciente ? 'bg-green-50 border-green-300' : 'bg-white'
-                      }`}
+                      className={`flex items-center justify-between p-6 border-2 rounded-lg hover:border-blue-300 transition-colors ${esVersionMasReciente ? 'bg-green-50 border-green-300' : 'bg-white'
+                        }`}
                     >
                       <div className="flex items-start gap-4">
                         <div className="p-3 bg-blue-100 rounded-lg">

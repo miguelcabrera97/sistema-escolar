@@ -4,12 +4,39 @@ import { createServerSupabaseClient } from '@/lib/supabase-server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { revalidatePath } from 'next/cache'
 import { MercadoPagoConfig, Preference } from 'mercadopago'
+import { requireServerRole } from '@/lib/auth-server'
+import { Result } from '@/lib/types'
+import { z } from 'zod'
 
-interface Result {
-  success: boolean
-  data?: any
-  error?: string
-}
+// ============================================
+// VALIDADORES (ZOD)
+// ============================================
+
+const crearPagoSchema = z.object({
+  concepto_id: z.string().uuid(),
+  padre_id: z.string().uuid(),
+  alumno_id: z.string().uuid(),
+  monto: z.number().positive('El monto debe ser mayor a 0'),
+  descripcion: z.string().optional(),
+  fecha_vencimiento: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Formato de fecha inválido (YYYY-MM-DD)'),
+})
+
+const crearPagosMasivosSchema = z.object({
+  concepto: z.string().min(1, 'El concepto es requerido'),
+  alumnos: z.array(z.object({
+    padre_id: z.string().uuid(),
+    alumno_id: z.string().uuid(),
+  })).min(1, 'Selecciona al menos un alumno'),
+  monto: z.number().positive('El monto debe ser mayor a 0'),
+  descripcion: z.string().optional(),
+  fecha_vencimiento: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Formato de fecha inválido (YYYY-MM-DD)'),
+})
+
+const registrarPagoManualSchema = z.object({
+  pagoId: z.string().uuid(),
+  referencia: z.string().min(3, 'La referencia debe tener al menos 3 caracteres'),
+  comprobanteUrl: z.string().optional().nullable(),
+})
 
 // ============================================
 // CONCEPTOS DE PAGO
@@ -52,23 +79,18 @@ export interface CrearPagoData {
 
 export async function crearPago(data: CrearPagoData): Promise<Result> {
   try {
-    const supabase = await createServerSupabaseClient()
-
-    // Verificar que el usuario sea directivo
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return { success: false, error: 'No autenticado' }
-
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
-
-    if (profile?.role !== 'directivo') {
-      return { success: false, error: 'No autorizado' }
+    // 1. Validar datos
+    const validation = crearPagoSchema.safeParse(data)
+    if (!validation.success) {
+      return { success: false, error: validation.error.issues[0].message }
     }
 
-    // Obtener el concepto
+    // 2. Verificar autorización
+    const auth = await requireServerRole(['directivo'])
+    if (!auth.success || !auth.data) return { success: false, error: auth.error || 'No autorizado' }
+    const { supabase, userId } = auth.data
+
+    // 3. Obtener el concepto
     const { data: concepto } = await supabase
       .from('conceptos_pago')
       .select('nombre')
@@ -79,7 +101,7 @@ export async function crearPago(data: CrearPagoData): Promise<Result> {
       return { success: false, error: 'Concepto no encontrado' }
     }
 
-    // Verificar que el padre existe
+    // 4. Verificar que el padre existe
     const { data: padre } = await supabase
       .from('padres')
       .select('id')
@@ -90,63 +112,41 @@ export async function crearPago(data: CrearPagoData): Promise<Result> {
       return { success: false, error: 'Padre no encontrado' }
     }
 
-    // Verificar que el alumno existe y pertenece al padre
-    console.log('🔍 Verificando relación padre-alumno')
-    console.log('  padre_id:', data.padre_id)
-    console.log('  alumno_id:', data.alumno_id)
-
-    const { data: relacion, error: relacionError } = await supabase
+    // 5. Verificar que el alumno existe y pertenece al padre
+    const { data: relacion } = await supabase
       .from('padre_alumno')
-      .select('*')
+      .select('id')
       .eq('padre_id', data.padre_id)
       .eq('alumno_id', data.alumno_id)
       .maybeSingle()
 
-    console.log('  Relación encontrada:', relacion)
-    console.log('  Error de relación:', relacionError)
-
-    if (relacionError) {
-      console.error('❌ Error al verificar relación:', relacionError)
-      return { success: false, error: `Error al verificar relación: ${relacionError.message}` }
-    }
-
     if (!relacion) {
-      console.error('❌ No se encontró relación padre-alumno')
-      return { success: false, error: 'El alumno no pertenece a este padre. Verifica que el padre esté asignado al alumno.' }
+      return { success: false, error: 'El alumno no pertenece a este padre o no está asignado.' }
     }
 
-    console.log('✅ Relación verificada correctamente')
-
-    // LOG: Ver el objeto que vamos a insertar
-    const pagoData = {
-      concepto: concepto.nombre,
-      padre_id: data.padre_id,
-      alumno_id: data.alumno_id,
-      descripcion: data.descripcion || null,
-      monto: data.monto,
-      fecha_vencimiento: data.fecha_vencimiento,
-      estado: 'pendiente',
-      creado_por: user.id
-    }
-    console.log('📝 Datos del pago a insertar:', JSON.stringify(pagoData, null, 2))
-
-    // Crear el pago usando supabaseAdmin para bypasear RLS
-    console.log('🔐 Usando supabaseAdmin para crear el pago...')
+    // 6. Crear el pago
     const { data: pago, error: pagoError } = await supabaseAdmin
       .from('pagos')
-      .insert(pagoData)
+      .insert({
+        concepto: concepto.nombre,
+        padre_id: data.padre_id,
+        alumno_id: data.alumno_id,
+        descripcion: data.descripcion || null,
+        monto: data.monto,
+        fecha_vencimiento: data.fecha_vencimiento,
+        estado: 'pendiente',
+        creado_por: userId
+      })
       .select()
       .single()
 
     if (pagoError) {
-      console.error('❌ Error completo al crear pago:', JSON.stringify(pagoError, null, 2))
       return { success: false, error: pagoError.message }
     }
 
-    revalidatePath('/directivo/pagos')
+    revalidatePath('/directivo/cursos')
     return { success: true, data: pago }
   } catch (error) {
-    console.error('Error:', error)
     return { success: false, error: 'Error inesperado al crear pago' }
   }
 }
@@ -165,45 +165,35 @@ export interface CrearPagosMasivosData {
 
 export async function crearPagosMasivos(data: CrearPagosMasivosData): Promise<Result> {
   try {
-    const supabase = await createServerSupabaseClient()
-
-    // Verificar que el usuario sea directivo
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return { success: false, error: 'No autenticado' }
-
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
-
-    if (profile?.role !== 'directivo') {
-      return { success: false, error: 'No autorizado' }
+    // 1. Validar datos
+    const validation = crearPagosMasivosSchema.safeParse(data)
+    if (!validation.success) {
+      return { success: false, error: validation.error.issues[0].message }
     }
 
-    if (!data.alumnos || data.alumnos.length === 0) {
-      return { success: false, error: 'No se seleccionaron alumnos para el pago' }
-    }
+    // 2. Verificar autorización
+    const auth = await requireServerRole(['directivo'])
+    if (!auth.success || !auth.data) return { success: false, error: auth.error || 'No autorizado' }
+    const { userId } = auth.data
 
-    // Crear un pago por cada relación padre-alumno seleccionada
-    const pagos = data.alumnos.map(item => ({
+    // 3. Crear pagos
+    const pagosData = data.alumnos.map(al => ({
       concepto: data.concepto,
-      padre_id: item.padre_id,
-      alumno_id: item.alumno_id,
+      padre_id: al.padre_id,
+      alumno_id: al.alumno_id,
       descripcion: data.descripcion || null,
       monto: data.monto,
       fecha_vencimiento: data.fecha_vencimiento,
       estado: 'pendiente',
-      creado_por: user.id
+      creado_por: userId
     }))
 
-    const { data: pagosCreados, error: pagosError } = await supabase
+    const { data: pagosCreados, error: pagosError } = await supabaseAdmin
       .from('pagos')
-      .insert(pagos)
+      .insert(pagosData)
       .select()
 
     if (pagosError) {
-      console.error('Error al crear pagos:', pagosError)
       return { success: false, error: pagosError.message }
     }
 
@@ -216,8 +206,7 @@ export async function crearPagosMasivos(data: CrearPagosMasivosData): Promise<Re
       }
     }
   } catch (error) {
-    console.error('Error:', error)
-    return { success: false, error: 'Error inesperado al crear pagos' }
+    return { success: false, error: 'Error inesperado al crear pagos masivos' }
   }
 }
 
@@ -231,203 +220,79 @@ export async function obtenerPagosDirectivo(filtros?: {
   fecha_hasta?: string
 }): Promise<Result> {
   try {
-    const supabase = await createServerSupabaseClient()
+    const auth = await requireServerRole(['directivo'])
+    if (!auth.success || !auth.data) return { success: false, error: auth.error || 'No autorizado' }
+    const { supabase } = auth.data
 
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return { success: false, error: 'No autenticado' }
-
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
-
-    if (profile?.role !== 'directivo') {
-      return { success: false, error: 'No autorizado' }
-    }
-
-    // Primero obtenemos los pagos
     let query = supabase
       .from('pagos')
-      .select('*')
+      .select(`
+        *,
+        padres!padre_id (
+          id, 
+          profiles!user_id (nombre, apellidos, email)
+        ),
+        alumnos!alumno_id (
+          id, matricula, grado, grupo,
+          profiles!user_id (nombre, apellidos)
+        )
+      `)
       .order('created_at', { ascending: false })
 
-    // Aplicar filtros si existen
     if (filtros?.estado) {
       query = query.eq('estado', filtros.estado)
     }
-
     if (filtros?.fecha_desde) {
       query = query.gte('fecha_vencimiento', filtros.fecha_desde)
     }
-
     if (filtros?.fecha_hasta) {
       query = query.lte('fecha_vencimiento', filtros.fecha_hasta)
     }
 
-    const { data: pagos, error: pagosError } = await query
+    const { data: pagos, error } = await query
+    if (error) return { success: false, error: error.message }
 
-    if (pagosError) {
-      console.error('Error al obtener pagos:', pagosError)
-      return { success: false, error: pagosError.message }
-    }
-
-    if (!pagos || pagos.length === 0) {
-      return { success: true, data: [] }
-    }
-
-    // Obtener IDs únicos de padres y alumnos (filtrar nulls)
-    const padreIds = [...new Set(pagos.map(p => p.padre_id).filter(Boolean))]
-    const alumnoIds = [...new Set(pagos.map(p => p.alumno_id).filter(Boolean))]
-
-    // Obtener información de padres
-    let padres = []
-    let padreProfiles = []
-    if (padreIds.length > 0) {
-      const { data: padresData } = await supabase
-        .from('padres')
-        .select('id, user_id')
-        .in('id', padreIds)
-
-      padres = padresData || []
-
-      // Obtener profiles de padres
-      const padreUserIds = padres.map(p => p.user_id).filter(Boolean)
-      if (padreUserIds.length > 0) {
-        const { data: padreProfilesData } = await supabase
-          .from('profiles')
-          .select('id, nombre, apellidos, email')
-          .in('id', padreUserIds)
-
-        padreProfiles = padreProfilesData || []
-      }
-    }
-
-    // Obtener información de alumnos
-    let alumnos = []
-    let alumnoProfiles = []
-    if (alumnoIds.length > 0) {
-      const { data: alumnosData } = await supabase
-        .from('alumnos')
-        .select('id, matricula, grado, grupo, user_id')
-        .in('id', alumnoIds)
-
-      alumnos = alumnosData || []
-
-      // Obtener profiles de alumnos
-      const alumnoUserIds = alumnos.map(a => a.user_id).filter(Boolean)
-      if (alumnoUserIds.length > 0) {
-        const { data: alumnoProfilesData } = await supabase
-          .from('profiles')
-          .select('id, nombre, apellidos')
-          .in('id', alumnoUserIds)
-
-        alumnoProfiles = alumnoProfilesData || []
-      }
-    }
-
-    // Combinar todos los datos
-    const pagosCompletos = pagos.map(pago => {
-      const padre = padres?.find(p => p.id === pago.padre_id)
-      const padreProfile = padreProfiles?.find(pp => pp.id === padre?.user_id)
-
-      const alumno = alumnos?.find(a => a.id === pago.alumno_id)
-      const alumnoProfile = alumnoProfiles?.find(ap => ap.id === alumno?.user_id)
-
-      return {
-        ...pago,
-        padres: padre ? {
-          id: padre.id,
-          profiles: padreProfile || { nombre: 'Desconocido', apellidos: '', email: '' }
-        } : null,
-        alumnos: alumno ? {
-          id: alumno.id,
-          matricula: alumno.matricula,
-          grado: alumno.grado,
-          grupo: alumno.grupo,
-          profiles: alumnoProfile || { nombre: 'Desconocido', apellidos: '' }
-        } : null
-      }
-    })
-
-    return { success: true, data: pagosCompletos }
+    return { success: true, data: pagos }
   } catch (error) {
-    console.error('Error:', error)
-    return { success: false, error: 'Error inesperado' }
+    return { success: false, error: 'Error al obtener pagos' }
   }
 }
 
 export async function obtenerPagosPadre(): Promise<Result> {
   try {
-    const supabase = await createServerSupabaseClient()
+    const auth = await requireServerRole(['padre'])
+    if (!auth.success || !auth.data) return { success: false, error: auth.error || 'No autorizado' }
+    const { supabase, userId } = auth.data
 
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return { success: false, error: 'No autenticado' }
-
-    // Obtener el ID del padre
+    // 1. Obtener el ID del padre
     const { data: padre } = await supabase
       .from('padres')
       .select('id')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .single()
 
     if (!padre) {
       return { success: false, error: 'No se encontró el perfil del padre' }
     }
 
-    // Obtener los pagos del padre
-    const { data: pagos, error: pagosError } = await supabase
+    // 2. Obtener los pagos con join de alumnos y profiles
+    const { data: pagos, error } = await supabase
       .from('pagos')
-      .select('*')
+      .select(`
+        *,
+        alumnos!alumno_id (
+          id, matricula, grado, grupo,
+          profiles!user_id (nombre, apellidos)
+        )
+      `)
       .eq('padre_id', padre.id)
       .order('fecha_vencimiento', { ascending: true })
 
-    if (pagosError) {
-      console.error('Error al obtener pagos:', pagosError)
-      return { success: false, error: pagosError.message }
-    }
+    if (error) return { success: false, error: error.message }
 
-    if (!pagos || pagos.length === 0) {
-      return { success: true, data: [] }
-    }
-
-    // Obtener IDs únicos de alumnos
-    const alumnoIds = [...new Set(pagos.map(p => p.alumno_id))]
-
-    // Obtener información de alumnos
-    const { data: alumnos } = await supabase
-      .from('alumnos')
-      .select('id, matricula, grado, grupo, user_id')
-      .in('id', alumnoIds)
-
-    // Obtener profiles de alumnos
-    const alumnoUserIds = alumnos?.map(a => a.user_id).filter(Boolean) || []
-    const { data: alumnoProfiles } = await supabase
-      .from('profiles')
-      .select('id, nombre, apellidos')
-      .in('id', alumnoUserIds)
-
-    // Combinar datos
-    const pagosCompletos = pagos.map(pago => {
-      const alumno = alumnos?.find(a => a.id === pago.alumno_id)
-      const alumnoProfile = alumnoProfiles?.find(ap => ap.id === alumno?.user_id)
-
-      return {
-        ...pago,
-        alumnos: alumno ? {
-          id: alumno.id,
-          matricula: alumno.matricula,
-          grado: alumno.grado,
-          grupo: alumno.grupo,
-          profiles: alumnoProfile || { nombre: 'Desconocido', apellidos: '' }
-        } : null
-      }
-    })
-
-    return { success: true, data: pagosCompletos }
+    return { success: true, data: pagos || [] }
   } catch (error) {
-    console.error('Error:', error)
-    return { success: false, error: 'Error inesperado' }
+    return { success: false, error: 'Error al obtener pagos' }
   }
 }
 
@@ -441,12 +306,18 @@ export async function registrarPagoManual(
   comprobanteUrl?: string
 ): Promise<Result> {
   try {
-    const supabase = await createServerSupabaseClient()
+    // 1. Validar
+    const validation = registrarPagoManualSchema.safeParse({ pagoId, referencia, comprobanteUrl })
+    if (!validation.success) {
+      return { success: false, error: validation.error.issues[0].message }
+    }
 
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return { success: false, error: 'No autenticado' }
+    // 2. Verificar autorización (Padre)
+    const auth = await requireServerRole(['padre'])
+    if (!auth.success || !auth.data) return { success: false, error: auth.error || 'No autorizado' }
+    const { supabase, userId } = auth.data
 
-    // Obtener el pago
+    // 3. Obtener el pago
     const { data: pago } = await supabase
       .from('pagos')
       .select('id, padre_id, estado')
@@ -458,42 +329,40 @@ export async function registrarPagoManual(
     }
 
     if (pago.estado !== 'pendiente' && pago.estado !== 'vencido') {
-      return { success: false, error: 'Este pago ya fue procesado' }
+      return { success: false, error: 'Este pago ya fue procesado o está en verificación.' }
     }
 
-    // Verificar que el usuario sea el padre del pago
+    // 4. Verificar que el usuario sea el padre del pago
     const { data: padre } = await supabase
       .from('padres')
       .select('id')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .single()
 
     if (!padre || padre.id !== pago.padre_id) {
-      return { success: false, error: 'No autorizado' }
+      return { success: false, error: 'No autorizado para registrar este pago.' }
     }
 
-    // Actualizar el pago
+    // 5. Actualizar el pago a 'pendiente_verificacion'
     const { error: updateError } = await supabase
       .from('pagos')
       .update({
-        estado: 'pagado',
+        estado: 'pendiente_verificacion',
         metodo_pago: 'manual',
-        fecha_pago: new Date().toISOString(),
         referencia_pago: referencia,
-        comprobante_url: comprobanteUrl || null
+        comprobante_url: comprobanteUrl || null,
+        updated_at: new Date().toISOString()
       })
       .eq('id', pagoId)
 
     if (updateError) {
-      console.error('Error al actualizar pago:', updateError)
       return { success: false, error: updateError.message }
     }
 
     revalidatePath('/padre/pagos')
-    return { success: true, data: { message: 'Pago registrado exitosamente' } }
+    return { success: true, data: { message: 'Pago registrado y enviado a verificación' } }
   } catch (error) {
-    console.error('Error:', error)
-    return { success: false, error: 'Error inesperado' }
+    return { success: false, error: 'Error inesperado al registrar pago' }
   }
 }
 
@@ -503,31 +372,19 @@ export async function registrarPagoManual(
 
 export async function verificarPagoManual(pagoId: string, aprobar: boolean): Promise<Result> {
   try {
-    const supabase = await createServerSupabaseClient()
-
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return { success: false, error: 'No autenticado' }
-
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
-
-    if (profile?.role !== 'directivo') {
-      return { success: false, error: 'No autorizado' }
-    }
+    const auth = await requireServerRole(['directivo'])
+    if (!auth.success || !auth.data) return { success: false, error: auth.error || 'No autorizado' }
+    const { supabase, userId } = auth.data
 
     const updateData: any = {
-      pagado_verificado_por: user.id
+      pagado_verificado_por: userId,
+      updated_at: new Date().toISOString()
     }
 
     if (aprobar) {
-      // Aprobar el pago - marcar como pagado
       updateData.estado = 'pagado'
       updateData.fecha_pago = new Date().toISOString()
     } else {
-      // Rechazar el pago
       updateData.estado = 'pendiente'
       updateData.metodo_pago = null
       updateData.fecha_pago = null
@@ -540,19 +397,12 @@ export async function verificarPagoManual(pagoId: string, aprobar: boolean): Pro
       .update(updateData)
       .eq('id', pagoId)
 
-    if (error) {
-      console.error('Error al verificar pago:', error)
-      return { success: false, error: error.message }
-    }
+    if (error) return { success: false, error: error.message }
 
     revalidatePath('/directivo/pagos')
-    return {
-      success: true,
-      data: { message: aprobar ? 'Pago aprobado exitosamente' : 'Pago rechazado' }
-    }
+    return { success: true, data: { message: aprobar ? 'Pago aprobado' : 'Pago rechazado' } }
   } catch (error) {
-    console.error('Error:', error)
-    return { success: false, error: 'Error inesperado' }
+    return { success: false, error: 'Error al verificar pago' }
   }
 }
 
@@ -897,7 +747,7 @@ export async function crearPagoCheckoutAPI(
         description: pago.descripcion || `Pago de ${pago.concepto || 'concepto'} - ${alumnoProfile?.nombre || ''} ${alumnoProfile?.apellidos || ''}`,
         installments: paymentData.installments,
         payment_method_id: paymentData.paymentMethodId,
-        issuer_id: paymentData.issuerId,
+        issuer_id: paymentData.issuerId ? Number(paymentData.issuerId) : undefined,
         payer: {
           email: paymentData.email,
           identification: {
@@ -973,25 +823,23 @@ export async function crearPagoCheckoutAPI(
 
 export async function obtenerDatosPagoParaRecibo(pagoId: string): Promise<Result> {
   try {
-    const supabase = await createServerSupabaseClient()
+    const auth = await requireServerRole(['directivo', 'padre'])
+    if (!auth.success || !auth.data) return { success: false, error: auth.error || 'No autorizado' }
+    const { supabase, userId, role } = auth.data
 
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return { success: false, error: 'No autenticado' }
-
-    // Obtener el pago con toda la información necesaria
+    // 1. Obtener el pago con toda la información necesaria usando joins
     const { data: pago, error: pagoError } = await supabase
       .from('pagos')
       .select(`
-        id,
-        concepto,
-        descripcion,
-        monto,
-        estado,
-        metodo_pago,
-        fecha_pago,
-        referencia_pago,
-        padre_id,
-        alumno_id
+        *,
+        padre:padres!padre_id (
+          id, user_id,
+          profiles!user_id (nombre, apellidos, email)
+        ),
+        alumno:alumnos!alumno_id (
+          id, matricula, grado, grupo,
+          profiles!user_id (nombre, apellidos)
+        )
       `)
       .eq('id', pagoId)
       .single()
@@ -1000,77 +848,32 @@ export async function obtenerDatosPagoParaRecibo(pagoId: string): Promise<Result
       return { success: false, error: 'Pago no encontrado' }
     }
 
-    // Verificar que el pago esté pagado
+    // 2. Seguridad: si es padre, verificar que sea el dueño del pago
+    if (role === 'padre') {
+      if (pago.padre?.user_id !== userId) {
+        return { success: false, error: 'No autorizado para ver este recibo' }
+      }
+    }
+
+    // 3. Verificar que el pago esté pagado
     if (pago.estado !== 'pagado') {
       return { success: false, error: 'El pago aún no ha sido procesado' }
     }
 
-    // Obtener información del padre
-    const { data: padre } = await supabase
-      .from('padres')
-      .select('id, user_id')
-      .eq('id', pago.padre_id)
-      .single()
-
-    if (!padre) {
-      return { success: false, error: 'Padre no encontrado' }
-    }
-
-    const { data: padreProfile } = await supabase
-      .from('profiles')
-      .select('nombre, apellidos, email')
-      .eq('id', padre.user_id)
-      .single()
-
-    // Obtener información del alumno
-    const { data: alumno } = await supabase
-      .from('alumnos')
-      .select('id, matricula, grado, grupo, user_id')
-      .eq('id', pago.alumno_id)
-      .single()
-
-    if (!alumno) {
-      return { success: false, error: 'Alumno no encontrado' }
-    }
-
-    const { data: alumnoProfile } = await supabase
-      .from('profiles')
-      .select('nombre, apellidos')
-      .eq('id', alumno.user_id)
-      .single()
-
-    // Verificar autorización
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
-
-    const esDirectivo = profile?.role === 'directivo'
-    const esPadre = padre.user_id === user.id
-
-    if (!esDirectivo && !esPadre) {
-      return { success: false, error: 'No autorizado para ver este recibo' }
-    }
-
-    // Formatear datos para el recibo
-    // Formatear datos para el recibo
-    const gradoStr = (alumno.grado || '').toLowerCase();
-    let nivelEducativo = 'Nivel Básico';
+    // 4. Formatear datos para el recibo
+    const alumno = pago.alumno
+    const profiles = alumno?.profiles
+    const gradoStr = (alumno?.grado || '').toLowerCase()
+    let nivelEducativo = 'Nivel Básico'
 
     if (gradoStr.includes('prepa') || gradoStr.includes('bachillerato')) {
-      nivelEducativo = 'Preparatoria';
+      nivelEducativo = 'Preparatoria'
     } else if (gradoStr.includes('secundaria')) {
-      nivelEducativo = 'Secundaria';
+      nivelEducativo = 'Secundaria'
     } else if (gradoStr.includes('primaria')) {
-      nivelEducativo = 'Primaria';
+      nivelEducativo = 'Primaria'
     } else if (gradoStr.includes('preescolar') || gradoStr.includes('kinder')) {
-      nivelEducativo = 'Preescolar';
-    } else {
-      const gradoNum = parseInt(alumno.grado)
-      if (!isNaN(gradoNum)) {
-        nivelEducativo = gradoNum > 6 ? 'Secundaria/Bachillerato' : 'Primaria';
-      }
+      nivelEducativo = 'Preescolar'
     }
 
     const datosRecibo = {
@@ -1085,24 +888,23 @@ export async function obtenerDatosPagoParaRecibo(pagoId: string): Promise<Result
       descripcion: pago.descripcion || undefined,
       metodoPago: pago.metodo_pago || 'N/A',
       referencia: pago.referencia_pago || undefined,
-      alumnoNombre: alumnoProfile?.nombre || '',
-      alumnoApellidos: alumnoProfile?.apellidos || '',
-      alumnoMatricula: alumno.matricula,
-      alumnoGrado: alumno.grado,
-      alumnoGrupo: alumno.grupo,
+      alumnoNombre: profiles?.nombre || '',
+      alumnoApellidos: profiles?.apellidos || '',
+      alumnoMatricula: alumno?.matricula,
+      alumnoGrado: alumno?.grado,
+      alumnoGrupo: alumno?.grupo,
       nivelEducativo: nivelEducativo,
-      padreNombre: padreProfile?.nombre || '',
-      padreApellidos: padreProfile?.apellidos || '',
+      padreNombre: pago.padre?.profiles?.nombre || '',
+      padreApellidos: pago.padre?.profiles?.apellidos || '',
       nombreEscuela: 'GRUPO EDUCATIVO SUD S. C.',
       rfcEscuela: 'GES130503G38',
       direccionEscuela: 'Paseo de la Candelaria Mz. 66 Lt. 11, Hacienda Ojo de Agua, Tecámac,\nEstado de México. C. P: 55770',
-      telefonoEscuela: '',
       logoEscuela: '/logo.png'
     }
 
     return { success: true, data: datosRecibo }
   } catch (error) {
-    console.error('Error:', error)
-    return { success: false, error: 'Error inesperado' }
+    return { success: false, error: 'Error al obtener datos del recibo' }
   }
 }
+

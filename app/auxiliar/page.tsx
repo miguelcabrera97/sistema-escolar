@@ -2,7 +2,9 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase'
+
+const supabase = createClient()
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { BookOpen, FileText, ClipboardCheck, GraduationCap } from 'lucide-react'
@@ -134,7 +136,11 @@ export default function AuxiliarDashboard() {
         .limit(10)
 
       if (tareasData) {
-        setTareas(tareasData)
+        const tareasProcesadas = tareasData.map((t: any) => ({
+          ...t,
+          cursos: Array.isArray(t.cursos) ? t.cursos[0] : t.cursos
+        }))
+        setTareas(tareasProcesadas)
       }
 
       // Obtener estadísticas de entregas

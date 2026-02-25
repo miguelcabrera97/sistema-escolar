@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { crearPadreODirectivo } from '@/app/actions/usuarios-actions'
 
-const initialState = { errors: {} }
+const initialState: any = { success: false, errors: {} }
 
 export function FormularioPadre() {
   const [state, formAction] = useActionState(crearPadreODirectivo, initialState)
@@ -25,9 +25,9 @@ export function FormularioPadre() {
     }
   }, [state.success, state.message])
 
-  const handleSubmit = async (formData: FormData) => {
+  const handleSubmit = (formData: FormData) => {
     setIsLoading(true)
-    await formAction(formData)
+    formAction(formData)
     setIsLoading(false)
   }
 

@@ -2,6 +2,7 @@
 
 import { createServerSupabaseClient } from '@/lib/supabase-server'
 import { revalidatePath } from 'next/cache'
+import { Result } from '@/lib/types'
 
 // ============================================
 // TIPOS E INTERFACES
@@ -32,18 +33,12 @@ export interface Grupo {
   activo: boolean
 }
 
-interface ActionResult {
-  success: boolean
-  data?: any
-  error?: string
-  errors?: Record<string, string[]>
-}
 
 // ============================================
 // OBTENER DATOS
 // ============================================
 
-export async function obtenerNivelesEducativos(): Promise<ActionResult> {
+export async function obtenerNivelesEducativos(): Promise<Result> {
   try {
     const supabase = await createServerSupabaseClient()
 
@@ -63,7 +58,7 @@ export async function obtenerNivelesEducativos(): Promise<ActionResult> {
   }
 }
 
-export async function obtenerGrados(): Promise<ActionResult> {
+export async function obtenerGrados(): Promise<Result> {
   try {
     const supabase = await createServerSupabaseClient()
 
@@ -88,7 +83,7 @@ export async function obtenerGrados(): Promise<ActionResult> {
   }
 }
 
-export async function obtenerGradosPorNivel(nivelId: string): Promise<ActionResult> {
+export async function obtenerGradosPorNivel(nivelId: string): Promise<Result> {
   try {
     const supabase = await createServerSupabaseClient()
 
@@ -109,7 +104,7 @@ export async function obtenerGradosPorNivel(nivelId: string): Promise<ActionResu
   }
 }
 
-export async function obtenerGrupos(): Promise<ActionResult> {
+export async function obtenerGrupos(): Promise<Result> {
   try {
     const supabase = await createServerSupabaseClient()
 
@@ -133,7 +128,7 @@ export async function obtenerGrupos(): Promise<ActionResult> {
 // CREAR GRADO
 // ============================================
 
-export async function crearGrado(formData: FormData): Promise<ActionResult> {
+export async function crearGrado(formData: FormData): Promise<Result> {
   try {
     const supabase = await createServerSupabaseClient()
 
@@ -189,7 +184,7 @@ export async function crearGrado(formData: FormData): Promise<ActionResult> {
 // CREAR GRUPO
 // ============================================
 
-export async function crearGrupo(formData: FormData): Promise<ActionResult> {
+export async function crearGrupo(formData: FormData): Promise<Result> {
   try {
     const supabase = await createServerSupabaseClient()
 
@@ -224,7 +219,7 @@ export async function crearGrupo(formData: FormData): Promise<ActionResult> {
 // DESACTIVAR GRADO
 // ============================================
 
-export async function desactivarGrado(gradoId: string): Promise<ActionResult> {
+export async function desactivarGrado(gradoId: string): Promise<Result> {
   try {
     const supabase = await createServerSupabaseClient()
 
@@ -248,7 +243,7 @@ export async function desactivarGrado(gradoId: string): Promise<ActionResult> {
 // DESACTIVAR GRUPO
 // ============================================
 
-export async function desactivarGrupo(grupoId: string): Promise<ActionResult> {
+export async function desactivarGrupo(grupoId: string): Promise<Result> {
   try {
     const supabase = await createServerSupabaseClient()
 

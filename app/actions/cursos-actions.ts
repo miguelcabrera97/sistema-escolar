@@ -381,7 +381,7 @@ export async function inscribirAlumnos(data: InscribirAlumnosData): Promise<Resu
       return { success: false, error: 'El curso no existe' }
     }
 
-    // Verificar que todos los alumnos pertenecen al mismo grado y grupo que el curso
+    // Verificar que los alumnos existen
     const { data: alumnos, error: alumnosError } = await supabase
       .from('alumnos')
       .select('id, grado, grupo')
@@ -389,18 +389,6 @@ export async function inscribirAlumnos(data: InscribirAlumnosData): Promise<Resu
 
     if (alumnosError) {
       return { success: false, error: 'Error al verificar alumnos' }
-    }
-
-    // Validar que todos los alumnos son del mismo grupo que el curso
-    const alumnosInvalidos = alumnos?.filter(
-      alumno => alumno.grado !== curso.grado || alumno.grupo !== curso.grupo
-    )
-
-    if (alumnosInvalidos && alumnosInvalidos.length > 0) {
-      return {
-        success: false,
-        error: `No se pueden inscribir alumnos de otros grupos. El curso es para ${curso.grado}° ${curso.grupo}`
-      }
     }
 
     // Obtener inscripciones existentes
@@ -574,24 +562,10 @@ export async function obtenerAlumnosDisponibles(cursoId: string): Promise<Result
     if (!auth.success || !auth.data) return { success: false, error: auth.error || 'No autorizado' }
     const { supabase } = auth.data
 
-    // Primero obtener el grado y grupo del curso
-    const { data: curso, error: cursoError } = await supabase
-      .from('cursos')
-      .select('grado, grupo')
-      .eq('id', cursoId)
-      .single()
-
-    if (cursoError || !curso) {
-      console.error('Error al obtener curso:', cursoError)
-      return { success: false, error: 'Error al obtener información del curso' }
-    }
-
-    // Obtener solo los alumnos del mismo grado y grupo que el curso
+    // Obtener todos los alumnos
     const { data: todosAlumnos, error: alumnosError } = await supabase
       .from('alumnos')
       .select('id, matricula, grado, grupo, user_id')
-      .eq('grado', curso.grado)
-      .eq('grupo', curso.grupo)
 
     if (alumnosError) {
       console.error('Error al obtener alumnos:', alumnosError)

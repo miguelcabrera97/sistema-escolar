@@ -20,7 +20,6 @@ export interface Grado {
   nivel_id: string
   nombre: string
   nombre_completo: string
-  orden: number
   activo: boolean
   niveles_educativos?: {
     nombre: string
@@ -134,9 +133,8 @@ export async function crearGrado(formData: FormData): Promise<Result> {
 
     const nivel_id = formData.get('nivel_id') as string
     const nombre = formData.get('nombre') as string
-    const orden = parseInt(formData.get('orden') as string)
 
-    if (!nivel_id || !nombre || !orden) {
+    if (!nivel_id || !nombre) {
       return {
         success: false,
         error: 'Todos los campos son requeridos',
@@ -164,7 +162,6 @@ export async function crearGrado(formData: FormData): Promise<Result> {
         nivel_id,
         nombre,
         nombre_completo,
-        orden,
         activo: true,
       },
     ])

@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { editarCurso } from '@/app/actions/cursos-actions'
 import { obtenerMaestros } from '@/app/actions/usuarios-actions'
+import { obtenerGrados, obtenerGrupos, type Grado, type Grupo } from '@/app/actions/grados-grupos-actions'
 import { Loader2, Pencil } from 'lucide-react'
 
 interface Curso {
@@ -42,6 +43,8 @@ interface Props {
 
 export function DialogoEditarCurso({ curso, open, onOpenChange, onSuccess }: Props) {
   const [maestros, setMaestros] = useState<Maestro[]>([])
+  const [grados, setGrados] = useState<Grado[]>([])
+  const [grupos, setGrupos] = useState<Grupo[]>([])
   const [loadingMaestros, setLoadingMaestros] = useState(true)
   const [submitting, setSubmitting] = useState(false)
 
@@ -68,12 +71,17 @@ export function DialogoEditarCurso({ curso, open, onOpenChange, onSuccess }: Pro
 
   const cargarMaestros = async () => {
     setLoadingMaestros(true)
-    const result = await obtenerMaestros()
-    if (result.success) {
-      // Filtrar solo maestros activos
-      const maestrosActivos = result.data.filter((m: Maestro) => m.activo)
+    const [maestrosResult, gradosResult, gruposResult] = await Promise.all([
+      obtenerMaestros(),
+      obtenerGrados(),
+      obtenerGrupos()
+    ])
+    if (maestrosResult.success) {
+      const maestrosActivos = maestrosResult.data.filter((m: Maestro) => m.activo)
       setMaestros(maestrosActivos)
     }
+    if (gradosResult.success) setGrados(gradosResult.data)
+    if (gruposResult.success) setGrupos(gruposResult.data)
     setLoadingMaestros(false)
   }
 
@@ -108,8 +116,6 @@ export function DialogoEditarCurso({ curso, open, onOpenChange, onSuccess }: Pro
     }
   }
 
-  const grados = ['1', '2', '3', '4', '5', '6']
-  const grupos = ['A', 'B', 'C', 'D', 'E', 'F']
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -161,8 +167,8 @@ export function DialogoEditarCurso({ curso, open, onOpenChange, onSuccess }: Pro
                 </SelectTrigger>
                 <SelectContent>
                   {grados.map((grado) => (
-                    <SelectItem key={grado} value={grado}>
-                      {grado}°
+                    <SelectItem key={grado.id} value={grado.nombre_completo}>
+                      {grado.nombre_completo}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -182,8 +188,8 @@ export function DialogoEditarCurso({ curso, open, onOpenChange, onSuccess }: Pro
                 </SelectTrigger>
                 <SelectContent>
                   {grupos.map((grupo) => (
-                    <SelectItem key={grupo} value={grupo}>
-                      {grupo}
+                    <SelectItem key={grupo.id} value={grupo.nombre}>
+                      {grupo.nombre}
                     </SelectItem>
                   ))}
                 </SelectContent>

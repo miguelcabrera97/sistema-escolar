@@ -56,7 +56,7 @@ export function FormularioGrado() {
         <form onSubmit={handleSubmit} className="space-y-4">
           <input type="hidden" name="nivel_id" value={nivelSeleccionado} />
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Nivel Educativo */}
             <div className="space-y-2">
               <Label htmlFor="nivel">Nivel Educativo *</Label>
@@ -81,19 +81,6 @@ export function FormularioGrado() {
                 id="nombre"
                 name="nombre"
                 placeholder="Ej: 1, 2, Pre-First, Maternal"
-                required
-              />
-            </div>
-
-            {/* Orden */}
-            <div className="space-y-2">
-              <Label htmlFor="orden">Orden *</Label>
-              <Input
-                id="orden"
-                name="orden"
-                type="number"
-                min="1"
-                placeholder="Ej: 1"
                 required
               />
             </div>

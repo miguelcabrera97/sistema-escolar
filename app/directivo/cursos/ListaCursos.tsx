@@ -1,12 +1,14 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { obtenerCursos, eliminarCurso } from '@/app/actions/cursos-actions'
-import { Loader2, BookOpen, Users, Pencil, Trash2, UserPlus } from 'lucide-react'
+import { Loader2, BookOpen, Users, Pencil, Trash2, UserPlus, Search, X } from 'lucide-react'
 import { DialogoInscribirAlumnos } from './DialogoInscribirAlumnos'
 import { DialogoEditarCurso } from './DialogoEditarCurso'
 import { DialogoConfirmarEliminacion } from '../usuarios/DialogoConfirmarEliminacion'
@@ -31,6 +33,11 @@ export function ListaCursos() {
   const [cursos, setCursos] = useState<Curso[]>([])
   const [loading, setLoading] = useState(true)
 
+  // Estados de búsqueda y filtros
+  const [busqueda, setBusqueda] = useState('')
+  const [filtroGrado, setFiltroGrado] = useState('todos')
+  const [filtroGrupo, setFiltroGrupo] = useState('todos')
+
   // Estados para inscribir alumnos
   const [cursoInscribir, setCursoInscribir] = useState<Curso | null>(null)
   const [dialogoInscribirAbierto, setDialogoInscribirAbierto] = useState(false)
@@ -47,6 +54,57 @@ export function ListaCursos() {
   useEffect(() => {
     cargarCursos()
   }, [])
+
+  // Extraer valores únicos de grado y grupo para los filtros
+  const gradosUnicos = useMemo(() => {
+    const grados = [...new Set(cursos.map(c => c.grado))].sort()
+    return grados
+  }, [cursos])
+
+  const gruposUnicos = useMemo(() => {
+    const grupos = [...new Set(cursos.map(c => c.grupo))].sort()
+    return grupos
+  }, [cursos])
+
+  // Filtrar cursos según búsqueda y filtros
+  const cursosFiltrados = useMemo(() => {
+    return cursos.filter(curso => {
+      // Filtrar por texto de búsqueda (materia/nombre del curso o maestro)
+      const textoBusqueda = busqueda.toLowerCase().trim()
+      if (textoBusqueda) {
+        const nombreCurso = curso.nombre.toLowerCase()
+        const descripcion = (curso.descripcion || '').toLowerCase()
+        const nombreMaestro = curso.maestro_profiles
+          ? `${curso.maestro_profiles.nombre} ${curso.maestro_profiles.apellidos}`.toLowerCase()
+          : ''
+        const emailMaestro = (curso.maestro_profiles?.email || '').toLowerCase()
+
+        const coincide =
+          nombreCurso.includes(textoBusqueda) ||
+          descripcion.includes(textoBusqueda) ||
+          nombreMaestro.includes(textoBusqueda) ||
+          emailMaestro.includes(textoBusqueda)
+
+        if (!coincide) return false
+      }
+
+      // Filtrar por grado
+      if (filtroGrado !== 'todos' && curso.grado !== filtroGrado) return false
+
+      // Filtrar por grupo
+      if (filtroGrupo !== 'todos' && curso.grupo !== filtroGrupo) return false
+
+      return true
+    })
+  }, [cursos, busqueda, filtroGrado, filtroGrupo])
+
+  const hayFiltrosActivos = busqueda !== '' || filtroGrado !== 'todos' || filtroGrupo !== 'todos'
+
+  const limpiarFiltros = () => {
+    setBusqueda('')
+    setFiltroGrado('todos')
+    setFiltroGrupo('todos')
+  }
 
   const cargarCursos = async () => {
     console.log('[ListaCursos] Iniciando carga de cursos...')
@@ -123,10 +181,68 @@ export function ListaCursos() {
             Lista de Cursos
           </CardTitle>
           <CardDescription>
-            {cursos.length} curso{cursos.length !== 1 ? 's' : ''} registrado{cursos.length !== 1 ? 's' : ''}
+            {hayFiltrosActivos
+              ? `Mostrando ${cursosFiltrados.length} de ${cursos.length} curso${cursos.length !== 1 ? 's' : ''}`
+              : `${cursos.length} curso${cursos.length !== 1 ? 's' : ''} registrado${cursos.length !== 1 ? 's' : ''}`
+            }
           </CardDescription>
         </CardHeader>
         <CardContent>
+          {/* Barra de búsqueda y filtros */}
+          {cursos.length > 0 && (
+            <div className="mb-6 space-y-3">
+              <div className="flex flex-col sm:flex-row gap-3">
+                {/* Buscador por texto */}
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    placeholder="Buscar por materia o maestro..."
+                    value={busqueda}
+                    onChange={(e) => setBusqueda(e.target.value)}
+                    className="pl-9"
+                  />
+                </div>
+
+                {/* Filtro de Grado */}
+                <Select value={filtroGrado} onValueChange={setFiltroGrado}>
+                  <SelectTrigger className="w-full sm:w-[160px]">
+                    <SelectValue placeholder="Grado" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos los grados</SelectItem>
+                    {gradosUnicos.map(grado => (
+                      <SelectItem key={grado} value={grado}>
+                        {grado}° Grado
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                {/* Filtro de Grupo */}
+                <Select value={filtroGrupo} onValueChange={setFiltroGrupo}>
+                  <SelectTrigger className="w-full sm:w-[160px]">
+                    <SelectValue placeholder="Grupo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos los grupos</SelectItem>
+                    {gruposUnicos.map(grupo => (
+                      <SelectItem key={grupo} value={grupo}>
+                        Grupo {grupo}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                {/* Botón limpiar filtros */}
+                {hayFiltrosActivos && (
+                  <Button variant="ghost" size="icon" onClick={limpiarFiltros} title="Limpiar filtros">
+                    <X className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
+
           {cursos.length === 0 ? (
             <div className="text-center py-12">
               <BookOpen className="h-12 w-12 mx-auto text-gray-300 mb-4" />
@@ -134,6 +250,14 @@ export function ListaCursos() {
               <p className="text-sm text-gray-400 mt-2">
                 Usa el formulario de arriba para crear el primer curso
               </p>
+            </div>
+          ) : cursosFiltrados.length === 0 ? (
+            <div className="text-center py-12">
+              <Search className="h-12 w-12 mx-auto text-gray-300 mb-4" />
+              <p className="text-gray-500">No se encontraron cursos con los filtros aplicados</p>
+              <Button variant="link" onClick={limpiarFiltros} className="mt-2">
+                Limpiar filtros
+              </Button>
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -148,7 +272,7 @@ export function ListaCursos() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {cursos.map((curso) => (
+                  {cursosFiltrados.map((curso) => (
                     <TableRow key={curso.id}>
                       <TableCell>
                         <div>

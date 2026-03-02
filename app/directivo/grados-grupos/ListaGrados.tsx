@@ -78,7 +78,6 @@ export function ListaGrados() {
                   <TableHead>Grado Completo</TableHead>
                   <TableHead>Nivel Educativo</TableHead>
                   <TableHead>Número</TableHead>
-                  <TableHead>Orden</TableHead>
                   <TableHead className="text-right">Acciones</TableHead>
                 </TableRow>
               </TableHeader>
@@ -94,7 +93,6 @@ export function ListaGrados() {
                       </Badge>
                     </TableCell>
                     <TableCell>{grado.nombre}</TableCell>
-                    <TableCell>{grado.orden}</TableCell>
                     <TableCell className="text-right">
                       <Button
                         variant="ghost"

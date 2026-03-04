@@ -11,7 +11,7 @@ import { revalidatePath } from 'next/cache'
 export async function subirBoleta(formData: FormData): Promise<Result> {
   try {
     const auth = await requireServerRole(['directivo', 'auxiliar_calificaciones'])
-    if (!auth.success || !auth.data) return { success: false, error: auth.error || 'No autorizado' }
+    if (!auth.success) return { success: false, error: auth.error }
     const { supabase, userId } = auth.data
 
     const alumno_id = formData.get('alumno_id') as string
@@ -92,7 +92,7 @@ export async function subirBoleta(formData: FormData): Promise<Result> {
 export async function obtenerBoletasAlumno(alumnoId: string): Promise<Result> {
   try {
     const auth = await requireServerRole(['directivo', 'padre', 'alumno'])
-    if (!auth.success || !auth.data) return { success: false, error: auth.error || 'No autorizado' }
+    if (!auth.success) return { success: false, error: auth.error }
     const { supabase, userId, role } = auth.data
 
     const { data: alumno } = await supabase.from('alumnos').select('user_id').eq('id', alumnoId).single()

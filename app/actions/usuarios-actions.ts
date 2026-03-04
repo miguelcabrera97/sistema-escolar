@@ -2,6 +2,7 @@
 
 import { createServerSupabaseClient } from '@/lib/supabase-server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
+import { requireServerRole } from '@/lib/auth-server'
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { Result } from '@/lib/types'
@@ -36,9 +37,9 @@ import { Alumno, Maestro, Auxiliar } from '@/app/types/usuarios'
 
 export async function getPadres() {
   try {
-    const supabase = await createServerSupabaseClient()
-
-
+    const auth = await requireServerRole(['directivo'])
+    if (!auth.success || !auth.data) return []
+    const { supabase } = auth.data
 
     const { data, error } = await supabase
       .from('padres')
@@ -88,13 +89,8 @@ export async function getPadres() {
 
 export async function restablecerPasswordUsuario(userId: string, nuevaPassword: string): Promise<Result> {
   try {
-    const supabase = await createServerSupabaseClient()
-
-    // 1. Verificar que el usuario que ejecuta la acción sea directivo (o tenga permisos)
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return { success: false, error: 'No autenticado' }
-
-    // TODO: Agregar verificación de rol si es estricto, por ahora confiamos en la ruta protegida
+    const auth = await requireServerRole(['directivo'])
+    if (!auth.success) return { success: false, error: auth.error }
 
     // 2. Actualizar contraseña usando supabaseAdmin DIRECTAMENTE con el user_id
     // Ya no buscamos en la tabla específica porque el user_id es el id de auth
@@ -120,9 +116,9 @@ export async function restablecerPasswordUsuario(userId: string, nuevaPassword: 
 
 export async function obtenerAlumnos(): Promise<Result> {
   try {
-    const supabase = await createServerSupabaseClient()
-
-
+    const auth = await requireServerRole(['directivo'])
+    if (!auth.success || !auth.data) return { success: false, error: auth.error }
+    const { supabase } = auth.data
 
     const { data, error } = await supabase
       .from('alumnos')
@@ -161,7 +157,9 @@ export async function obtenerAlumnos(): Promise<Result> {
 
 export async function obtenerAlumnosPorGradoGrupo(grado?: string, grupo?: string): Promise<Result> {
   try {
-    const supabase = await createServerSupabaseClient()
+    const auth = await requireServerRole(['directivo'])
+    if (!auth.success || !auth.data) return { success: false, error: auth.error }
+    const { supabase } = auth.data
 
     let query = supabase
       .from('alumnos')
@@ -197,7 +195,9 @@ export async function obtenerAlumnosPorGradoGrupo(grado?: string, grupo?: string
 
 export async function obtenerMaestros(): Promise<Result> {
   try {
-    const supabase = await createServerSupabaseClient()
+    const auth = await requireServerRole(['directivo'])
+    if (!auth.success || !auth.data) return { success: false, error: auth.error }
+    const { supabase } = auth.data
 
     const { data, error } = await supabase
       .from('maestros')
@@ -217,7 +217,7 @@ export async function obtenerMaestros(): Promise<Result> {
     const maestrosTransformados = data?.map(m => {
       const profile = Array.isArray(m.profiles) ? m.profiles[0] : m.profiles
       return {
-        id: m.id,
+        id: m.user_id,
         user_id: m.user_id,
         nombre: profile?.nombre || '',
         apellidos: profile?.apellidos || '',
@@ -236,7 +236,9 @@ export async function obtenerMaestros(): Promise<Result> {
 
 export async function obtenerAuxiliares(): Promise<Result> {
   try {
-    const supabase = await createServerSupabaseClient()
+    const auth = await requireServerRole(['directivo'])
+    if (!auth.success || !auth.data) return { success: false, error: auth.error }
+    const { supabase } = auth.data
 
     const { data, error } = await supabase
       .from('auxiliares_calificaciones')
@@ -291,7 +293,9 @@ export async function crearAlumno(prevState: any, formData: FormData): Promise<R
 
     const { nombre, apellidos, email, password, matricula, curp, grado, grupo, id_padre } = validatedFields.data
 
-    const supabase = await createServerSupabaseClient()
+    const auth = await requireServerRole(['directivo'])
+    if (!auth.success || !auth.data) return { success: false, error: auth.error }
+    const { supabase } = auth.data
 
     // 1. Crear usuario en auth con email confirmado automáticamente
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
@@ -417,7 +421,9 @@ export async function editarAlumno(prevState: any, formData: FormData): Promise<
       }
     }
 
-    const supabase = await createServerSupabaseClient()
+    const auth = await requireServerRole(['directivo'])
+    if (!auth.success || !auth.data) return { success: false, error: auth.error }
+    const { supabase } = auth.data
 
     // 1. Obtener user_id del alumno
     const { data: alumnoData, error: alumnoQueryError } = await supabase
@@ -503,7 +509,9 @@ export async function editarAlumno(prevState: any, formData: FormData): Promise<
 
 export async function toggleActivoAlumno(id: string, activo: boolean): Promise<Result> {
   try {
-    const supabase = await createServerSupabaseClient()
+    const auth = await requireServerRole(['directivo'])
+    if (!auth.success) return { success: false, error: auth.error }
+    const { supabase } = auth.data
 
     // Obtener user_id del alumno
     const { data: alumnoData } = await supabase
@@ -536,7 +544,9 @@ export async function toggleActivoAlumno(id: string, activo: boolean): Promise<R
 
 export async function toggleActivoMaestro(id: string, activo: boolean): Promise<Result> {
   try {
-    const supabase = await createServerSupabaseClient()
+    const auth = await requireServerRole(['directivo'])
+    if (!auth.success) return { success: false, error: auth.error }
+    const { supabase } = auth.data
 
     // Obtener user_id del maestro
     const { data: maestroData } = await supabase
@@ -569,7 +579,9 @@ export async function toggleActivoMaestro(id: string, activo: boolean): Promise<
 
 export async function toggleActivoAuxiliar(id: string, activo: boolean): Promise<Result> {
   try {
-    const supabase = await createServerSupabaseClient()
+    const auth = await requireServerRole(['directivo'])
+    if (!auth.success) return { success: false, error: auth.error }
+    const { supabase } = auth.data
 
     // Obtener user_id del auxiliar
     const { data: auxiliarData } = await supabase
@@ -637,7 +649,9 @@ export interface CrearAuxiliarData {
 
 export async function crearMaestro(data: CrearMaestroData): Promise<Result> {
   try {
-    const supabase = await createServerSupabaseClient()
+    const auth = await requireServerRole(['directivo'])
+    if (!auth.success) return { success: false, error: auth.error }
+    const { supabase } = auth.data
 
     // 1. Crear usuario en auth con email confirmado automáticamente
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
@@ -694,7 +708,9 @@ export async function crearMaestro(data: CrearMaestroData): Promise<Result> {
 
 export async function editarMaestro(data: EditarMaestroData): Promise<Result> {
   try {
-    const supabase = await createServerSupabaseClient()
+    const auth = await requireServerRole(['directivo'])
+    if (!auth.success) return { success: false, error: auth.error }
+    const { supabase } = auth.data
 
     // 1. Obtener user_id del maestro
     const { data: maestroData } = await supabase
@@ -747,7 +763,9 @@ export async function editarMaestro(data: EditarMaestroData): Promise<Result> {
 
 export async function crearAuxiliar(data: CrearAuxiliarData): Promise<Result> {
   try {
-    const supabase = await createServerSupabaseClient()
+    const auth = await requireServerRole(['directivo'])
+    if (!auth.success) return { success: false, error: auth.error }
+    const { supabase } = auth.data
 
     // 1. Crear usuario en auth con email confirmado automáticamente
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
@@ -829,7 +847,9 @@ export async function crearPadreODirectivo(prevState: any, formData: FormData): 
 
     const { nombre, apellidos, email, password, telefono, role } = validatedFields.data
 
-    const supabase = await createServerSupabaseClient()
+    const auth = await requireServerRole(['directivo'])
+    if (!auth.success) return { success: false, error: auth.error }
+    const { supabase } = auth.data
 
     // 1. Crear usuario en auth con email confirmado automáticamente
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
@@ -904,7 +924,9 @@ export async function crearPadreODirectivo(prevState: any, formData: FormData): 
 
 export async function obtenerPadresYDirectivos(): Promise<Result> {
   try {
-    const supabase = await createServerSupabaseClient()
+    const auth = await requireServerRole(['directivo'])
+    if (!auth.success) return { success: false, error: auth.error }
+    const { supabase } = auth.data
 
     const { data, error } = await supabase
       .from('profiles')
@@ -929,7 +951,9 @@ export async function obtenerPadresYDirectivos(): Promise<Result> {
 
 export async function editarPadre(prevState: any, formData: FormData): Promise<Result> {
   try {
-    const supabase = await createServerSupabaseClient()
+    const auth = await requireServerRole(['directivo'])
+    if (!auth.success) return { success: false, error: auth.error }
+    const { supabase } = auth.data
 
     const id = formData.get('id') as string
     const nombre = formData.get('nombre') as string
@@ -966,7 +990,9 @@ export async function editarPadre(prevState: any, formData: FormData): Promise<R
 
 export async function toggleActivoPadre(id: string, activo: boolean): Promise<Result> {
   try {
-    const supabase = await createServerSupabaseClient()
+    const auth = await requireServerRole(['directivo'])
+    if (!auth.success) return { success: false, error: auth.error }
+    const { supabase } = auth.data
 
     // Actualizar el campo activo en profiles
     const { error } = await supabase
@@ -1011,11 +1037,9 @@ export async function reactivarAuxiliar(id: string) { return toggleActivoAuxilia
 
 export async function restablecerPasswordAlumno(alumnoId: string, nuevaPassword: string): Promise<Result> {
   try {
-    const supabase = await createServerSupabaseClient()
-
-    // 1. Verificar que el usuario sea directivo (o tenga permisos)
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return { success: false, error: 'No autenticado' }
+    const auth = await requireServerRole(['directivo'])
+    if (!auth.success) return { success: false, error: auth.error }
+    const { supabase } = auth.data
 
     // 2. Obtener el user_id del alumno
     const { data: alumnoData, error: alumnoError } = await supabase

@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { getCurrentUser } from './supabase-server'
+import { ROLE_DASHBOARD } from './constants'
 
 export type UserRole = 'alumno' | 'maestro' | 'padre' | 'directivo' | 'auxiliar_calificaciones'
 
@@ -25,15 +26,7 @@ export async function requireAuth(allowedRoles?: UserRole[]): Promise<AuthCheck>
 
     if (!userRole || !allowedRoles.includes(userRole)) {
       // Redirigir al dashboard correspondiente del usuario
-      const roleRedirects: Record<string, string> = {
-        alumno: '/alumno',
-        maestro: '/maestro',
-        padre: '/padre',
-        directivo: '/directivo',
-        auxiliar_calificaciones: '/auxiliar',
-      }
-
-      const redirectPath = roleRedirects[userRole] || '/login'
+      const redirectPath = ROLE_DASHBOARD[userRole as UserRole] || '/login'
       redirect(redirectPath)
     }
   }
@@ -45,15 +38,7 @@ export async function requireAuth(allowedRoles?: UserRole[]): Promise<AuthCheck>
  * Obtiene el dashboard correspondiente según el rol
  */
 export function getDashboardPath(role: UserRole): string {
-  const dashboards: Record<UserRole, string> = {
-    alumno: '/alumno',
-    maestro: '/maestro',
-    padre: '/padre',
-    directivo: '/directivo',
-    auxiliar_calificaciones: '/auxiliar',
-  }
-
-  return dashboards[role] || '/login'
+  return ROLE_DASHBOARD[role] || '/login'
 }
 
 /**

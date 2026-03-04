@@ -87,7 +87,7 @@ export async function crearPago(data: CrearPagoData): Promise<Result> {
 
     // 2. Verificar autorización
     const auth = await requireServerRole(['directivo'])
-    if (!auth.success || !auth.data) return { success: false, error: auth.error || 'No autorizado' }
+    if (!auth.success) return { success: false, error: auth.error }
     const { supabase, userId } = auth.data
 
     // 3. Obtener el concepto
@@ -173,7 +173,7 @@ export async function crearPagosMasivos(data: CrearPagosMasivosData): Promise<Re
 
     // 2. Verificar autorización
     const auth = await requireServerRole(['directivo'])
-    if (!auth.success || !auth.data) return { success: false, error: auth.error || 'No autorizado' }
+    if (!auth.success) return { success: false, error: auth.error }
     const { userId } = auth.data
 
     // 3. Crear pagos
@@ -221,7 +221,7 @@ export async function obtenerPagosDirectivo(filtros?: {
 }): Promise<Result> {
   try {
     const auth = await requireServerRole(['directivo'])
-    if (!auth.success || !auth.data) return { success: false, error: auth.error || 'No autorizado' }
+    if (!auth.success) return { success: false, error: auth.error }
     const { supabase } = auth.data
 
     let query = supabase
@@ -261,7 +261,7 @@ export async function obtenerPagosDirectivo(filtros?: {
 export async function obtenerPagosPadre(): Promise<Result> {
   try {
     const auth = await requireServerRole(['padre'])
-    if (!auth.success || !auth.data) return { success: false, error: auth.error || 'No autorizado' }
+    if (!auth.success) return { success: false, error: auth.error }
     const { supabase, userId } = auth.data
 
     // 1. Obtener el ID del padre
@@ -314,7 +314,7 @@ export async function registrarPagoManual(
 
     // 2. Verificar autorización (Padre)
     const auth = await requireServerRole(['padre'])
-    if (!auth.success || !auth.data) return { success: false, error: auth.error || 'No autorizado' }
+    if (!auth.success) return { success: false, error: auth.error }
     const { supabase, userId } = auth.data
 
     // 3. Obtener el pago
@@ -373,7 +373,7 @@ export async function registrarPagoManual(
 export async function verificarPagoManual(pagoId: string, aprobar: boolean): Promise<Result> {
   try {
     const auth = await requireServerRole(['directivo'])
-    if (!auth.success || !auth.data) return { success: false, error: auth.error || 'No autorizado' }
+    if (!auth.success) return { success: false, error: auth.error }
     const { supabase, userId } = auth.data
 
     const updateData: any = {
@@ -412,20 +412,9 @@ export async function verificarPagoManual(pagoId: string, aprobar: boolean): Pro
 
 export async function cancelarPago(pagoId: string): Promise<Result> {
   try {
-    const supabase = await createServerSupabaseClient()
-
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return { success: false, error: 'No autenticado' }
-
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
-
-    if (profile?.role !== 'directivo') {
-      return { success: false, error: 'No autorizado' }
-    }
+    const auth = await requireServerRole(['directivo'])
+    if (!auth.success) return { success: false, error: auth.error }
+    const { supabase } = auth.data
 
     const { error } = await supabase
       .from('pagos')
@@ -451,20 +440,9 @@ export async function cancelarPago(pagoId: string): Promise<Result> {
 
 export async function obtenerPadresConAlumnos(): Promise<Result> {
   try {
-    const supabase = await createServerSupabaseClient()
-
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return { success: false, error: 'No autenticado' }
-
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
-
-    if (profile?.role !== 'directivo') {
-      return { success: false, error: 'No autorizado' }
-    }
+    const auth = await requireServerRole(['directivo'])
+    if (!auth.success) return { success: false, error: auth.error }
+    const { supabase } = auth.data
 
     // Obtener todos los padres
     const { data: padres, error: padresError } = await supabase
@@ -549,10 +527,9 @@ export async function obtenerPadresConAlumnos(): Promise<Result> {
 
 export async function crearPreferenciaMercadoPago(pagoId: string): Promise<Result> {
   try {
-    const supabase = await createServerSupabaseClient()
-
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return { success: false, error: 'No autenticado' }
+    const auth = await requireServerRole(['padre'])
+    if (!auth.success) return { success: false, error: auth.error }
+    const { supabase, userId } = auth.data
 
     // Obtener el pago
     const { data: pago, error: pagoError } = await supabase
@@ -573,7 +550,7 @@ export async function crearPreferenciaMercadoPago(pagoId: string): Promise<Resul
     const { data: padre } = await supabase
       .from('padres')
       .select('id, user_id')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .single()
 
     if (!padre || padre.id !== pago.padre_id) {
@@ -685,10 +662,9 @@ export async function crearPagoCheckoutAPI(
   }
 ): Promise<Result> {
   try {
-    const supabase = await createServerSupabaseClient()
-
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return { success: false, error: 'No autenticado' }
+    const auth = await requireServerRole(['padre'])
+    if (!auth.success) return { success: false, error: auth.error }
+    const { supabase, userId } = auth.data
 
     // Obtener el pago
     const { data: pago, error: pagoError } = await supabase
@@ -709,7 +685,7 @@ export async function crearPagoCheckoutAPI(
     const { data: padre } = await supabase
       .from('padres')
       .select('id, user_id')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .single()
 
     if (!padre || padre.id !== pago.padre_id) {
@@ -824,7 +800,7 @@ export async function crearPagoCheckoutAPI(
 export async function obtenerDatosPagoParaRecibo(pagoId: string): Promise<Result> {
   try {
     const auth = await requireServerRole(['directivo', 'padre'])
-    if (!auth.success || !auth.data) return { success: false, error: auth.error || 'No autorizado' }
+    if (!auth.success) return { success: false, error: auth.error }
     const { supabase, userId, role } = auth.data
 
     // 1. Obtener el pago con toda la información necesaria usando joins

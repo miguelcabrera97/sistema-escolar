@@ -1,5 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+import { ROLE_DASHBOARD } from '@/lib/constants'
+import type { UserRole } from '@/lib/auth-helpers'
 
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({
@@ -77,37 +79,26 @@ export async function middleware(request: NextRequest) {
     const userRole = profile?.role
 
     // Definir rutas permitidas por rol
-    const roleRoutes: Record<string, string[]> = {
-      alumno: ['/alumno'],
-      maestro: ['/maestro'],
-      padre: ['/padre'],
-      directivo: ['/directivo'],
-      auxiliar_calificaciones: ['/auxiliar'],
-    }
-
     const currentPath = request.nextUrl.pathname
+    const roleDashboard = userRole ? ROLE_DASHBOARD[userRole as UserRole] : undefined
 
     // Si está en login y ya autenticado, redirigir a su dashboard
-    if (currentPath === '/login' && userRole) {
-      const dashboardPath = roleRoutes[userRole]?.[0] || '/login'
-      return NextResponse.redirect(new URL(dashboardPath, request.url))
+    if (currentPath === '/login' && roleDashboard) {
+      return NextResponse.redirect(new URL(roleDashboard, request.url))
     }
 
     // Si está en la raíz, redirigir a su dashboard
-    if (currentPath === '/' && userRole) {
-      const dashboardPath = roleRoutes[userRole]?.[0] || '/login'
-      return NextResponse.redirect(new URL(dashboardPath, request.url))
+    if (currentPath === '/' && roleDashboard) {
+      return NextResponse.redirect(new URL(roleDashboard, request.url))
     }
 
     // Verificar si el usuario tiene permiso para acceder a la ruta actual
-    if (userRole) {
-      const allowedPaths = roleRoutes[userRole] || []
-      const hasAccess = allowedPaths.some(path => currentPath.startsWith(path))
+    if (userRole && roleDashboard) {
+      const hasAccess = currentPath.startsWith(roleDashboard)
 
       // Si no tiene acceso, redirigir a su dashboard
       if (!hasAccess && !isPublicPath) {
-        const dashboardPath = roleRoutes[userRole]?.[0] || '/login'
-        return NextResponse.redirect(new URL(dashboardPath, request.url))
+        return NextResponse.redirect(new URL(roleDashboard, request.url))
       }
     }
   }

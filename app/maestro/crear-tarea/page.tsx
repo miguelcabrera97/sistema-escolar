@@ -79,7 +79,7 @@ export default function CrearTarea() {
 
         const resultUpload = await subirArchivoTarea(archivo, user.id)
 
-        if (!resultUpload.success) {
+        if (!resultUpload.success || !resultUpload.data) {
           throw new Error(resultUpload.error || 'Error al subir archivo')
         }
 

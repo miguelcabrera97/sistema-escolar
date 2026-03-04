@@ -3,9 +3,9 @@
 import { createServerSupabaseClient } from '@/lib/supabase-server'
 import { revalidatePath } from 'next/cache'
 
-interface Result {
+interface Result<T = any> {
   success: boolean
-  data?: any
+  data?: T
   error?: string
 }
 
@@ -13,7 +13,66 @@ interface Result {
 // OBTENER PADRES SIN ALUMNOS
 // ============================================
 
-export async function obtenerPadresSinAlumnos(): Promise<Result> {
+export async function obtenerPadresConAlumnosBusqueda(): Promise<Result<any[]>> {
+  try {
+    const supabase = await createServerSupabaseClient()
+
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { success: false, error: 'No autenticado' }
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single()
+
+    if (profile?.role !== 'directivo') {
+      return { success: false, error: 'No autorizado' }
+    }
+
+    // Obtener todos los padres
+    const { data: padres } = await supabase
+      .from('padres')
+      .select('id, user_id')
+
+    if (!padres) return { success: true, data: [] }
+
+    // Obtener profiles de padres
+    const padreUserIds = padres.map(p => p.user_id)
+    const { data: padreProfiles } = await supabase
+      .from('profiles')
+      .select('id, nombre, apellidos, email')
+      .in('id', padreUserIds)
+
+    // Obtener relaciones existentes
+    const padreIds = padres.map(p => p.id)
+    const { data: relaciones } = await supabase
+      .from('padre_alumno')
+      .select('padre_id, alumno_id')
+      .in('padre_id', padreIds)
+
+    // Filtrar padres con alumnos
+    const padresConAlumnosSet = new Set(relaciones?.map(r => r.padre_id) || [])
+
+    const padresConAlumnos = padres
+      .filter(p => padresConAlumnosSet.has(p.id))
+      .map(padre => {
+        const profile = padreProfiles?.find(pp => pp.id === padre.user_id)
+        return {
+          id: padre.id,
+          user_id: padre.user_id,
+          profiles: profile || { nombre: 'Desconocido', apellidos: '', email: '' }
+        }
+      })
+
+    return { success: true, data: padresConAlumnos }
+  } catch (error) {
+    console.error('Error:', error)
+    return { success: false, error: 'Error inesperado' }
+  }
+}
+
+export async function obtenerPadresSinAlumnos(): Promise<Result<any[]>> {
   try {
     const supabase = await createServerSupabaseClient()
 
@@ -76,7 +135,7 @@ export async function obtenerPadresSinAlumnos(): Promise<Result> {
 // OBTENER ALUMNOS SIN PADRE
 // ============================================
 
-export async function obtenerAlumnosSinPadre(): Promise<Result> {
+export async function obtenerAlumnosSinPadre(): Promise<Result<any[]>> {
   try {
     const supabase = await createServerSupabaseClient()
 
@@ -141,7 +200,7 @@ export async function obtenerAlumnosSinPadre(): Promise<Result> {
 // OBTENER TODAS LAS RELACIONES
 // ============================================
 
-export async function obtenerTodasLasRelaciones(): Promise<Result> {
+export async function obtenerTodasLasRelaciones(): Promise<Result<any[]>> {
   try {
     const supabase = await createServerSupabaseClient()
 

@@ -122,7 +122,7 @@ export default function RelacionesPadreAlumno() {
     setMigrandoPadres(true)
     try {
       const result = await migrarPadresExistentes()
-      if (result.success) {
+      if (result.success && result.data) {
         alert(
           `✅ Migración completada\n\n` +
           `Total de usuarios padre: ${result.data.total}\n` +
@@ -132,7 +132,7 @@ export default function RelacionesPadreAlumno() {
         setNecesitaMigracion(false)
         // Recargar datos después de la migración
         cargarDatos()
-      } else {
+      } else if (!result.success) {
         alert('Error en la migración: ' + result.error)
       }
     } catch (error) {

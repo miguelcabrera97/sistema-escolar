@@ -48,12 +48,12 @@ export async function obtenerNivelesEducativos(): Promise<Result> {
       .order('orden')
 
     if (error) {
-      return { success: false, error: error.message }
+      return { success: false, error: error instanceof Error ? error.message : String(error) }
     }
 
     return { success: true, data: data || [] }
-  } catch (error: any) {
-    return { success: false, error: error.message }
+  } catch (error: unknown) {
+    return { success: false, error: error instanceof Error ? error.message : String(error) }
   }
 }
 
@@ -73,12 +73,12 @@ export async function obtenerGrados(): Promise<Result> {
       .order('orden')
 
     if (error) {
-      return { success: false, error: error.message }
+      return { success: false, error: error instanceof Error ? error.message : String(error) }
     }
 
     return { success: true, data: data || [] }
-  } catch (error: any) {
-    return { success: false, error: error.message }
+  } catch (error: unknown) {
+    return { success: false, error: error instanceof Error ? error.message : String(error) }
   }
 }
 
@@ -94,12 +94,12 @@ export async function obtenerGradosPorNivel(nivelId: string): Promise<Result> {
       .order('orden')
 
     if (error) {
-      return { success: false, error: error.message }
+      return { success: false, error: error instanceof Error ? error.message : String(error) }
     }
 
     return { success: true, data: data || [] }
-  } catch (error: any) {
-    return { success: false, error: error.message }
+  } catch (error: unknown) {
+    return { success: false, error: error instanceof Error ? error.message : String(error) }
   }
 }
 
@@ -114,12 +114,12 @@ export async function obtenerGrupos(): Promise<Result> {
       .order('nombre')
 
     if (error) {
-      return { success: false, error: error.message }
+      return { success: false, error: error instanceof Error ? error.message : String(error) }
     }
 
     return { success: true, data: data || [] }
-  } catch (error: any) {
-    return { success: false, error: error.message }
+  } catch (error: unknown) {
+    return { success: false, error: error instanceof Error ? error.message : String(error) }
   }
 }
 
@@ -167,13 +167,13 @@ export async function crearGrado(formData: FormData): Promise<Result> {
     ])
 
     if (error) {
-      return { success: false, error: error.message }
+      return { success: false, error: error instanceof Error ? error.message : String(error) }
     }
 
     revalidatePath('/directivo/grados-grupos')
     return { success: true }
-  } catch (error: any) {
-    return { success: false, error: error.message }
+  } catch (error: unknown) {
+    return { success: false, error: error instanceof Error ? error.message : String(error) }
   }
 }
 
@@ -202,13 +202,13 @@ export async function crearGrupo(formData: FormData): Promise<Result> {
     ])
 
     if (error) {
-      return { success: false, error: error.message }
+      return { success: false, error: error instanceof Error ? error.message : String(error) }
     }
 
     revalidatePath('/directivo/grados-grupos')
     return { success: true }
-  } catch (error: any) {
-    return { success: false, error: error.message }
+  } catch (error: unknown) {
+    return { success: false, error: error instanceof Error ? error.message : String(error) }
   }
 }
 
@@ -226,13 +226,13 @@ export async function desactivarGrado(gradoId: string): Promise<Result> {
       .eq('id', gradoId)
 
     if (error) {
-      return { success: false, error: error.message }
+      return { success: false, error: error instanceof Error ? error.message : String(error) }
     }
 
     revalidatePath('/directivo/grados-grupos')
     return { success: true }
-  } catch (error: any) {
-    return { success: false, error: error.message }
+  } catch (error: unknown) {
+    return { success: false, error: error instanceof Error ? error.message : String(error) }
   }
 }
 
@@ -250,12 +250,12 @@ export async function desactivarGrupo(grupoId: string): Promise<Result> {
       .eq('id', grupoId)
 
     if (error) {
-      return { success: false, error: error.message }
+      return { success: false, error: error instanceof Error ? error.message : String(error) }
     }
 
     revalidatePath('/directivo/grados-grupos')
     return { success: true }
-  } catch (error: any) {
-    return { success: false, error: error.message }
+  } catch (error: unknown) {
+    return { success: false, error: error instanceof Error ? error.message : String(error) }
   }
 }

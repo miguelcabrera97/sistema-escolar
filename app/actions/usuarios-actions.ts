@@ -117,7 +117,8 @@ export async function restablecerPasswordUsuario(userId: string, nuevaPassword: 
 export async function obtenerAlumnos(): Promise<Result> {
   try {
     const auth = await requireServerRole(['directivo'])
-    if (!auth.success || !auth.data) return { success: false, error: auth.error }
+    if (!auth.success) return { success: false, error: auth.error }
+    if (!auth.data) return { success: false, error: 'No autorizado' }
     const { supabase } = auth.data
 
     const { data, error } = await supabase
@@ -143,7 +144,7 @@ export async function obtenerAlumnos(): Promise<Result> {
 
     if (error) {
       console.error('[obtenerAlumnos] Error:', error)
-      return { success: false, error: error.message }
+      return { success: false, error: error instanceof Error ? error.message : String(error) }
     }
 
 
@@ -158,7 +159,8 @@ export async function obtenerAlumnos(): Promise<Result> {
 export async function obtenerAlumnosPorGradoGrupo(grado?: string, grupo?: string): Promise<Result> {
   try {
     const auth = await requireServerRole(['directivo'])
-    if (!auth.success || !auth.data) return { success: false, error: auth.error }
+    if (!auth.success) return { success: false, error: auth.error }
+    if (!auth.data) return { success: false, error: 'No autorizado' }
     const { supabase } = auth.data
 
     let query = supabase
@@ -184,19 +186,20 @@ export async function obtenerAlumnosPorGradoGrupo(grado?: string, grupo?: string
     const { data, error } = await query.order('grado').order('grupo').order('matricula')
 
     if (error) {
-      return { success: false, error: error.message }
+      return { success: false, error: error instanceof Error ? error.message : String(error) }
     }
 
     return { success: true, data: data || [] }
-  } catch (error: any) {
-    return { success: false, error: error.message }
+  } catch (error: unknown) {
+    return { success: false, error: error instanceof Error ? error.message : String(error) }
   }
 }
 
 export async function obtenerMaestros(): Promise<Result> {
   try {
     const auth = await requireServerRole(['directivo'])
-    if (!auth.success || !auth.data) return { success: false, error: auth.error }
+    if (!auth.success) return { success: false, error: auth.error }
+    if (!auth.data) return { success: false, error: 'No autorizado' }
     const { supabase } = auth.data
 
     const { data, error } = await supabase
@@ -210,7 +213,7 @@ export async function obtenerMaestros(): Promise<Result> {
       .order('profiles(nombre)')
 
     if (error) {
-      return { success: false, error: error.message }
+      return { success: false, error: error instanceof Error ? error.message : String(error) }
     }
 
     // Transformar datos para que activo esté accesible
@@ -237,7 +240,8 @@ export async function obtenerMaestros(): Promise<Result> {
 export async function obtenerAuxiliares(): Promise<Result> {
   try {
     const auth = await requireServerRole(['directivo'])
-    if (!auth.success || !auth.data) return { success: false, error: auth.error }
+    if (!auth.success) return { success: false, error: auth.error }
+    if (!auth.data) return { success: false, error: 'No autorizado' }
     const { supabase } = auth.data
 
     const { data, error } = await supabase
@@ -250,7 +254,7 @@ export async function obtenerAuxiliares(): Promise<Result> {
       .order('profiles(nombre)')
 
     if (error) {
-      return { success: false, error: error.message }
+      return { success: false, error: error instanceof Error ? error.message : String(error) }
     }
 
     // Transformar datos para que activo esté accesible
@@ -277,7 +281,7 @@ export async function obtenerAuxiliares(): Promise<Result> {
 // CREAR ALUMNO
 // ============================================
 
-export async function crearAlumno(prevState: any, formData: FormData): Promise<Result> {
+export async function crearAlumno(prevState: Result | null | undefined, formData: FormData): Promise<Result> {
   try {
     const rawFormData = Object.fromEntries(formData.entries())
 
@@ -294,7 +298,8 @@ export async function crearAlumno(prevState: any, formData: FormData): Promise<R
     const { nombre, apellidos, email, password, matricula, curp, grado, grupo, id_padre } = validatedFields.data
 
     const auth = await requireServerRole(['directivo'])
-    if (!auth.success || !auth.data) return { success: false, error: auth.error }
+    if (!auth.success) return { success: false, error: auth.error }
+    if (!auth.data) return { success: false, error: 'No autorizado' }
     const { supabase } = auth.data
 
     // 1. Crear usuario en auth con email confirmado automáticamente
@@ -399,7 +404,7 @@ export async function crearAlumno(prevState: any, formData: FormData): Promise<R
 // EDITAR ALUMNO
 // ============================================
 
-export async function editarAlumno(prevState: any, formData: FormData): Promise<Result> {
+export async function editarAlumno(prevState: Result | null | undefined, formData: FormData): Promise<Result> {
   try {
     const rawFormData = Object.fromEntries(formData.entries())
 
@@ -422,7 +427,8 @@ export async function editarAlumno(prevState: any, formData: FormData): Promise<
     }
 
     const auth = await requireServerRole(['directivo'])
-    if (!auth.success || !auth.data) return { success: false, error: auth.error }
+    if (!auth.success) return { success: false, error: auth.error }
+    if (!auth.data) return { success: false, error: 'No autorizado' }
     const { supabase } = auth.data
 
     // 1. Obtener user_id del alumno
@@ -507,112 +513,43 @@ export async function editarAlumno(prevState: any, formData: FormData): Promise<
 // ACTIVAR/DESACTIVAR USUARIO
 // ============================================
 
-export async function toggleActivoAlumno(id: string, activo: boolean): Promise<Result> {
+async function toggleActivoUsuario(
+  tabla: 'alumnos' | 'maestros' | 'auxiliares_calificaciones',
+  id: string,
+  activo: boolean,
+  etiqueta: string
+): Promise<Result> {
   try {
     const auth = await requireServerRole(['directivo'])
     if (!auth.success) return { success: false, error: auth.error }
+    if (!auth.data) return { success: false, error: 'No autorizado' }
     const { supabase } = auth.data
 
-    // Obtener user_id del alumno
-    const { data: alumnoData } = await supabase
-      .from('alumnos')
-      .select('user_id')
-      .eq('id', id)
-      .single()
+    const { data } = await supabase.from(tabla).select('user_id').eq('id', id).single()
+    if (!data) return { success: false, error: `${etiqueta} no encontrado` }
 
-    if (!alumnoData) {
-      return { success: false, error: 'Alumno no encontrado' }
-    }
-
-    // Actualizar el campo activo en profiles
-    const { error } = await supabase
-      .from('profiles')
-      .update({ activo })
-      .eq('id', alumnoData.user_id)
-
-    if (error) {
-      return { success: false, error: error.message }
-    }
+    const { error } = await supabase.from('profiles').update({ activo }).eq('id', data.user_id)
+    if (error) return { success: false, error: error.message }
 
     revalidatePath('/directivo/usuarios')
-    return { success: true, message: `Alumno ${activo ? 'activado' : 'desactivado'} exitosamente` }
+    return { success: true, message: `${etiqueta} ${activo ? 'activado' : 'desactivado'} exitosamente` }
   } catch (error) {
     console.error('Error:', error)
     return { success: false, error: 'Error inesperado' }
   }
+}
+
+export async function toggleActivoAlumno(id: string, activo: boolean): Promise<Result> {
+  return toggleActivoUsuario('alumnos', id, activo, 'Alumno')
 }
 
 export async function toggleActivoMaestro(id: string, activo: boolean): Promise<Result> {
-  try {
-    const auth = await requireServerRole(['directivo'])
-    if (!auth.success) return { success: false, error: auth.error }
-    const { supabase } = auth.data
-
-    // Obtener user_id del maestro
-    const { data: maestroData } = await supabase
-      .from('maestros')
-      .select('user_id')
-      .eq('id', id)
-      .single()
-
-    if (!maestroData) {
-      return { success: false, error: 'Maestro no encontrado' }
-    }
-
-    // Actualizar el campo activo en profiles
-    const { error } = await supabase
-      .from('profiles')
-      .update({ activo })
-      .eq('id', maestroData.user_id)
-
-    if (error) {
-      return { success: false, error: error.message }
-    }
-
-    revalidatePath('/directivo/usuarios')
-    return { success: true, message: `Maestro ${activo ? 'activado' : 'desactivado'} exitosamente` }
-  } catch (error) {
-    console.error('Error:', error)
-    return { success: false, error: 'Error inesperado' }
-  }
+  return toggleActivoUsuario('maestros', id, activo, 'Maestro')
 }
 
 export async function toggleActivoAuxiliar(id: string, activo: boolean): Promise<Result> {
-  try {
-    const auth = await requireServerRole(['directivo'])
-    if (!auth.success) return { success: false, error: auth.error }
-    const { supabase } = auth.data
-
-    // Obtener user_id del auxiliar
-    const { data: auxiliarData } = await supabase
-      .from('auxiliares_calificaciones')
-      .select('user_id')
-      .eq('id', id)
-      .single()
-
-    if (!auxiliarData) {
-      return { success: false, error: 'Auxiliar no encontrado' }
-    }
-
-    // Actualizar el campo activo en profiles
-    const { error } = await supabase
-      .from('profiles')
-      .update({ activo })
-      .eq('id', auxiliarData.user_id)
-
-    if (error) {
-      return { success: false, error: error.message }
-    }
-
-    revalidatePath('/directivo/usuarios')
-    return { success: true, message: `Auxiliar ${activo ? 'activado' : 'desactivado'} exitosamente` }
-  } catch (error) {
-    console.error('Error:', error)
-    return { success: false, error: 'Error inesperado' }
-  }
+  return toggleActivoUsuario('auxiliares_calificaciones', id, activo, 'Auxiliar')
 }
-
-
 // ============================================
 // TIPOS LEGACY (COMPATIBILIDAD)
 // ============================================
@@ -651,6 +588,7 @@ export async function crearMaestro(data: CrearMaestroData): Promise<Result> {
   try {
     const auth = await requireServerRole(['directivo'])
     if (!auth.success) return { success: false, error: auth.error }
+    if (!auth.data) return { success: false, error: 'No autorizado' }
     const { supabase } = auth.data
 
     // 1. Crear usuario en auth con email confirmado automáticamente
@@ -710,6 +648,7 @@ export async function editarMaestro(data: EditarMaestroData): Promise<Result> {
   try {
     const auth = await requireServerRole(['directivo'])
     if (!auth.success) return { success: false, error: auth.error }
+    if (!auth.data) return { success: false, error: 'No autorizado' }
     const { supabase } = auth.data
 
     // 1. Obtener user_id del maestro
@@ -765,6 +704,7 @@ export async function crearAuxiliar(data: CrearAuxiliarData): Promise<Result> {
   try {
     const auth = await requireServerRole(['directivo'])
     if (!auth.success) return { success: false, error: auth.error }
+    if (!auth.data) return { success: false, error: 'No autorizado' }
     const { supabase } = auth.data
 
     // 1. Crear usuario en auth con email confirmado automáticamente
@@ -832,7 +772,7 @@ const PadreDirectivoSchema = z.object({
   role: z.enum(['padre', 'directivo']),
 })
 
-export async function crearPadreODirectivo(prevState: any, formData: FormData): Promise<Result> {
+export async function crearPadreODirectivo(prevState: Result | null | undefined, formData: FormData): Promise<Result> {
   try {
     const rawFormData = Object.fromEntries(formData.entries())
 
@@ -849,6 +789,7 @@ export async function crearPadreODirectivo(prevState: any, formData: FormData): 
 
     const auth = await requireServerRole(['directivo'])
     if (!auth.success) return { success: false, error: auth.error }
+    if (!auth.data) return { success: false, error: 'No autorizado' }
     const { supabase } = auth.data
 
     // 1. Crear usuario en auth con email confirmado automáticamente
@@ -926,6 +867,7 @@ export async function obtenerPadresYDirectivos(): Promise<Result> {
   try {
     const auth = await requireServerRole(['directivo'])
     if (!auth.success) return { success: false, error: auth.error }
+    if (!auth.data) return { success: false, error: 'No autorizado' }
     const { supabase } = auth.data
 
     const { data, error } = await supabase
@@ -936,12 +878,12 @@ export async function obtenerPadresYDirectivos(): Promise<Result> {
       .order('nombre')
 
     if (error) {
-      return { success: false, error: error.message }
+      return { success: false, error: error instanceof Error ? error.message : String(error) }
     }
 
     return { success: true, data: data || [] }
-  } catch (error: any) {
-    return { success: false, error: error.message }
+  } catch (error: unknown) {
+    return { success: false, error: error instanceof Error ? error.message : String(error) }
   }
 }
 
@@ -949,10 +891,11 @@ export async function obtenerPadresYDirectivos(): Promise<Result> {
 // FUNCIONES PARA PADRES
 // ============================================
 
-export async function editarPadre(prevState: any, formData: FormData): Promise<Result> {
+export async function editarPadre(prevState: Result | null | undefined, formData: FormData): Promise<Result> {
   try {
     const auth = await requireServerRole(['directivo'])
     if (!auth.success) return { success: false, error: auth.error }
+    if (!auth.data) return { success: false, error: 'No autorizado' }
     const { supabase } = auth.data
 
     const id = formData.get('id') as string
@@ -992,6 +935,7 @@ export async function toggleActivoPadre(id: string, activo: boolean): Promise<Re
   try {
     const auth = await requireServerRole(['directivo'])
     if (!auth.success) return { success: false, error: auth.error }
+    if (!auth.data) return { success: false, error: 'No autorizado' }
     const { supabase } = auth.data
 
     // Actualizar el campo activo en profiles
@@ -1001,7 +945,7 @@ export async function toggleActivoPadre(id: string, activo: boolean): Promise<Re
       .eq('id', id)
 
     if (error) {
-      return { success: false, error: error.message }
+      return { success: false, error: error instanceof Error ? error.message : String(error) }
     }
 
     revalidatePath('/directivo/usuarios')
@@ -1039,6 +983,7 @@ export async function restablecerPasswordAlumno(alumnoId: string, nuevaPassword:
   try {
     const auth = await requireServerRole(['directivo'])
     if (!auth.success) return { success: false, error: auth.error }
+    if (!auth.data) return { success: false, error: 'No autorizado' }
     const { supabase } = auth.data
 
     // 2. Obtener el user_id del alumno

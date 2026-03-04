@@ -12,6 +12,7 @@ export async function subirBoleta(formData: FormData): Promise<Result> {
   try {
     const auth = await requireServerRole(['directivo', 'auxiliar_calificaciones'])
     if (!auth.success) return { success: false, error: auth.error }
+    if (!auth.data) return { success: false, error: 'No autorizado' }
     const { supabase, userId } = auth.data
 
     const alumno_id = formData.get('alumno_id') as string
@@ -93,6 +94,7 @@ export async function obtenerBoletasAlumno(alumnoId: string): Promise<Result> {
   try {
     const auth = await requireServerRole(['directivo', 'padre', 'alumno'])
     if (!auth.success) return { success: false, error: auth.error }
+    if (!auth.data) return { success: false, error: 'No autorizado' }
     const { supabase, userId, role } = auth.data
 
     const { data: alumno } = await supabase.from('alumnos').select('user_id').eq('id', alumnoId).single()

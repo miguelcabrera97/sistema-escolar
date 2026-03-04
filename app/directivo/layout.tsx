@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
@@ -21,8 +21,6 @@ import {
     School,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-
-const supabase = createClient()
 
 const navItems = [
     {
@@ -69,6 +67,7 @@ const navItems = [
 ]
 
 export default function DirectivoLayout({ children }: { children: React.ReactNode }) {
+    const supabase = useMemo(() => createClient(), [])
     const router = useRouter()
     const pathname = usePathname()
     const [sidebarOpen, setSidebarOpen] = useState(false)

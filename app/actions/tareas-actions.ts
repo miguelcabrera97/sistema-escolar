@@ -4,9 +4,9 @@ import { createServerSupabaseClient } from '@/lib/supabase-server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { revalidatePath } from 'next/cache'
 
-interface Result {
+interface Result<T = unknown> {
   success: boolean
-  data?: any
+  data?: T
   error?: string
 }
 
@@ -16,6 +16,57 @@ export interface CrearTareaData {
   descripcion: string
   fecha_entrega: string
   archivo_url?: string | null
+}
+
+export async function crearTareaArchivo(
+  tareaId: string,
+  archivoUrl: string,
+  nombreArchivo: string,
+  tipoArchivo: string,
+  tamanoArchivo: number
+): Promise<Result<any>> {
+  try {
+    const supabase = await createServerSupabaseClient()
+
+    // Verificar que el usuario está autenticado
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { success: false, error: 'No autenticado' }
+
+    // Verificar que el usuario es maestro o auxiliar
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single()
+
+    if (!profile || (profile.role !== 'maestro' && profile.role !== 'auxiliar')) {
+      return { success: false, error: 'No autorizado. Solo maestros y auxiliares pueden crear tareas.' }
+    }
+
+    // Insertar el archivo en la tabla 'tarea_archivos'
+    const { data: tareaArchivo, error: archivoError } = await supabaseAdmin
+      .from('tarea_archivos')
+      .insert({
+        tarea_id: tareaId,
+        url: archivoUrl,
+        nombre: nombreArchivo,
+        tipo: tipoArchivo,
+        tamano: tamanoArchivo,
+      })
+      .select()
+      .single()
+
+    if (archivoError) {
+      console.error('❌ Error al crear registro de archivo de tarea:', archivoError)
+      return { success: false, error: archivoError.message }
+    }
+
+    console.log('✅ Registro de archivo de tarea creado exitosamente:', tareaArchivo.id)
+    return { success: true, data: tareaArchivo }
+  } catch (error) {
+    console.error('Error:', error)
+    return { success: false, error: 'Error inesperado al crear registro de archivo de tarea' }
+  }
 }
 
 export async function crearTarea(data: CrearTareaData): Promise<Result> {
@@ -80,7 +131,10 @@ export async function crearTarea(data: CrearTareaData): Promise<Result> {
   }
 }
 
-export async function subirArchivoTarea(file: File, userId: string): Promise<Result> {
+export async function subirArchivoTarea(
+  file: File,
+  userId: string
+): Promise<Result<{ publicUrl: string }>> {
   try {
     const fileExt = file.name.split('.').pop()
     const fileName = `maestros/${userId}/${Date.now()}.${fileExt}`
@@ -107,8 +161,8 @@ export async function subirArchivoTarea(file: File, userId: string): Promise<Res
     console.log('✅ Archivo subido:', data.publicUrl)
 
     return { success: true, data: { publicUrl: data.publicUrl } }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error:', error)
-    return { success: false, error: error.message || 'Error al subir archivo' }
+    return { success: false, error: (error instanceof Error ? error.message : String(error)) || 'Error al subir archivo' }
   }
 }

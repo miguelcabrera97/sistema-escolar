@@ -2,9 +2,9 @@
 
 import { createServerSupabaseClient } from '@/lib/supabase-server'
 
-interface Result {
+interface Result<T = unknown> {
   success: boolean
-  data?: any
+  data?: T
   error?: string
 }
 
@@ -12,7 +12,7 @@ interface Result {
  * Migra todos los usuarios con rol 'padre' a la tabla padres
  * Esta función debe ejecutarse una sola vez para migrar datos existentes
  */
-export async function migrarPadresExistentes(): Promise<Result> {
+export async function migrarPadresExistentes(): Promise<Result<{ message: string; total: number; migrados: number; padres?: { nombre: string; apellidos: string; email: string }[] }>> {
   try {
     const supabase = await createServerSupabaseClient()
 
@@ -145,7 +145,7 @@ export async function vincularPadresConAlumnos(): Promise<Result> {
 /**
  * Obtiene estadísticas de la migración
  */
-export async function obtenerEstadisticasMigracion(): Promise<Result> {
+export async function obtenerEstadisticasMigracion(): Promise<Result<{ totalUsuariosPadre: number; totalRegistrosPadres: number; totalRelacionesPadreAlumno: number; padresPorMigrar: number; necesitaMigracion: boolean }>> {
   try {
     const supabase = await createServerSupabaseClient()
 

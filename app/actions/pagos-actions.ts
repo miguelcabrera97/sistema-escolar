@@ -88,6 +88,7 @@ export async function crearPago(data: CrearPagoData): Promise<Result> {
     // 2. Verificar autorización
     const auth = await requireServerRole(['directivo'])
     if (!auth.success) return { success: false, error: auth.error }
+    if (!auth.data) return { success: false, error: 'No autorizado' }
     const { supabase, userId } = auth.data
 
     // 3. Obtener el concepto
@@ -174,6 +175,7 @@ export async function crearPagosMasivos(data: CrearPagosMasivosData): Promise<Re
     // 2. Verificar autorización
     const auth = await requireServerRole(['directivo'])
     if (!auth.success) return { success: false, error: auth.error }
+    if (!auth.data) return { success: false, error: 'No autorizado' }
     const { userId } = auth.data
 
     // 3. Crear pagos
@@ -222,6 +224,7 @@ export async function obtenerPagosDirectivo(filtros?: {
   try {
     const auth = await requireServerRole(['directivo'])
     if (!auth.success) return { success: false, error: auth.error }
+    if (!auth.data) return { success: false, error: 'No autorizado' }
     const { supabase } = auth.data
 
     let query = supabase
@@ -262,6 +265,7 @@ export async function obtenerPagosPadre(): Promise<Result> {
   try {
     const auth = await requireServerRole(['padre'])
     if (!auth.success) return { success: false, error: auth.error }
+    if (!auth.data) return { success: false, error: 'No autorizado' }
     const { supabase, userId } = auth.data
 
     // 1. Obtener el ID del padre
@@ -315,6 +319,7 @@ export async function registrarPagoManual(
     // 2. Verificar autorización (Padre)
     const auth = await requireServerRole(['padre'])
     if (!auth.success) return { success: false, error: auth.error }
+    if (!auth.data) return { success: false, error: 'No autorizado' }
     const { supabase, userId } = auth.data
 
     // 3. Obtener el pago
@@ -374,9 +379,10 @@ export async function verificarPagoManual(pagoId: string, aprobar: boolean): Pro
   try {
     const auth = await requireServerRole(['directivo'])
     if (!auth.success) return { success: false, error: auth.error }
+    if (!auth.data) return { success: false, error: 'No autorizado' }
     const { supabase, userId } = auth.data
 
-    const updateData: any = {
+    const updateData: Record<string, unknown> = {
       pagado_verificado_por: userId,
       updated_at: new Date().toISOString()
     }
@@ -414,6 +420,7 @@ export async function cancelarPago(pagoId: string): Promise<Result> {
   try {
     const auth = await requireServerRole(['directivo'])
     if (!auth.success) return { success: false, error: auth.error }
+    if (!auth.data) return { success: false, error: 'No autorizado' }
     const { supabase } = auth.data
 
     const { error } = await supabase
@@ -442,75 +449,49 @@ export async function obtenerPadresConAlumnos(): Promise<Result> {
   try {
     const auth = await requireServerRole(['directivo'])
     if (!auth.success) return { success: false, error: auth.error }
+    if (!auth.data) return { success: false, error: 'No autorizado' }
     const { supabase } = auth.data
 
-    // Obtener todos los padres
-    const { data: padres, error: padresError } = await supabase
+    const { data: padres, error } = await supabase
       .from('padres')
-      .select('id, user_id')
+      .select(`
+        id,
+        user_id,
+        profiles:user_id(id, nombre, apellidos, email),
+        padre_alumno(
+          alumno_id,
+          alumnos:alumno_id(
+            id, matricula, grado, grupo,
+            user_id,
+            profiles:user_id(nombre, apellidos)
+          )
+        )
+      `)
 
-    if (padresError) {
-      console.error('Error al obtener padres:', padresError)
-      return { success: false, error: padresError.message }
-    }
+    if (error) return { success: false, error: error.message }
 
-    if (!padres || padres.length === 0) {
-      return { success: true, data: [] }
-    }
-
-    // Obtener profiles de padres
-    const padreUserIds = padres.map(p => p.user_id).filter(Boolean)
-    const { data: padreProfiles } = await supabase
-      .from('profiles')
-      .select('id, nombre, apellidos, email')
-      .in('id', padreUserIds)
-
-    // Obtener relaciones padre-alumno
-    const padreIds = padres.map(p => p.id)
-    const { data: relaciones } = await supabase
-      .from('padre_alumno')
-      .select('padre_id, alumno_id')
-      .in('padre_id', padreIds)
-
-    // Obtener información de alumnos
-    const alumnoIds = relaciones?.map(r => r.alumno_id).filter(Boolean) || []
-    const { data: alumnos } = await supabase
-      .from('alumnos')
-      .select('id, matricula, grado, grupo, user_id')
-      .in('id', alumnoIds)
-
-    // Obtener profiles de alumnos
-    const alumnoUserIds = alumnos?.map(a => a.user_id).filter(Boolean) || []
-    const { data: alumnoProfiles } = await supabase
-      .from('profiles')
-      .select('id, nombre, apellidos')
-      .in('id', alumnoUserIds)
-
-    // Combinar todos los datos
-    const padresCompletos = padres.map(padre => {
-      const padreProfile = padreProfiles?.find(pp => pp.id === padre.user_id)
-      const padreRelaciones = relaciones?.filter(r => r.padre_id === padre.id) || []
-
-      const padre_alumno = padreRelaciones.map(rel => {
-        const alumno = alumnos?.find(a => a.id === rel.alumno_id)
-        const alumnoProfile = alumnoProfiles?.find(ap => ap.id === alumno?.user_id)
-
-        return {
-          alumno_id: rel.alumno_id,
-          alumnos: alumno ? {
-            id: alumno.id,
-            matricula: alumno.matricula,
-            grado: alumno.grado,
-            grupo: alumno.grupo,
-            profiles: alumnoProfile || { nombre: 'Desconocido', apellidos: '' }
-          } : null
-        }
-      }).filter(pa => pa.alumnos !== null)
+    // Transformar al formato esperado por los componentes
+    const padresCompletos = (padres || []).map(padre => {
+      const profileData = Array.isArray(padre.profiles) ? padre.profiles[0] : padre.profiles;
+      const padreAlumnoData = Array.isArray(padre.padre_alumno) ? padre.padre_alumno : [];
 
       return {
         id: padre.id,
-        profiles: padreProfile || { nombre: 'Desconocido', apellidos: '', email: '' },
-        padre_alumno
+        profiles: profileData || { nombre: 'Desconocido', apellidos: '', email: '' },
+        padre_alumno: padreAlumnoData
+          .filter((pa: any) => pa.alumnos !== null)
+          .map((pa: any) => {
+            const alumnoData = Array.isArray(pa.alumnos) ? pa.alumnos[0] : pa.alumnos;
+            // Aplanar el profile anidado si existe
+            if (alumnoData && alumnoData.profiles) {
+              const alumnoProfile = Array.isArray(alumnoData.profiles) ? alumnoData.profiles[0] : alumnoData.profiles;
+              alumnoData.profiles = alumnoProfile;
+            }
+            return {
+              alumno_id: pa.alumno_id,
+              alumnos: alumnoData
+            }
+          })
       }
     })
 
@@ -529,6 +510,7 @@ export async function crearPreferenciaMercadoPago(pagoId: string): Promise<Resul
   try {
     const auth = await requireServerRole(['padre'])
     if (!auth.success) return { success: false, error: auth.error }
+    if (!auth.data) return { success: false, error: 'No autorizado' }
     const { supabase, userId } = auth.data
 
     // Obtener el pago
@@ -639,7 +621,7 @@ export async function crearPreferenciaMercadoPago(pagoId: string): Promise<Resul
         sandbox_init_point: preference.sandbox_init_point
       }
     }
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error:', error)
     return { success: false, error: 'Error inesperado al crear preferencia de pago' }
   }
@@ -664,6 +646,7 @@ export async function crearPagoCheckoutAPI(
   try {
     const auth = await requireServerRole(['padre'])
     if (!auth.success) return { success: false, error: auth.error }
+    if (!auth.data) return { success: false, error: 'No autorizado' }
     const { supabase, userId } = auth.data
 
     // Obtener el pago
@@ -751,7 +734,7 @@ export async function crearPagoCheckoutAPI(
         status_detail: payment.status_detail,
         transaction_amount: payment.transaction_amount,
         net_amount: payment.transaction_details?.net_received_amount,
-        fee_amount: payment.fee_details?.reduce((sum: number, fee: any) => sum + fee.amount, 0),
+        fee_amount: payment.fee_details?.reduce((sum: number, fee: { amount?: number }) => sum + (fee.amount || 0), 0) || 0,
         payer_email: payment.payer?.email,
         payer_identification: payment.payer?.identification?.number,
         payment_data: payment
@@ -801,6 +784,7 @@ export async function obtenerDatosPagoParaRecibo(pagoId: string): Promise<Result
   try {
     const auth = await requireServerRole(['directivo', 'padre'])
     if (!auth.success) return { success: false, error: auth.error }
+    if (!auth.data) return { success: false, error: 'No autorizado' }
     const { supabase, userId, role } = auth.data
 
     // 1. Obtener el pago con toda la información necesaria usando joins

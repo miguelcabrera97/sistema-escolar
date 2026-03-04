@@ -53,11 +53,17 @@ export default function DirectivoPagos() {
   const [tabActivo, setTabActivo] = useState('todos')
   const [necesitaMigracion, setNecesitaMigracion] = useState(false)
   const [migrandoPadres, setMigrandoPadres] = useState(false)
+  const [mensaje, setMensaje] = useState<{ tipo: 'error' | 'success', texto: string } | null>(null)
 
   useEffect(() => {
     cargarPagos()
     verificarMigracion()
   }, [])
+
+  const mostrarMensaje = (tipo: 'error' | 'success', texto: string) => {
+    setMensaje({ tipo, texto })
+    setTimeout(() => setMensaje(null), 5000)
+  }
 
   const cargarPagos = async () => {
     setLoading(true)
@@ -66,14 +72,14 @@ export default function DirectivoPagos() {
       if (result.success) {
         setPagos(result.data || [])
       } else {
-        alert('Error al cargar pagos: ' + result.error)
+        mostrarMensaje('error', 'Error al cargar pagos: ' + result.error)
         if (result.error === 'No autorizado') {
           router.push('/login')
         }
       }
     } catch (error) {
       console.error('Error:', error)
-      alert('Error al cargar los datos')
+      mostrarMensaje('error', 'Error al cargar los datos')
     } finally {
       setLoading(false)
     }
@@ -98,20 +104,20 @@ export default function DirectivoPagos() {
     setMigrandoPadres(true)
     try {
       const result = await migrarPadresExistentes()
-      if (result.success) {
-        alert(
+      if (result.success && result.data) {
+        mostrarMensaje('success',
           `✅ Migración completada\n\n` +
           `Total de usuarios padre: ${result.data.total}\n` +
           `Migrados: ${result.data.migrados}\n\n` +
           `${result.data.message}`
         )
         setNecesitaMigracion(false)
-      } else {
-        alert('Error en la migración: ' + result.error)
+      } else if (!result.success) {
+        mostrarMensaje('error', 'Error en la migración: ' + result.error)
       }
     } catch (error) {
       console.error('Error:', error)
-      alert('Error al ejecutar la migración')
+      mostrarMensaje('error', 'Error al ejecutar la migración')
     } finally {
       setMigrandoPadres(false)
     }
@@ -156,6 +162,16 @@ export default function DirectivoPagos() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {mensaje && (
+        <div className={`fixed top-4 right-4 z-50 p-4 rounded shadow-lg max-w-md ${mensaje.tipo === 'success' ? 'bg-green-100 text-green-800 border-l-4 border-green-500' : 'bg-red-100 text-red-800 border-l-4 border-red-500'}`}>
+          <div className="flex justify-between items-start">
+            <p className="whitespace-pre-line text-sm">{mensaje.texto}</p>
+            <button onClick={() => setMensaje(null)} className="ml-4 text-gray-500 hover:text-gray-700">
+              <XCircle className="h-5 w-5" />
+            </button>
+          </div>
+        </div>
+      )}
       <header className="bg-white shadow">
         <div className="max-w-7xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">

@@ -19,6 +19,7 @@ export async function crearCurso(data: CrearCursoData): Promise<Result> {
   try {
     const auth = await requireServerRole(['directivo'])
     if (!auth.success) return { success: false, error: auth.error }
+    if (!auth.data) return { success: false, error: 'No autorizado' }
     const { supabase } = auth.data
 
     // Verificar que el maestro existe y está activo
@@ -76,6 +77,7 @@ export async function obtenerCursosAuxiliar(auxiliarId: string): Promise<Result>
   try {
     const auth = await requireServerRole(['auxiliar_calificaciones'])
     if (!auth.success) return { success: false, error: auth.error }
+    if (!auth.data) return { success: false, error: 'No autorizado' }
     const { supabase } = auth.data
 
     // Obtener cursos asignados al auxiliar
@@ -144,6 +146,7 @@ export async function obtenerCursos(): Promise<Result> {
   try {
     const auth = await requireServerRole(['directivo', 'maestro', 'auxiliar_calificaciones'])
     if (!auth.success) return { success: false, error: auth.error }
+    if (!auth.data) return { success: false, error: 'No autorizado' }
     const { supabase } = auth.data
 
     // Obtener cursos
@@ -208,6 +211,7 @@ export async function obtenerCursoPorId(cursoId: string): Promise<Result> {
   try {
     const auth = await requireServerRole(['directivo', 'maestro', 'auxiliar_calificaciones', 'padre', 'alumno'])
     if (!auth.success) return { success: false, error: auth.error }
+    if (!auth.data) return { success: false, error: 'No autorizado' }
     const { supabase } = auth.data
 
     const { data: curso, error } = await supabase
@@ -258,6 +262,7 @@ export async function editarCurso(data: EditarCursoData): Promise<Result> {
   try {
     const auth = await requireServerRole(['directivo'])
     if (!auth.success) return { success: false, error: auth.error }
+    if (!auth.data) return { success: false, error: 'No autorizado' }
     const { supabase } = auth.data
 
     // Verificar que el maestro existe y está activo
@@ -309,6 +314,7 @@ export async function eliminarCurso(cursoId: string): Promise<Result> {
   try {
     const auth = await requireServerRole(['directivo'])
     if (!auth.success) return { success: false, error: auth.error }
+    if (!auth.data) return { success: false, error: 'No autorizado' }
     const { supabase } = auth.data
 
     // Verificar si hay tareas asociadas
@@ -368,6 +374,7 @@ export async function inscribirAlumnos(data: InscribirAlumnosData): Promise<Resu
   try {
     const auth = await requireServerRole(['directivo'])
     if (!auth.success) return { success: false, error: auth.error }
+    if (!auth.data) return { success: false, error: 'No autorizado' }
     const { supabase } = auth.data
 
     // Verificar que el curso existe y obtener su grado y grupo
@@ -449,6 +456,7 @@ export async function obtenerAlumnosInscritos(cursoId: string): Promise<Result> 
   try {
     const auth = await requireServerRole(['directivo', 'maestro', 'auxiliar_calificaciones'])
     if (!auth.success) return { success: false, error: auth.error }
+    if (!auth.data) return { success: false, error: 'No autorizado' }
     const { supabase } = auth.data
 
     // Obtener inscripciones primero
@@ -535,6 +543,7 @@ export async function desinscribirAlumno(inscripcionId: string): Promise<Result>
   try {
     const auth = await requireServerRole(['directivo'])
     if (!auth.success) return { success: false, error: auth.error }
+    if (!auth.data) return { success: false, error: 'No autorizado' }
     const { supabase } = auth.data
 
     const { error } = await supabase
@@ -560,6 +569,7 @@ export async function obtenerAlumnosDisponibles(cursoId: string): Promise<Result
   try {
     const auth = await requireServerRole(['directivo'])
     if (!auth.success) return { success: false, error: auth.error }
+    if (!auth.data) return { success: false, error: 'No autorizado' }
     const { supabase } = auth.data
 
     // Obtener todos los alumnos

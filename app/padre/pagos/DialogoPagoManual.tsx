@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Loader2, FileText, Info } from 'lucide-react'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { registrarPagoManual } from '@/app/actions/pagos-actions'
 import { createClient } from '@/lib/supabase'
 
@@ -36,13 +37,14 @@ interface Props {
 export function DialogoPagoManual({ pago, open, onOpenChange, onSuccess }: Props) {
   const [loading, setLoading] = useState(false)
   const [referencia, setReferencia] = useState('')
+  const [cuenta, setCuenta] = useState('')
   const [comprobante, setComprobante] = useState<File | null>(null)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!pago || !referencia.trim()) {
-      alert('Por favor ingresa el número de referencia')
+    if (!pago || !referencia.trim() || !cuenta || !comprobante) {
+      alert('Por favor completa todos los campos obligatorios, incluyendo el comprobante')
       return
     }
 
@@ -92,7 +94,7 @@ export function DialogoPagoManual({ pago, open, onOpenChange, onSuccess }: Props
       }
 
       // 2. Registrar pago con URL (si hubo archivo)
-      const result = await registrarPagoManual(pago.id, referencia, comprobanteUrl)
+      const result = await registrarPagoManual(pago.id, referencia, cuenta, comprobanteUrl)
 
       if (result.success) {
         alert('¡Pago registrado!\n\nTu pago será verificado por la dirección de la escuela. Te notificaremos cuando sea aprobado.')
@@ -113,6 +115,7 @@ export function DialogoPagoManual({ pago, open, onOpenChange, onSuccess }: Props
 
   const limpiarFormulario = () => {
     setReferencia('')
+    setCuenta('')
     setComprobante(null)
   }
 
@@ -176,6 +179,24 @@ export function DialogoPagoManual({ pago, open, onOpenChange, onSuccess }: Props
 
           {/* Formulario */}
           <div>
+            <Label>Cuenta de Depósito / Transferencia *</Label>
+            <Select value={cuenta} onValueChange={setCuenta} required>
+              <SelectTrigger>
+                <SelectValue placeholder="Selecciona a qué cuenta pagaste" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Azteca prepa">Azteca prepa</SelectItem>
+                <SelectItem value="Azteca Secundaria">Azteca Secundaria</SelectItem>
+                <SelectItem value="Azteca Transporte/Actividades">Azteca Transporte/Actividades</SelectItem>
+                <SelectItem value="Banamex prepa">Banamex prepa</SelectItem>
+                <SelectItem value="Banamex Secundaria">Banamex Secundaria</SelectItem>
+                <SelectItem value="Azteca Primaria">Azteca Primaria</SelectItem>
+                <SelectItem value="BBVA Primaria">BBVA Primaria</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
             <Label>Número de Referencia / Folio *</Label>
             <Input
               type="text"
@@ -191,11 +212,12 @@ export function DialogoPagoManual({ pago, open, onOpenChange, onSuccess }: Props
           </div>
 
           <div>
-            <Label>Comprobante (opcional)</Label>
+            <Label>Comprobante *</Label>
             <Input
               type="file"
               accept="image/jpeg,image/png,image/jpg,application/pdf"
               onChange={handleArchivoChange}
+              required
             />
             <p className="text-xs text-gray-500 mt-1">
               Sube una imagen o PDF del comprobante (máx. 5MB)
@@ -231,7 +253,7 @@ export function DialogoPagoManual({ pago, open, onOpenChange, onSuccess }: Props
             </Button>
             <Button
               type="submit"
-              disabled={loading || !referencia.trim()}
+              disabled={loading || !referencia.trim() || !cuenta || !comprobante}
               className="flex-1"
             >
               {loading ? (

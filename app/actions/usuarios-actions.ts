@@ -195,6 +195,46 @@ export async function obtenerAlumnosPorGradoGrupo(grado?: string, grupo?: string
   }
 }
 
+export async function obtenerAlumnoPorId(id: string): Promise<Result> {
+  try {
+    const auth = await requireServerRole(['directivo'])
+    if (!auth.success || !auth.data) return { success: false, error: auth.error || 'No autorizado' }
+    const { supabase } = auth.data
+
+    const { data, error } = await supabase
+      .from('alumnos')
+      .select(`
+        id,
+        matricula,
+        curp,
+        grado,
+        grupo,
+        user_id,
+        profiles:user_id(nombre, apellidos, email, telefono, activo),
+        padre_alumno(
+          padre_id,
+          padres(
+            id,
+            user_id,
+            profiles:user_id(nombre, apellidos, email, telefono)
+          )
+        )
+      `)
+      .eq('id', id)
+      .single()
+
+    if (error) {
+      console.error('[obtenerAlumnoPorId] Error detallado:', JSON.stringify(error))
+      return { success: false, error: error.message || String(error) }
+    }
+
+    return { success: true, data }
+  } catch (error) {
+    console.error('[obtenerAlumnoPorId] Error inesperado:', error)
+    return { success: false, error: 'Error inesperado' }
+  }
+}
+
 export async function obtenerMaestros(): Promise<Result> {
   try {
     const auth = await requireServerRole(['directivo'])
@@ -210,12 +250,6 @@ export async function obtenerMaestros(): Promise<Result> {
         especialidad,
         profiles:user_id(nombre, apellidos, email, activo)
       `)
-      .order('profiles(nombre)')
-
-    if (error) {
-      return { success: false, error: error instanceof Error ? error.message : String(error) }
-    }
-
     // Transformar datos para que activo esté accesible
     const maestrosTransformados = data?.map(m => {
       const profile = Array.isArray(m.profiles) ? m.profiles[0] : m.profiles
@@ -229,6 +263,10 @@ export async function obtenerMaestros(): Promise<Result> {
         especialidad: m.especialidad
       }
     }) || []
+
+    maestrosTransformados.sort((a, b) => {
+      return a.nombre.localeCompare(b.nombre)
+    })
 
     return { success: true, data: maestrosTransformados }
   } catch (error) {
@@ -251,12 +289,6 @@ export async function obtenerAuxiliares(): Promise<Result> {
         user_id,
         profiles:user_id(nombre, apellidos, email, activo)
       `)
-      .order('profiles(nombre)')
-
-    if (error) {
-      return { success: false, error: error instanceof Error ? error.message : String(error) }
-    }
-
     // Transformar datos para que activo esté accesible
     const auxiliaresTransformados = data?.map(a => {
       const profile = Array.isArray(a.profiles) ? a.profiles[0] : a.profiles
@@ -269,6 +301,10 @@ export async function obtenerAuxiliares(): Promise<Result> {
         activo: profile?.activo || false
       }
     }) || []
+
+    auxiliaresTransformados.sort((a, b) => {
+      return a.nombre.localeCompare(b.nombre)
+    })
 
     return { success: true, data: auxiliaresTransformados }
   } catch (error) {
@@ -541,6 +577,52 @@ async function toggleActivoUsuario(
 
 export async function toggleActivoAlumno(id: string, activo: boolean): Promise<Result> {
   return toggleActivoUsuario('alumnos', id, activo, 'Alumno')
+}
+
+// ============================================
+// ELIMINAR USUARIO DEFINITIVAMENTE
+// ============================================
+
+export async function eliminarUsuarioDefinitivamente(
+  tabla: 'alumnos' | 'maestros' | 'auxiliares_calificaciones' | 'padres',
+  id: string,
+  etiqueta: string
+): Promise<Result> {
+  try {
+    const auth = await requireServerRole(['directivo'])
+    if (!auth.success || !auth.data) return { success: false, error: auth.error || 'No autorizado' }
+    const { supabase } = auth.data
+
+    // 1. Encontrar el user_id
+    const { data: usuarioData } = await supabase.from(tabla).select('user_id').eq('id', id).single()
+    if (!usuarioData) return { success: false, error: `${etiqueta} no encontrado` }
+
+    const userId = usuarioData.user_id
+
+    // 2. Borrar de la tabla específica (aunque cascade podría hacerlo, es más seguro)
+    await supabase.from(tabla).delete().eq('id', id)
+
+    // 3. Borrar de profiles
+    await supabase.from('profiles').delete().eq('id', userId)
+
+    // 4. Borrar de Auth usando admin
+    const { error: deleteAuthError } = await supabaseAdmin.auth.admin.deleteUser(userId)
+
+    if (deleteAuthError) {
+      console.error(`Error al eliminar usuario Auth (${userId}):`, deleteAuthError)
+      // Puede que ya no exista, ignoramos o loggeamos pero permitimos seguir
+    }
+
+    revalidatePath('/directivo/usuarios')
+    return { success: true, data: { message: `${etiqueta} eliminado definitivamente del sistema` } }
+  } catch (error) {
+    console.error('Error al eliminar definitivamente:', error)
+    return { success: false, error: 'Error inesperado al eliminar' }
+  }
+}
+
+export async function eliminarAlumnoDefinitivamente(id: string): Promise<Result> {
+  return eliminarUsuarioDefinitivamente('alumnos', id, 'Alumno')
 }
 
 export async function toggleActivoMaestro(id: string, activo: boolean): Promise<Result> {
@@ -960,6 +1042,29 @@ export async function desactivarPadre(id: string): Promise<Result> {
   return toggleActivoPadre(id, false)
 }
 
+export async function eliminarPadreDefinitivamente(userId: string): Promise<Result> {
+  try {
+    const auth = await requireServerRole(['directivo'])
+    if (!auth.success || !auth.data) return { success: false, error: auth.error || 'No autorizado' }
+    const { supabase } = auth.data
+
+    // Borrar de padres por user_id
+    await supabase.from('padres').delete().eq('user_id', userId)
+
+    // Borrar de profiles
+    await supabase.from('profiles').delete().eq('id', userId)
+
+    // Borrar Auth
+    await supabaseAdmin.auth.admin.deleteUser(userId)
+
+    revalidatePath('/directivo/usuarios')
+    return { success: true, data: { message: 'Usuario eliminado definitivamente' } }
+  } catch (error) {
+    console.error('Error al eliminar padre/directivo:', error)
+    return { success: false, error: 'Error inesperado al eliminar' }
+  }
+}
+
 export async function reactivarPadre(id: string): Promise<Result> {
   return toggleActivoPadre(id, true)
 }
@@ -971,9 +1076,65 @@ export async function reactivarPadre(id: string): Promise<Result> {
 export async function desactivarAlumno(id: string) { return toggleActivoAlumno(id, false) }
 export async function reactivarAlumno(id: string) { return toggleActivoAlumno(id, true) }
 export async function desactivarMaestro(id: string) { return toggleActivoMaestro(id, false) }
+
+export async function eliminarMaestroDefinitivamente(id: string): Promise<Result> {
+  return eliminarUsuarioDefinitivamente('maestros', id, 'Maestro')
+}
 export async function reactivarMaestro(id: string) { return toggleActivoMaestro(id, true) }
 export async function desactivarAuxiliar(id: string) { return toggleActivoAuxiliar(id, false) }
+
+export async function eliminarAuxiliarDefinitivamente(id: string): Promise<Result> {
+  return eliminarUsuarioDefinitivamente('auxiliares_calificaciones', id, 'Auxiliar')
+}
 export async function reactivarAuxiliar(id: string) { return toggleActivoAuxiliar(id, true) }
+
+// ============================================
+// OBTENER PADRE POR ID
+// ============================================
+
+export async function obtenerPadrePorId(id: string): Promise<Result> {
+  try {
+    const auth = await requireServerRole(['directivo'])
+    if (!auth.success || !auth.data) return { success: false, error: auth.error || 'No autorizado' }
+    const { supabase } = auth.data
+
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id, nombre, apellidos, email, telefono, role, activo')
+      .eq('id', id)
+      .single()
+
+    if (error) {
+      return { success: false, error: error instanceof Error ? error.message : String(error) }
+    }
+
+    const { data: alumnosData, error: alumnosError } = await supabase
+      .from('padres')
+      .select(`
+        id,
+        padre_alumno(
+          alumno_id,
+          alumnos(
+            id,
+            matricula,
+            grado,
+            grupo,
+            profiles:user_id(nombre, apellidos, activo)
+          )
+        )
+      `)
+      .eq('user_id', id)
+      .single()
+
+    if (alumnosError) {
+      console.error('[obtenerPadrePorId] Error en relacion:', JSON.stringify(alumnosError))
+    }
+
+    return { success: true, data: { ...data, relacion_alumnos: alumnosData?.padre_alumno || [] } }
+  } catch (error: unknown) {
+    return { success: false, error: error instanceof Error ? error.message : String(error) }
+  }
+}
 
 // ============================================
 // RESTABLECER CONTRASEÑA (ADMINISTRATIVO)

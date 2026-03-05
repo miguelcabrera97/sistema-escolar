@@ -35,6 +35,7 @@ const crearPagosMasivosSchema = z.object({
 const registrarPagoManualSchema = z.object({
   pagoId: z.string().uuid(),
   referencia: z.string().min(3, 'La referencia debe tener al menos 3 caracteres'),
+  cuenta: z.string().min(1, 'Selecciona una cuenta de depósito'),
   comprobanteUrl: z.string().optional().nullable(),
 })
 
@@ -307,11 +308,12 @@ export async function obtenerPagosPadre(): Promise<Result> {
 export async function registrarPagoManual(
   pagoId: string,
   referencia: string,
+  cuenta: string,
   comprobanteUrl?: string
 ): Promise<Result> {
   try {
     // 1. Validar
-    const validation = registrarPagoManualSchema.safeParse({ pagoId, referencia, comprobanteUrl })
+    const validation = registrarPagoManualSchema.safeParse({ pagoId, referencia, cuenta, comprobanteUrl })
     if (!validation.success) {
       return { success: false, error: validation.error.issues[0].message }
     }
@@ -354,7 +356,7 @@ export async function registrarPagoManual(
       .update({
         estado: 'pendiente_verificacion',
         metodo_pago: 'manual',
-        referencia_pago: referencia,
+        referencia_pago: `${cuenta} | Ref: ${referencia}`,
         comprobante_url: comprobanteUrl || null,
         updated_at: new Date().toISOString()
       })
@@ -435,6 +437,35 @@ export async function cancelarPago(pagoId: string): Promise<Result> {
 
     revalidatePath('/directivo/pagos')
     return { success: true, data: { message: 'Pago cancelado' } }
+  } catch (error) {
+    console.error('Error:', error)
+    return { success: false, error: 'Error inesperado' }
+  }
+}
+
+// ============================================
+// ELIMINAR PAGO
+// ============================================
+
+export async function eliminarPago(pagoId: string): Promise<Result> {
+  try {
+    const auth = await requireServerRole(['directivo'])
+    if (!auth.success) return { success: false, error: auth.error }
+    if (!auth.data) return { success: false, error: 'No autorizado' }
+    const { supabase } = auth.data
+
+    const { error } = await supabase
+      .from('pagos')
+      .delete()
+      .eq('id', pagoId)
+
+    if (error) {
+      console.error('Error al eliminar pago:', error)
+      return { success: false, error: error.message }
+    }
+
+    revalidatePath('/directivo/pagos')
+    return { success: true, data: { message: 'Pago eliminado permanentemente' } }
   } catch (error) {
     console.error('Error:', error)
     return { success: false, error: 'Error inesperado' }

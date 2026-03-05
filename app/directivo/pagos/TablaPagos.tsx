@@ -4,8 +4,8 @@ import { useState } from 'react'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { CheckCircle, XCircle, Eye, Ban, Download } from 'lucide-react'
-import { verificarPagoManual, cancelarPago, obtenerDatosPagoParaRecibo } from '@/app/actions/pagos-actions'
+import { CheckCircle, XCircle, Eye, Ban, Download, Trash2 } from 'lucide-react'
+import { verificarPagoManual, cancelarPago, eliminarPago, obtenerDatosPagoParaRecibo } from '@/app/actions/pagos-actions'
 import { DialogoDetallePago } from './DialogoDetallePago'
 import { descargarReciboPDF } from '@/lib/recibo-pdf'
 
@@ -96,6 +96,26 @@ export function TablaPagos({ pagos, onSuccess }: Props) {
     } catch (error) {
       console.error('Error:', error)
       alert('Error al cancelar el pago')
+    } finally {
+      setProcesando(null)
+    }
+  }
+
+  const handleEliminarPago = async (pagoId: string) => {
+    if (!confirm('¿Estás seguro de ELIMINAR este cobro PERMANENTEMENTE? Esta acción borrará el registro de la base de datos y el padre ya no lo verá.')) return
+
+    setProcesando(pagoId)
+    try {
+      const result = await eliminarPago(pagoId)
+      if (result.success) {
+        alert(result.data.message)
+        onSuccess()
+      } else {
+        alert('Error: ' + result.error)
+      }
+    } catch (error) {
+      console.error('Error:', error)
+      alert('Error al eliminar el pago')
     } finally {
       setProcesando(null)
     }
@@ -260,15 +280,15 @@ export function TablaPagos({ pagos, onSuccess }: Props) {
                       </>
                     )}
 
-                    {(pago.estado === 'pendiente' || pago.estado === 'vencido') && (
+                    {(pago.estado === 'pendiente' || pago.estado === 'vencido' || pago.estado === 'cancelado') && (
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => handleCancelarPago(pago.id)}
+                        onClick={() => handleEliminarPago(pago.id)}
                         disabled={procesando === pago.id}
-                        title="Cancelar pago"
+                        title="Eliminar cobro permanentemente"
                       >
-                        <Ban className="h-4 w-4 text-red-600" />
+                        <Trash2 className="h-4 w-4 text-red-600" />
                       </Button>
                     )}
                   </div>

@@ -7,8 +7,9 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { obtenerPadresYDirectivos, desactivarPadre, reactivarPadre } from '@/app/actions/usuarios-actions'
-import { Loader2, Users, Pencil, Trash2, RefreshCw, Search, Filter, X, Key } from 'lucide-react'
+import { obtenerPadresYDirectivos, desactivarPadre, reactivarPadre, eliminarPadreDefinitivamente } from '@/app/actions/usuarios-actions'
+import { Loader2, Users, Pencil, Trash2, RefreshCw, Search, Filter, X, Key, Eye } from 'lucide-react'
+import Link from 'next/link'
 import { DialogoEditarPadre } from './DialogoEditarPadre'
 import { DialogoConfirmarEliminacion } from './DialogoConfirmarEliminacion'
 import { DialogoRestablecerPassword } from './DialogoRestablecerPassword'
@@ -110,6 +111,23 @@ export function ListaPadres() {
     cargarUsuarios()
   }
 
+  const handleEliminarDefinitivo = async (padre: Usuario) => {
+    if (!confirm(`¿ESTÁS SEGURO de que deseas eliminar a ${padre.nombre} ${padre.apellidos} DEFINITIVAMENTE del sistema? Esto no se puede deshacer y borrará toda su información, cuenta y acceso.`)) return
+
+    try {
+      const result = await eliminarPadreDefinitivamente(padre.id)
+      if (result.success) {
+        alert(result.data.message)
+        cargarUsuarios()
+      } else {
+        alert('Error: ' + result.error)
+      }
+    } catch (error) {
+      console.error('Error:', error)
+      alert('Error al eliminar definitivamente')
+    }
+  }
+
   const padres = usuarios.filter(u => u.role === 'padre')
   const directivos = usuarios.filter(u => u.role === 'directivo')
 
@@ -183,7 +201,6 @@ export function ListaPadres() {
                     <TableRow>
                       <TableHead>Nombre Completo</TableHead>
                       <TableHead>Email</TableHead>
-                      <TableHead>Teléfono</TableHead>
                       <TableHead>Estado</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -195,9 +212,6 @@ export function ListaPadres() {
                         </TableCell>
                         <TableCell className="text-sm text-gray-600">
                           {usuario.email}
-                        </TableCell>
-                        <TableCell className="text-sm text-gray-600">
-                          {usuario.telefono || '-'}
                         </TableCell>
                         <TableCell>
                           <Badge variant={usuario.activo ? 'default' : 'secondary'}>
@@ -301,7 +315,6 @@ export function ListaPadres() {
                     <TableRow>
                       <TableHead>Nombre Completo</TableHead>
                       <TableHead>Email</TableHead>
-                      <TableHead>Teléfono</TableHead>
                       <TableHead>Estado</TableHead>
                       <TableHead className="text-right">Acciones</TableHead>
                     </TableRow>
@@ -315,9 +328,6 @@ export function ListaPadres() {
                         <TableCell className="text-sm text-gray-600">
                           {padre.email}
                         </TableCell>
-                        <TableCell className="text-sm text-gray-600">
-                          {padre.telefono || '-'}
-                        </TableCell>
                         <TableCell>
                           <Badge variant={padre.activo ? 'default' : 'secondary'}>
                             {padre.activo ? 'Activo' : 'Inactivo'}
@@ -325,6 +335,16 @@ export function ListaPadres() {
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              asChild
+                              title="Ver Detalles"
+                            >
+                              <Link href={`/directivo/usuarios/padres/${padre.id}`}>
+                                <Eye className="h-4 w-4 text-blue-600" />
+                              </Link>
+                            </Button>
                             <Button
                               variant="ghost"
                               size="sm"
@@ -347,17 +367,29 @@ export function ListaPadres() {
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => handleEliminar(padre)}
+                                title="Desactivar padre"
                               >
-                                <Trash2 className="h-4 w-4 text-red-600" />
+                                <Trash2 className="h-4 w-4 text-gray-500" />
                               </Button>
                             ) : (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleReactivar(padre)}
-                              >
-                                <RefreshCw className="h-4 w-4 text-green-600" />
-                              </Button>
+                              <>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleReactivar(padre)}
+                                  title="Reactivar padre"
+                                >
+                                  <RefreshCw className="h-4 w-4 text-green-600" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleEliminarDefinitivo(padre)}
+                                  title="Eliminar definitivamente"
+                                >
+                                  <Trash2 className="h-4 w-4 text-red-600" />
+                                </Button>
+                              </>
                             )}
                           </div>
                         </TableCell>

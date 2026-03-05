@@ -157,12 +157,23 @@ export async function crearGrado(formData: FormData): Promise<Result> {
       ? `${nombre}° ${nivelData.nombre}`
       : `${nombre} ${nivelData.nombre}`
 
+    const { data: maxOrdenData } = await supabase
+      .from('grados')
+      .select('orden')
+      .eq('nivel_id', nivel_id)
+      .order('orden', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    const siguienteOrden = (maxOrdenData?.orden ?? 0) + 1
+
     const { error } = await supabase.from('grados').insert([
       {
         nivel_id,
         nombre,
         nombre_completo,
         activo: true,
+        orden: siguienteOrden,
       },
     ])
 

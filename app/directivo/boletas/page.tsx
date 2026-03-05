@@ -12,7 +12,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
-import { ArrowLeft, FileText, Trash2, Download, Search } from 'lucide-react'
+import { ArrowLeft, FileText, Trash2, Download, Search, ChevronDown, ChevronUp } from 'lucide-react'
 import { obtenerTodasLasBoletas, eliminarBoleta } from '@/app/actions/boletas-actions'
 import { obtenerAlumnos } from '@/app/actions/usuarios-actions'
 import { Alumno } from '@/app/types/usuarios'
@@ -44,6 +44,19 @@ export default function DirectivoBoletas() {
   const [boletas, setBoletas] = useState<Boleta[]>([])
   const [loading, setLoading] = useState(true)
   const [busqueda, setBusqueda] = useState('')
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
+
+  const toggleGroup = (groupId: string) => {
+    setExpandedGroups(prev => {
+      const next = new Set(prev)
+      if (next.has(groupId)) {
+        next.delete(groupId)
+      } else {
+        next.add(groupId)
+      }
+      return next
+    })
+  }
 
   useEffect(() => {
     cargarDatos()
@@ -105,27 +118,26 @@ export default function DirectivoBoletas() {
   })
 
   // Agrupar boletas para detectar versiones múltiples
-  const boletasConVersion = boletasFiltradas.map(boleta => {
-    const mismaPeriodoCiclo = boletasFiltradas.filter(
-      b => b.alumno_id === boleta.alumno_id &&
-        b.periodo === boleta.periodo &&
-        b.ciclo_escolar === boleta.ciclo_escolar
-    )
-
-    const versionesMultiples = mismaPeriodoCiclo.length > 1
-    const esUltima = versionesMultiples &&
-      mismaPeriodoCiclo.every(b => new Date(b.fecha_subida) <= new Date(boleta.fecha_subida))
-
-    return {
-      ...boleta,
-      tieneVersiones: versionesMultiples,
-      esVersionMasReciente: esUltima,
-      numeroVersion: mismaPeriodoCiclo
-        .sort((a, b) => new Date(b.fecha_subida).getTime() - new Date(a.fecha_subida).getTime())
-        .findIndex(b => b.id === boleta.id) + 1,
-      totalVersiones: mismaPeriodoCiclo.length
+  const boletasAgrupadas = boletasFiltradas.reduce((acc, boleta) => {
+    const groupId = `${boleta.alumno_id}-${boleta.periodo}-${boleta.ciclo_escolar}`
+    if (!acc[groupId]) {
+      acc[groupId] = []
     }
-  })
+    acc[groupId].push(boleta)
+    return acc
+  }, {} as Record<string, typeof boletasFiltradas>)
+
+  // Convertir a array y ordenar por la fecha de la versión más reciente del grupo
+  const gruposBoletas = Object.values(boletasAgrupadas).map(grupo => {
+    // Ordenar versiones dentro del grupo de más reciente a más antigua
+    const versionesOrdenadas = [...grupo].sort((a, b) => new Date(b.fecha_subida).getTime() - new Date(a.fecha_subida).getTime())
+    return {
+      id: `${versionesOrdenadas[0].alumno_id}-${versionesOrdenadas[0].periodo}-${versionesOrdenadas[0].ciclo_escolar}`,
+      versionActual: versionesOrdenadas[0],
+      versionesAnteriores: versionesOrdenadas.slice(1),
+      totalVersiones: versionesOrdenadas.length
+    }
+  }).sort((a, b) => new Date(b.versionActual.fecha_subida).getTime() - new Date(a.versionActual.fecha_subida).getTime())
 
   if (loading && boletas.length === 0) { // Mostrar cargando solo en la carga inicial
     return (
@@ -165,7 +177,7 @@ export default function DirectivoBoletas() {
               <div>
                 <CardTitle>Boletas Subidas</CardTitle>
                 <CardDescription>
-                  {boletasConVersion.length} boleta{boletasConVersion.length !== 1 ? 's' : ''} en el sistema
+                  {gruposBoletas.length} registro{gruposBoletas.length !== 1 ? 's' : ''} en el sistema
                 </CardDescription>
               </div>
               <div className="w-64">
@@ -182,80 +194,145 @@ export default function DirectivoBoletas() {
             </div>
           </CardHeader>
           <CardContent>
-            {boletasConVersion.length === 0 ? (
+            {gruposBoletas.length === 0 ? (
               <div className="text-center py-12 text-gray-500">
                 <FileText className="h-12 w-12 mx-auto text-gray-300 mb-4" />
                 <p>No hay boletas subidas aún</p>
               </div>
             ) : (
-              <div className="space-y-3">
-                {boletasConVersion.map((boleta) => {
+              <div className="space-y-4">
+                {gruposBoletas.map((grupo) => {
+                  const boleta = grupo.versionActual
                   const alumno = Array.isArray(boleta.alumnos) ? boleta.alumnos[0] : boleta.alumnos
                   const profiles = alumno?.profiles ? (Array.isArray(alumno.profiles) ? alumno.profiles[0] : alumno.profiles) : null
+                  const isExpanded = expandedGroups.has(grupo.id)
+                  const tieneAnteriores = grupo.versionesAnteriores.length > 0
 
                   return (
-                    <div
-                      key={boleta.id}
-                      className={`flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 ${boleta.esVersionMasReciente ? 'border-green-300 bg-green-50/30' : ''
-                        }`}
-                    >
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <FileText className="h-4 w-4 text-blue-600" />
-                          <span className="font-semibold">
-                            {profiles?.nombre || ''} {profiles?.apellidos || ''}
-                          </span>
-                          <Badge variant="outline">{alumno?.matricula || '-'}</Badge>
-                          {boleta.tieneVersiones && (
-                            <>
-                              {boleta.esVersionMasReciente ? (
-                                <Badge variant="default" className="bg-green-600">
-                                  Versión Actual
-                                </Badge>
-                              ) : (
-                                <Badge variant="secondary">
-                                  Versión {boleta.numeroVersion} de {boleta.totalVersiones}
-                                </Badge>
-                              )}
-                            </>
+                    <div key={grupo.id} className="border rounded-lg overflow-hidden bg-white shadow-sm">
+                      {/* Fila Principal (Versión Actual) */}
+                      <div
+                        className={`flex items-center justify-between p-4 hover:bg-gray-50 transition-colors ${tieneAnteriores && isExpanded ? 'border-b border-gray-100 bg-gray-50/50' : ''
+                          }`}
+                      >
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            {tieneAnteriores && (
+                              <button
+                                onClick={() => toggleGroup(grupo.id)}
+                                className="mr-1 p-1 hover:bg-gray-200 rounded-full transition-colors focus:outline-none"
+                                title={isExpanded ? "Ocultar versiones anteriores" : "Ver versiones anteriores"}
+                              >
+                                {isExpanded ? (
+                                  <ChevronUp className="h-4 w-4 text-gray-500" />
+                                ) : (
+                                  <ChevronDown className="h-4 w-4 text-gray-500" />
+                                )}
+                              </button>
+                            )}
+                            <FileText className="h-4 w-4 text-blue-600" />
+                            <span className="font-semibold text-gray-900">
+                              {profiles?.nombre || ''} {profiles?.apellidos || ''}
+                            </span>
+                            <Badge variant="outline">{alumno?.matricula || '-'}</Badge>
+                          </div>
+                          <div className={`text-sm text-gray-600 ${tieneAnteriores ? 'ml-8' : 'ml-6'}`}>
+                            <span className="font-medium">{boleta.periodo}</span> • {boleta.ciclo_escolar} • {alumno?.grado || '-'}° {alumno?.grupo || '-'}
+                          </div>
+                          <div className={`text-xs text-gray-500 mt-1 ${tieneAnteriores ? 'ml-8' : 'ml-6'}`}>
+                            Subido: {new Date(boleta.fecha_subida).toLocaleString('es-MX', {
+                              year: 'numeric',
+                              month: 'short',
+                              day: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </div>
+                          {boleta.notas && (
+                            <div className={`text-xs text-gray-500 mt-1 italic ${tieneAnteriores ? 'ml-8' : 'ml-6'}`}>
+                              {boleta.notas}
+                            </div>
                           )}
                         </div>
-                        <div className="text-sm text-gray-600">
-                          <span className="font-medium">{boleta.periodo}</span> • {boleta.ciclo_escolar} • {alumno?.grado || '-'}° {alumno?.grupo || '-'}
+
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => window.open(boleta.archivo_url, '_blank')}
+                            title="Ver PDF Actual"
+                          >
+                            <Download className="h-4 w-4 md:mr-1" />
+                            <span className="hidden md:inline">Ver PDF</span>
+                          </Button>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => handleEliminarBoleta(boleta.id)}
+                            title="Eliminar esta boleta"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         </div>
-                        <div className="text-xs text-gray-500 mt-1">
-                          Subido: {new Date(boleta.fecha_subida).toLocaleString('es-MX', {
-                            year: 'numeric',
-                            month: 'short',
-                            day: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          })}
-                        </div>
-                        {boleta.notas && (
-                          <div className="text-xs text-gray-500 mt-1 italic">
-                            {boleta.notas}
-                          </div>
-                        )}
                       </div>
 
-                      <div className="flex items-center gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => window.open(boleta.archivo_url, '_blank')}
-                        >
-                          <Download className="h-4 w-4 mr-1" />
-                          Ver PDF
-                        </Button>
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          onClick={() => handleEliminarBoleta(boleta.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
+                      {/* Panel Expandible (Versiones Anteriores) */}
+                      {isExpanded && tieneAnteriores && (
+                        <div className="bg-gray-50 p-4 border-t border-gray-200">
+                          <h4 className="text-xs font-semibold uppercase text-gray-500 mb-3 ml-2">
+                            Versiones Anteriores ({grupo.versionesAnteriores.length})
+                          </h4>
+                          <div className="space-y-2">
+                            {grupo.versionesAnteriores.map((boletaAnt, index) => (
+                              <div
+                                key={boletaAnt.id}
+                                className="flex items-center justify-between p-3 bg-white border border-gray-200 rounded-md"
+                              >
+                                <div className="flex-1 ml-2">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <Badge variant="secondary" className="text-xs">
+                                      Versión {grupo.totalVersiones - index - 1} de {grupo.totalVersiones}
+                                    </Badge>
+                                  </div>
+                                  <div className="text-xs text-gray-500">
+                                    Subido: {new Date(boletaAnt.fecha_subida).toLocaleString('es-MX', {
+                                      year: 'numeric',
+                                      month: 'short',
+                                      day: 'numeric',
+                                      hour: '2-digit',
+                                      minute: '2-digit'
+                                    })}
+                                  </div>
+                                  {boletaAnt.notas && (
+                                    <div className="text-xs text-gray-500 mt-1 italic">
+                                      Nota: {boletaAnt.notas}
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-8"
+                                    onClick={() => window.open(boletaAnt.archivo_url, '_blank')}
+                                  >
+                                    <Download className="h-3 w-3 mr-1" />
+                                    <span className="text-xs">Ver PDF</span>
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-8 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                    onClick={() => handleEliminarBoleta(boletaAnt.id)}
+                                  >
+                                    <Trash2 className="h-3 w-3" />
+                                  </Button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )
                 })}

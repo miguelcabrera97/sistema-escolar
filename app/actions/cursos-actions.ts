@@ -223,13 +223,7 @@ export async function obtenerCursoPorId(cursoId: string): Promise<Result> {
         grado,
         grupo,
         maestro_id,
-        created_at,
-        maestro_profiles:profiles!cursos_maestro_id_fkey(
-          id,
-          nombre,
-          apellidos,
-          email
-        )
+        created_at
       `)
       .eq('id', cursoId)
       .single()
@@ -239,8 +233,21 @@ export async function obtenerCursoPorId(cursoId: string): Promise<Result> {
       return { success: false, error: error.message }
     }
 
+    let maestro_profiles = null
+    if (curso.maestro_id) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('id, nombre, apellidos, email')
+        .eq('id', curso.maestro_id)
+        .single()
+
+      if (profile) {
+        maestro_profiles = profile
+      }
+    }
+
     revalidatePath('/directivo/cursos')
-    return { success: true, data: curso }
+    return { success: true, data: { ...curso, maestro_profiles } }
   } catch (error) {
     console.error('Error:', error)
     return { success: false, error: 'Error al obtener curso' }
@@ -437,6 +444,7 @@ export async function inscribirAlumnos(data: InscribirAlumnosData): Promise<Resu
     }
 
     revalidatePath(`/directivo/cursos/${data.curso_id}`)
+    revalidatePath(`/directivo/cursos`)
     return {
       success: true,
       data: {
@@ -462,9 +470,8 @@ export async function obtenerAlumnosInscritos(cursoId: string): Promise<Result> 
     // Obtener inscripciones primero
     const { data: inscripciones, error: inscripcionesError } = await supabase
       .from('inscripciones')
-      .select('id, alumno_id, created_at')
+      .select('id, alumno_id')
       .eq('curso_id', cursoId)
-      .order('created_at', { ascending: false })
 
     if (inscripcionesError) {
       console.error('Error al obtener inscripciones:', inscripcionesError)
@@ -514,7 +521,6 @@ export async function obtenerAlumnosInscritos(cursoId: string): Promise<Result> 
       return {
         id: inscripcion.id,
         alumno_id: inscripcion.alumno_id,
-        created_at: inscripcion.created_at,
         alumnos: alumno ? {
           id: alumno.id,
           matricula: alumno.matricula,
@@ -529,6 +535,8 @@ export async function obtenerAlumnosInscritos(cursoId: string): Promise<Result> 
         } : null
       }
     }).filter(i => i.alumnos !== null)
+
+    console.log("INSC COMPLETAS:", inscripcionesCompletas.length, "ALUMNOS:", alumnos?.length, "ERRORES:", { alumnosError, profilesError })
 
     return { success: true, data: inscripcionesCompletas }
   } catch (error) {
@@ -546,6 +554,8 @@ export async function desinscribirAlumno(inscripcionId: string): Promise<Result>
     if (!auth.data) return { success: false, error: 'No autorizado' }
     const { supabase } = auth.data
 
+    const { data: inscripcion } = await supabase.from('inscripciones').select('curso_id').eq('id', inscripcionId).single()
+
     const { error } = await supabase
       .from('inscripciones')
       .delete()
@@ -554,6 +564,11 @@ export async function desinscribirAlumno(inscripcionId: string): Promise<Result>
     if (error) {
       console.error('Error al desinscribir alumno:', error)
       return { success: false, error: error.message }
+    }
+
+    if (inscripcion?.curso_id) {
+      revalidatePath(`/directivo/cursos/${inscripcion.curso_id}`)
+      revalidatePath(`/directivo/cursos`)
     }
 
     return { success: true }
@@ -637,5 +652,32 @@ export async function obtenerAlumnosDisponibles(cursoId: string): Promise<Result
   } catch (error) {
     console.error('Error:', error)
     return { success: false, error: 'Error al obtener alumnos disponibles' }
+  }
+}
+
+// ===== OBTENER TAREAS DEL CURSO (DIRECTIVO) =====
+
+export async function obtenerTareasCurso(cursoId: string): Promise<Result> {
+  try {
+    const auth = await requireServerRole(['directivo', 'maestro'])
+    if (!auth.success) return { success: false, error: auth.error }
+    if (!auth.data) return { success: false, error: 'No autorizado' }
+    const { supabase } = auth.data
+
+    const { data: tareas, error } = await supabase
+      .from('tareas')
+      .select('id, titulo, descripcion, fecha_entrega, archivo_url')
+      .eq('curso_id', cursoId)
+      .order('fecha_entrega', { ascending: false })
+
+    if (error) {
+      console.error('Error al obtener tareas:', error)
+      return { success: false, error: error.message }
+    }
+
+    return { success: true, data: tareas || [] }
+  } catch (error) {
+    console.error('Error:', error)
+    return { success: false, error: 'Error al obtener tareas del curso' }
   }
 }

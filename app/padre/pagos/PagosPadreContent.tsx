@@ -109,9 +109,9 @@ export default function PagosPadreContent() {
   }
 
   const pagosPendientes = pagos.filter(p => p.estado === 'pendiente' || p.estado === 'vencido')
-  const pagosPagados = pagos.filter(p => p.estado === 'pagado')
+  const pagosHistorial = pagos.filter(p => p.estado === 'pagado' || p.estado === 'pendiente_verificacion' || p.estado === 'cancelado')
   const totalPendiente = pagosPendientes.reduce((sum, p) => sum + p.monto, 0)
-  const totalPagado = pagosPagados.reduce((sum, p) => sum + p.monto, 0)
+  const totalPagado = pagos.filter(p => p.estado === 'pagado').reduce((sum, p) => sum + p.monto, 0)
 
   // Obtener alumnos únicos
   const alumnosUnicos = Array.from(
@@ -127,6 +127,7 @@ export default function PagosPadreContent() {
       case 'pagado': return 'default'
       case 'pendiente': return 'outline'
       case 'vencido': return 'destructive'
+      case 'pendiente_verificacion': return 'secondary'
       case 'cancelado': return 'secondary'
       default: return 'outline'
     }
@@ -137,6 +138,7 @@ export default function PagosPadreContent() {
       case 'pagado': return 'Pagado'
       case 'pendiente': return 'Pendiente'
       case 'vencido': return 'Vencido'
+      case 'pendiente_verificacion': return 'En Verificación'
       case 'cancelado': return 'Cancelado'
       default: return estado
     }
@@ -193,7 +195,7 @@ export default function PagosPadreContent() {
                 <CheckCircle className="h-8 w-8 text-green-600" />
               </div>
               <p className="text-xs text-gray-500 mt-2">
-                {pagosPagados.length} pago{pagosPagados.length !== 1 ? 's' : ''} realizado{pagosPagados.length !== 1 ? 's' : ''}
+                {pagos.filter(p => p.estado === 'pagado').length} pago{pagos.filter(p => p.estado === 'pagado').length !== 1 ? 's' : ''} realizado{pagos.filter(p => p.estado === 'pagado').length !== 1 ? 's' : ''}
               </p>
             </CardContent>
           </Card>
@@ -234,7 +236,7 @@ export default function PagosPadreContent() {
                   Pendientes ({pagosPendientes.length})
                 </TabsTrigger>
                 <TabsTrigger value="historial">
-                  Historial ({pagosPagados.length})
+                  Historial ({pagosHistorial.length})
                 </TabsTrigger>
               </TabsList>
 
@@ -251,8 +253,8 @@ export default function PagosPadreContent() {
                       <div
                         key={pago.id}
                         className={`p-6 border-2 rounded-lg ${pago.estado === 'vencido'
-                            ? 'border-red-300 bg-red-50'
-                            : 'border-gray-200 bg-white'
+                          ? 'border-red-300 bg-red-50'
+                          : 'border-gray-200 bg-white'
                           }`}
                       >
                         <div className="flex items-start justify-between mb-4">
@@ -299,13 +301,13 @@ export default function PagosPadreContent() {
                               onClick={() => handlePagoManual(pago)}
                             >
                               <FileText className="h-4 w-4 mr-2" />
-                              Pago Manual
+                              Transferencia
                             </Button>
                             <Button
                               onClick={() => handlePagarMercadoPago(pago)}
                             >
                               <CreditCard className="h-4 w-4 mr-2" />
-                              Pagar con Mercado Pago
+                              Pagar con Tarjeta
                             </Button>
                           </div>
                         </div>
@@ -316,22 +318,22 @@ export default function PagosPadreContent() {
               </TabsContent>
 
               <TabsContent value="historial" className="mt-6">
-                {pagosPagados.length === 0 ? (
+                {pagosHistorial.length === 0 ? (
                   <div className="text-center py-12 text-gray-500">
                     <FileText className="h-12 w-12 mx-auto mb-4 text-gray-300" />
                     <p>No hay pagos en el historial</p>
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {pagosPagados.map((pago) => (
-                      <div key={pago.id} className="p-6 border rounded-lg bg-green-50">
+                    {pagosHistorial.map((pago) => (
+                      <div key={pago.id} className={`p-6 border rounded-lg ${pago.estado === 'pendiente_verificacion' ? 'bg-yellow-50 border-yellow-200' : 'bg-green-50'}`}>
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
                             <div className="flex items-center gap-2 mb-2">
                               <h3 className="text-lg font-bold">{pago.concepto}</h3>
-                              <Badge variant="default">
-                                <CheckCircle className="h-3 w-3 mr-1" />
-                                Pagado
+                              <Badge variant={getBadgeVariant(pago.estado)} className={pago.estado === 'pendiente_verificacion' ? 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200 border-yellow-300' : ''}>
+                                {pago.estado === 'pagado' ? <CheckCircle className="h-3 w-3 mr-1" /> : <Clock className="h-3 w-3 mr-1" />}
+                                {getEstadoTexto(pago.estado)}
                               </Badge>
                             </div>
                             <p className="text-sm text-gray-600">
@@ -360,20 +362,27 @@ export default function PagosPadreContent() {
                           </div>
                           <div className="text-right flex flex-col items-end gap-3">
                             <div>
-                              <p className="text-3xl font-bold text-green-600">
+                              <p className={`text-3xl font-bold ${pago.estado === 'pendiente_verificacion' ? 'text-yellow-600' : 'text-green-600'}`}>
                                 ${pago.monto.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
                               </p>
                               <p className="text-xs text-gray-500">MXN</p>
                             </div>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleDescargarRecibo(pago.id)}
-                              className="w-full"
-                            >
-                              <Download className="h-4 w-4 mr-2" />
-                              Descargar Recibo
-                            </Button>
+
+                            {pago.estado === 'pagado' ? (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleDescargarRecibo(pago.id)}
+                                className="w-full"
+                              >
+                                <Download className="h-4 w-4 mr-2" />
+                                Descargar Recibo
+                              </Button>
+                            ) : (
+                              <div className="text-xs text-yellow-700 bg-yellow-100 px-3 py-2 rounded-md font-medium text-center w-full max-w-[200px]">
+                                El recibo estará disponible cuando el pago sea aprobado.
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>

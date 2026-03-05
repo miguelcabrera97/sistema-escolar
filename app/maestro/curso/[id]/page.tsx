@@ -98,7 +98,6 @@ export default function CursoDetalle() {
           )
         `)
         .eq('curso_id', cursoId)
-        .order('alumnos(profiles(nombre))')
 
       if (alumnosError) {
         console.error('Error al cargar alumnos:', alumnosError)
@@ -109,6 +108,14 @@ export default function CursoDetalle() {
           matricula: item.alumnos.matricula,
           profiles: Array.isArray(item.alumnos.profiles) ? item.alumnos.profiles[0] : item.alumnos.profiles
         }))
+
+        // Ordenar alfabéticamente en memoria
+        alumnosFormateados.sort((a, b) => {
+          const nombreA = `${a.profiles.nombre} ${a.profiles.apellidos}`.toLowerCase()
+          const nombreB = `${b.profiles.nombre} ${b.profiles.apellidos}`.toLowerCase()
+          return nombreA.localeCompare(nombreB)
+        })
+
         setAlumnos(alumnosFormateados)
       }
 

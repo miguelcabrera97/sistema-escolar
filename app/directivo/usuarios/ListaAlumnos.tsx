@@ -7,9 +7,10 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { obtenerAlumnos, desactivarAlumno, reactivarAlumno } from '@/app/actions/usuarios-actions'
+import { obtenerAlumnos, desactivarAlumno, reactivarAlumno, eliminarAlumnoDefinitivamente } from '@/app/actions/usuarios-actions'
 import { type Alumno } from '@/app/types/usuarios'
-import { Loader2, Users, Pencil, Trash2, RefreshCw, Search, Filter, X, Key } from 'lucide-react'
+import { Loader2, Users, Pencil, Trash2, RefreshCw, Search, Filter, X, Key, Eye } from 'lucide-react'
+import Link from 'next/link'
 import { DialogoEditarAlumno } from './DialogoEditarAlumno'
 import { DialogoConfirmarEliminacion } from './DialogoConfirmarEliminacion'
 import { DialogoRestablecerPassword } from './DialogoRestablecerPassword'
@@ -96,6 +97,23 @@ export function ListaAlumnos() {
     } catch (error) {
       console.error('Error:', error)
       alert('Error al reactivar alumno')
+    }
+  }
+
+  const handleEliminarDefinitivo = async (alumno: Alumno) => {
+    if (!confirm(`¿ESTÁS SEGURO de que deseas eliminar a ${alumno.profiles.nombre} ${alumno.profiles.apellidos} DEFINITIVAMENTE del sistema? Esto no se puede deshacer y borrará toda su información, cuenta y acceso.`)) return
+
+    try {
+      const result = await eliminarAlumnoDefinitivamente(alumno.id)
+      if (result.success) {
+        alert(result.data.message)
+        cargarAlumnos()
+      } else {
+        alert('Error: ' + result.error)
+      }
+    } catch (error) {
+      console.error('Error:', error)
+      alert('Error al eliminar definitivamente')
     }
   }
 
@@ -290,11 +308,8 @@ export function ListaAlumnos() {
                   <TableRow>
                     <TableHead>Matrícula</TableHead>
                     <TableHead>Nombre Completo</TableHead>
-                    <TableHead>CURP</TableHead>
                     <TableHead>Grado</TableHead>
                     <TableHead>Grupo</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Teléfono</TableHead>
                     <TableHead>Estado</TableHead>
                     <TableHead className="text-right">Acciones</TableHead>
                   </TableRow>
@@ -308,17 +323,8 @@ export function ListaAlumnos() {
                       <TableCell>
                         {alumno.profiles.nombre} {alumno.profiles.apellidos}
                       </TableCell>
-                      <TableCell className="text-sm text-gray-600 font-mono">
-                        {alumno.curp || '-'}
-                      </TableCell>
                       <TableCell>{alumno.grado}°</TableCell>
                       <TableCell>{alumno.grupo}</TableCell>
-                      <TableCell className="text-sm text-gray-600">
-                        {alumno.profiles.email || '-'}
-                      </TableCell>
-                      <TableCell className="text-sm text-gray-600">
-                        {alumno.profiles.telefono || '-'}
-                      </TableCell>
                       <TableCell>
                         <Badge variant={alumno.profiles.activo ? 'default' : 'secondary'}>
                           {alumno.profiles.activo ? 'Activo' : 'Inactivo'}
@@ -326,6 +332,16 @@ export function ListaAlumnos() {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            asChild
+                            title="Ver Detalles"
+                          >
+                            <Link href={`/directivo/usuarios/alumnos/${alumno.id}`}>
+                              <Eye className="h-4 w-4 text-blue-600" />
+                            </Link>
+                          </Button>
                           <Button
                             variant="ghost"
                             size="sm"
@@ -348,17 +364,29 @@ export function ListaAlumnos() {
                               variant="ghost"
                               size="sm"
                               onClick={() => handleEliminar(alumno)}
+                              title="Desactivar alumno"
                             >
-                              <Trash2 className="h-4 w-4 text-red-600" />
+                              <Trash2 className="h-4 w-4 text-gray-500" />
                             </Button>
                           ) : (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleReactivar(alumno)}
-                            >
-                              <RefreshCw className="h-4 w-4 text-green-600" />
-                            </Button>
+                            <>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleReactivar(alumno)}
+                                title="Reactivar alumno"
+                              >
+                                <RefreshCw className="h-4 w-4 text-green-600" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleEliminarDefinitivo(alumno)}
+                                title="Eliminar definitivamente"
+                              >
+                                <Trash2 className="h-4 w-4 text-red-600" />
+                              </Button>
+                            </>
                           )}
                         </div>
                       </TableCell>

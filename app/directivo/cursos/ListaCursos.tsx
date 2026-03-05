@@ -7,8 +7,9 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { useRouter } from 'next/navigation'
 import { obtenerCursos, eliminarCurso } from '@/app/actions/cursos-actions'
-import { Loader2, BookOpen, Users, Pencil, Trash2, UserPlus, Search, X } from 'lucide-react'
+import { Loader2, BookOpen, Users, Pencil, Trash2, UserPlus, Search, X, Eye } from 'lucide-react'
 import { DialogoInscribirAlumnos } from './DialogoInscribirAlumnos'
 import { DialogoEditarCurso } from './DialogoEditarCurso'
 import { DialogoConfirmarEliminacion } from '../usuarios/DialogoConfirmarEliminacion'
@@ -30,6 +31,7 @@ interface Curso {
 }
 
 export function ListaCursos() {
+  const router = useRouter()
   const [cursos, setCursos] = useState<Curso[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -322,30 +324,46 @@ export function ListaCursos() {
                         )}
                       </TableCell>
                       <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
+                        <div className="flex justify-end gap-1">
                           <Button
                             variant="ghost"
                             size="sm"
+                            className="flex flex-col h-auto py-2 px-2 text-blue-600 hover:bg-blue-50"
+                            onClick={() => router.push(`/directivo/cursos/${curso.id}`)}
+                            title="Ver detalles del curso"
+                          >
+                            <Eye className="h-4 w-4 mb-1" />
+                            <span className="text-[10px] uppercase font-semibold">Detalles</span>
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="flex flex-col h-auto py-2 px-2 text-green-600 hover:bg-green-50"
                             onClick={() => handleInscribir(curso)}
                             title="Inscribir alumnos"
                           >
-                            <UserPlus className="h-4 w-4 text-green-600" />
+                            <UserPlus className="h-4 w-4 mb-1" />
+                            <span className="text-[10px] uppercase font-semibold">Inscribir</span>
                           </Button>
                           <Button
                             variant="ghost"
                             size="sm"
+                            className="flex flex-col h-auto py-2 px-2 text-gray-600 hover:bg-gray-100"
                             onClick={() => handleEditar(curso)}
                             title="Editar curso"
                           >
-                            <Pencil className="h-4 w-4" />
+                            <Pencil className="h-4 w-4 mb-1" />
+                            <span className="text-[10px] uppercase font-semibold">Editar</span>
                           </Button>
                           <Button
                             variant="ghost"
                             size="sm"
+                            className="flex flex-col h-auto py-2 px-2 text-red-600 hover:bg-red-50"
                             onClick={() => handleEliminar(curso)}
                             title="Eliminar curso"
                           >
-                            <Trash2 className="h-4 w-4 text-red-600" />
+                            <Trash2 className="h-4 w-4 mb-1" />
+                            <span className="text-[10px] uppercase font-semibold">Eliminar</span>
                           </Button>
                         </div>
                       </TableCell>

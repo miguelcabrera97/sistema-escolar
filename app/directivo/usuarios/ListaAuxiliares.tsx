@@ -5,8 +5,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
-import { obtenerAuxiliares, desactivarAuxiliar, reactivarAuxiliar } from '@/app/actions/usuarios-actions'
-import { Loader2, UserX, UserCheck, Key } from 'lucide-react'
+import { obtenerAuxiliares, desactivarAuxiliar, reactivarAuxiliar, eliminarAuxiliarDefinitivamente } from '@/app/actions/usuarios-actions'
+import { Loader2, UserX, UserCheck, Key, Trash2 } from 'lucide-react'
 import { DialogoRestablecerPassword } from './DialogoRestablecerPassword'
 
 import { type Auxiliar } from '@/app/types/usuarios'
@@ -61,6 +61,26 @@ export function ListaAuxiliares() {
       alert('Error: ' + result.error)
     }
     setProcesando(null)
+  }
+
+  const handleEliminarDefinitivo = async (auxiliar: Auxiliar) => {
+    if (!confirm(`¿ESTÁS SEGURO de que deseas eliminar a ${auxiliar.nombre} ${auxiliar.apellidos} DEFINITIVAMENTE del sistema? Esto no se puede deshacer y borrará toda su información, cuenta y acceso.`)) return
+
+    setProcesando(auxiliar.id)
+    try {
+      const result = await eliminarAuxiliarDefinitivamente(auxiliar.id)
+      if (result.success) {
+        alert(result.data.message)
+        await cargarAuxiliares()
+      } else {
+        alert('Error: ' + result.error)
+      }
+    } catch (error) {
+      console.error('Error:', error)
+      alert('Error al eliminar definitivamente')
+    } finally {
+      setProcesando(null)
+    }
   }
 
   if (loading) {
@@ -139,18 +159,30 @@ export function ListaAuxiliares() {
                               )}
                             </Button>
                           ) : (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleReactivar(auxiliar.id)}
-                              disabled={procesando === auxiliar.id}
-                            >
-                              {procesando === auxiliar.id ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                              ) : (
-                                <UserCheck className="h-4 w-4 text-green-600" />
-                              )}
-                            </Button>
+                            <>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleReactivar(auxiliar.id)}
+                                disabled={procesando === auxiliar.id}
+                                title="Reactivar auxiliar"
+                              >
+                                {procesando === auxiliar.id ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <UserCheck className="h-4 w-4 text-green-600" />
+                                )}
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleEliminarDefinitivo(auxiliar)}
+                                disabled={procesando === auxiliar.id}
+                                title="Eliminar definitivamente"
+                              >
+                                <Trash2 className="h-4 w-4 text-red-600" />
+                              </Button>
+                            </>
                           )}
                         </div>
                       </TableCell>

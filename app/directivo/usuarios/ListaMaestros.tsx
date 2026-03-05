@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { obtenerMaestros, desactivarMaestro, reactivarMaestro } from '@/app/actions/usuarios-actions'
+import { obtenerMaestros, desactivarMaestro, reactivarMaestro, eliminarMaestroDefinitivamente } from '@/app/actions/usuarios-actions'
 import { Loader2, GraduationCap, Pencil, Trash2, RefreshCw, Search, Filter, X, Key } from 'lucide-react'
 import { DialogoEditarMaestro } from './DialogoEditarMaestro'
 import { DialogoConfirmarEliminacion } from './DialogoConfirmarEliminacion'
@@ -93,6 +93,23 @@ export function ListaMaestros() {
     } catch (error) {
       console.error('Error:', error)
       alert('Error al reactivar maestro')
+    }
+  }
+
+  const handleEliminarDefinitivo = async (maestro: Maestro) => {
+    if (!confirm(`¿ESTÁS SEGURO de que deseas eliminar a ${maestro.nombre} ${maestro.apellidos} DEFINITIVAMENTE del sistema? Esto no se puede deshacer y borrará toda su información, cuenta y acceso.`)) return
+
+    try {
+      const result = await eliminarMaestroDefinitivamente(maestro.id)
+      if (result.success) {
+        alert(result.data.message)
+        cargarMaestros()
+      } else {
+        alert('Error: ' + result.error)
+      }
+    } catch (error) {
+      console.error('Error:', error)
+      alert('Error al eliminar definitivamente')
     }
   }
 
@@ -275,17 +292,29 @@ export function ListaMaestros() {
                               variant="ghost"
                               size="sm"
                               onClick={() => handleEliminar(maestro)}
+                              title="Desactivar maestro"
                             >
-                              <Trash2 className="h-4 w-4 text-red-600" />
+                              <Trash2 className="h-4 w-4 text-gray-500" />
                             </Button>
                           ) : (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleReactivar(maestro)}
-                            >
-                              <RefreshCw className="h-4 w-4 text-green-600" />
-                            </Button>
+                            <>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleReactivar(maestro)}
+                                title="Reactivar maestro"
+                              >
+                                <RefreshCw className="h-4 w-4 text-green-600" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleEliminarDefinitivo(maestro)}
+                                title="Eliminar definitivamente"
+                              >
+                                <Trash2 className="h-4 w-4 text-red-600" />
+                              </Button>
+                            </>
                           )}
                         </div>
                       </TableCell>

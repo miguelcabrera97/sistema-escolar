@@ -16,6 +16,13 @@ export default function PadreDashboard() {
   const [loading, setLoading] = useState(true)
   const router = useRouter()
 
+  const getSaludo = () => {
+    const hora = new Date().getHours()
+    if (hora < 12) return 'Buenos días'
+    if (hora < 19) return 'Buenas tardes'
+    return 'Buenas noches'
+  }
+
   useEffect(() => {
     obtenerDatos()
   }, [])
@@ -36,24 +43,16 @@ export default function PadreDashboard() {
         .eq('user_id', user.id)
         .single()
 
-      console.log('🔍 Usuario autenticado:', user.id)
-      console.log('👤 Datos del padre:', padreData)
-
       if (padreError) {
-        console.error('❌ Error al obtener padre:', padreError)
+        console.error('Error al obtener padre:', padreError)
       }
 
       if (!padreData) {
-        console.error('⚠️ No se encontró registro de padre para user_id:', user.id)
-        console.log('💡 Ejecuta este SQL en Supabase:')
-        console.log(`INSERT INTO padres (user_id) SELECT id FROM profiles WHERE id = '${user.id}' AND role = 'padre' AND NOT EXISTS (SELECT 1 FROM padres WHERE user_id = '${user.id}');`)
         setLoading(false)
         return
       }
 
       setPadre(padreData)
-
-      console.log('🔍 Consultando alumnos para padre_id:', padreData.id)
 
       // Obtener hijos vinculados (sin pagos por ahora)
       const { data: hijosData, error: hijosError } = await supabase
@@ -74,17 +73,6 @@ export default function PadreDashboard() {
         `)
         .eq('padre_id', padreData.id)
 
-      if (hijosError) {
-        console.error('❌ Error al obtener hijos:', hijosError)
-        console.error('❌ Código de error:', hijosError.code)
-        console.error('❌ Mensaje:', hijosError.message)
-        console.error('❌ Detalles:', hijosError.details)
-        console.error('❌ Hint:', hijosError.hint)
-      }
-
-      console.log('👦 Datos de hijos:', hijosData)
-      console.log('📊 Total de hijos encontrados:', hijosData?.length || 0)
-
       // Transformar datos para acceso más fácil
       const hijosFormateados = hijosData?.map((item: any) => ({
         ...item.alumnos,
@@ -94,7 +82,6 @@ export default function PadreDashboard() {
       // Obtener pagos para cada hijo
       if (hijosFormateados.length > 0) {
         const alumnoIds = hijosFormateados.map(h => h.id)
-        console.log('💰 Consultando pagos para alumnos:', alumnoIds)
 
         const { data: pagosData, error: pagosError } = await supabase
           .from('pagos')
@@ -102,10 +89,8 @@ export default function PadreDashboard() {
           .in('alumno_id', alumnoIds)
 
         if (pagosError) {
-          console.error('❌ Error al obtener pagos:', pagosError)
+          console.error('Error al obtener pagos:', pagosError)
         } else {
-          console.log('💰 Pagos encontrados:', pagosData?.length || 0)
-
           // Asignar pagos a cada hijo
           hijosFormateados.forEach(hijo => {
             hijo.pagos = pagosData?.filter(p => p.alumno_id === hijo.id) || []
@@ -139,30 +124,17 @@ export default function PadreDashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8 flex justify-between items-center">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">
-              Portal de Padres - {padre?.profiles?.nombre}
-            </h1>
-            <p className="text-sm text-gray-500">Seguimiento académico y pagos</p>
-          </div>
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={() => router.push('/padre/cambiar-password')}>
-              <Lock className="h-4 w-4 mr-2" />
-              Cambiar Contraseña
-            </Button>
-            <Button variant="ghost" onClick={handleLogout}>
-              <LogOut className="h-4 w-4 mr-2" />
-              Salir
-            </Button>
-          </div>
-        </div>
-      </header>
-
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
+        <div className="mb-8">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
+            {getSaludo()}, {padre?.profiles?.nombre?.split(' ')[0] || ''} 👋
+          </h1>
+          <p className="text-sm text-gray-600 mt-1">
+            Portal de Padres - Seguimiento académico y pagos
+          </p>
+        </div>
+
         {/* Selector de hijo si tiene varios */}
         {hijos.length > 1 && (
           <Card className="mb-6">

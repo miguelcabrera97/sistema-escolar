@@ -66,6 +66,13 @@ export default function AlumnoDashboard() {
   const [pagos, setPagos] = useState<Pago[]>([])
   const [loading, setLoading] = useState(true)
 
+  const getSaludo = () => {
+    const hora = new Date().getHours()
+    if (hora < 12) return 'Buenos días'
+    if (hora < 19) return 'Buenas tardes'
+    return 'Buenas noches'
+  }
+
   useEffect(() => {
     cargarDatos()
   }, [])
@@ -106,11 +113,8 @@ export default function AlumnoDashboard() {
         console.error('   Hint:', inscripcionesError.hint)
       }
 
-      console.log('📚 Inscripciones encontradas:', inscripcionesData?.length || 0)
-
       // Obtener los IDs de cursos
       const cursoIds = inscripcionesData?.map((i: any) => i.curso_id) || []
-      console.log('📚 Cursos IDs:', cursoIds)
 
       // Obtener los datos completos de los cursos
       if (cursoIds.length > 0) {
@@ -141,7 +145,6 @@ export default function AlumnoDashboard() {
           }))
 
           setCursos(cursosCompletos)
-          console.log('✅ Cursos cargados:', cursosCompletos.length)
         }
       }
 
@@ -154,7 +157,6 @@ export default function AlumnoDashboard() {
         .in('curso_id', cursoIds)
         .order('fecha_entrega', { ascending: true })
 
-      console.log('📝 Tareas encontradas:', tareasData?.length || 0)
       if (tareasError) {
         console.error('❌ Error al cargar tareas:', tareasError)
         console.error('   Código:', tareasError.code)
@@ -168,7 +170,6 @@ export default function AlumnoDashboard() {
           entregas: tarea.entregas?.filter((e: Entrega) => e.id) || []
         }))
         setTareas(tareasConEntregas)
-        console.log('✅ Tareas procesadas:', tareasConEntregas.length)
       }
 
       const { data: pagosData, error: pagosError } = await supabase
@@ -182,8 +183,6 @@ export default function AlumnoDashboard() {
         console.error('   Código:', pagosError.code)
         console.error('   Mensaje:', pagosError.message)
       }
-
-      console.log('💰 Pagos encontrados:', pagosData?.length || 0)
 
       if (pagosData) {
         setPagos(pagosData)
@@ -224,34 +223,15 @@ export default function AlumnoDashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <header className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 py-6">
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">
-                {alumno?.profiles.nombre} {alumno?.profiles.apellidos}
-              </h1>
-              <p className="text-gray-600">
-                Matrícula: {alumno?.matricula} - {alumno?.grado} {alumno?.grupo}
-              </p>
-            </div>
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={() => router.push('/alumno/cambiar-password')}>
-                <Lock className="h-4 w-4 mr-2" />
-                Cambiar Contraseña
-              </Button>
-              <Button variant="outline" onClick={() => {
-                supabase.auth.signOut()
-                router.push('/login')
-              }}>
-                Cerrar Sesión
-              </Button>
-            </div>
-          </div>
-        </div>
-      </header>
-
       <main className="max-w-7xl mx-auto px-4 py-8">
+        <div className="mb-8">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
+            {getSaludo()}, {alumno?.profiles?.nombre?.split(' ')[0] || ''} 👋
+          </h1>
+          <p className="text-sm text-gray-600 mt-1">
+            Matrícula: {alumno?.matricula} • {alumno?.grado} {alumno?.grupo}
+          </p>
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6 mb-8">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">

@@ -6,9 +6,9 @@ import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
-import { Loader2 } from 'lucide-react'
+import { Loader2, Search } from 'lucide-react'
 import { obtenerPadresConAlumnos } from '@/app/actions/pagos-actions'
-import { crearRelacionPadreAlumno } from '@/app/actions/relaciones-padre-alumno-actions'
+import { crearRelacionPadreAlumno, obtenerTodosLosAlumnos } from '@/app/actions/relaciones-padre-alumno-actions'
 
 interface Props {
   open: boolean
@@ -60,6 +60,9 @@ export function DialogoAsignarAlumnos({ open, onOpenChange, onSuccess }: Props) 
   const [alumnoId, setAlumnoId] = useState('')
   const [parentesco, setParentesco] = useState('Padre/Madre')
 
+  const [busquedaPadre, setBusquedaPadre] = useState('')
+  const [busquedaAlumno, setBusquedaAlumno] = useState('')
+
   useEffect(() => {
     if (open) {
       cargarDatos()
@@ -76,9 +79,6 @@ export function DialogoAsignarAlumnos({ open, onOpenChange, onSuccess }: Props) 
       if (result.success) {
         setPadres(result.data || [])
       }
-
-      // Cargar alumnos disponibles (sin padre asignado aún)
-      // Por ahora mostraremos todos los alumnos, pero se puede filtrar
     } catch (error) {
       console.error('Error:', error)
     } finally {
@@ -90,18 +90,18 @@ export function DialogoAsignarAlumnos({ open, onOpenChange, onSuccess }: Props) 
     setPadreId('')
     setAlumnoId('')
     setParentesco('Padre/Madre')
+    setBusquedaPadre('')
+    setBusquedaAlumno('')
   }
 
   const handlePadreChange = async (padreIdSeleccionado: string) => {
     setPadreId(padreIdSeleccionado)
     setAlumnoId('')
+    setBusquedaAlumno('')
 
-    // Cargar todos los alumnos para este padre
     setLoading(true)
     try {
-      // Importar dinámicamente para obtener todos los alumnos
-      const { obtenerAlumnosDisponibles } = await import('@/app/actions/cursos-actions')
-      const result = await obtenerAlumnosDisponibles('dummy-curso-id') // Usamos un ID dummy para obtener todos
+      const result = await obtenerTodosLosAlumnos()
 
       if (result.success && result.data) {
         // Filtrar alumnos que ya están asignados a este padre
@@ -152,6 +152,21 @@ export function DialogoAsignarAlumnos({ open, onOpenChange, onSuccess }: Props) 
 
   const padreSeleccionado = padres.find(p => p.id === padreId)
 
+  // Filtrado de búsquedas
+  const padresFiltradosUI = padres.filter(padre => {
+    const term = busquedaPadre.toLowerCase()
+    return padre.profiles.nombre.toLowerCase().includes(term) ||
+      padre.profiles.apellidos.toLowerCase().includes(term) ||
+      padre.profiles.email.toLowerCase().includes(term)
+  }).slice(0, 100)
+
+  const alumnosFiltradosUI = alumnosDisponibles.filter(alumno => {
+    const term = busquedaAlumno.toLowerCase()
+    return alumno.profiles.nombre.toLowerCase().includes(term) ||
+      alumno.profiles.apellidos.toLowerCase().includes(term) ||
+      alumno.matricula.toLowerCase().includes(term)
+  }).slice(0, 100)
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
@@ -168,20 +183,34 @@ export function DialogoAsignarAlumnos({ open, onOpenChange, onSuccess }: Props) 
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
+            <div className="space-y-3">
               <Label>Padre *</Label>
-              <Select value={padreId} onValueChange={handlePadreChange}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecciona un padre" />
-                </SelectTrigger>
-                <SelectContent>
-                  {padres.map((padre) => (
-                    <SelectItem key={padre.id} value={padre.id}>
-                      {padre.profiles.nombre} {padre.profiles.apellidos} - {padre.profiles.email}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="flex flex-col gap-2">
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
+                  <Input
+                    placeholder="🔍 Filtrar padres por nombre o email..."
+                    value={busquedaPadre}
+                    onChange={(e) => setBusquedaPadre(e.target.value)}
+                    className="pl-9 h-9 border-gray-300"
+                  />
+                </div>
+                <Select value={padreId} onValueChange={handlePadreChange}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecciona un padre de la lista..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {padresFiltradosUI.map((padre) => (
+                      <SelectItem key={padre.id} value={padre.id}>
+                        {padre.profiles.nombre} {padre.profiles.apellidos} - {padre.profiles.email}
+                      </SelectItem>
+                    ))}
+                    {padresFiltradosUI.length === 0 && (
+                      <SelectItem disabled value="vacio">No se encontraron padres</SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             {padreSeleccionado && padreSeleccionado.padre_alumno.length > 0 && (
@@ -199,35 +228,45 @@ export function DialogoAsignarAlumnos({ open, onOpenChange, onSuccess }: Props) 
               </div>
             )}
 
-            <div>
+            <div className="space-y-3">
               <Label>Alumno *</Label>
-              <Select
-                value={alumnoId}
-                onValueChange={setAlumnoId}
-                disabled={!padreId || loading}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder={
-                    !padreId
-                      ? "Primero selecciona un padre"
-                      : loading
-                        ? "Cargando alumnos..."
-                        : "Selecciona un alumno"
-                  } />
-                </SelectTrigger>
-                <SelectContent>
-                  {alumnosDisponibles.map((alumno) => (
-                    <SelectItem key={alumno.id} value={alumno.id}>
-                      {alumno.profiles.nombre} {alumno.profiles.apellidos} - {alumno.matricula} ({alumno.grado}° {alumno.grupo})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {padreId && alumnosDisponibles.length === 0 && !loading && (
-                <p className="text-xs text-gray-500 mt-1">
-                  No hay más alumnos disponibles para asignar a este padre
-                </p>
-              )}
+              <div className="flex flex-col gap-2">
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
+                  <Input
+                    placeholder="🔍 Filtrar alumnos por nombre o matrícula..."
+                    value={busquedaAlumno}
+                    onChange={(e) => setBusquedaAlumno(e.target.value)}
+                    disabled={!padreId || loading}
+                    className="pl-9 h-9 border-gray-300"
+                  />
+                </div>
+                <Select
+                  value={alumnoId}
+                  onValueChange={setAlumnoId}
+                  disabled={!padreId || loading}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={
+                      !padreId
+                        ? "Primero selecciona un padre"
+                        : loading
+                          ? "Cargando alumnos..."
+                          : "Selecciona un alumno de la lista..."
+                    } />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {alumnosFiltradosUI.map((alumno) => (
+                      <SelectItem key={alumno.id} value={alumno.id}>
+                        {alumno.profiles.nombre} {alumno.profiles.apellidos} - {alumno.matricula} ({alumno.grado}° {alumno.grupo})
+                      </SelectItem>
+                    ))}
+                    {alumnosFiltradosUI.length === 0 && padreId && !loading && (
+                      <SelectItem disabled value="vacio">No se encontraron alumnos disponibles</SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             <div>

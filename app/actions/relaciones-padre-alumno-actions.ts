@@ -383,3 +383,57 @@ export async function eliminarRelacionPadreAlumno(relacionId: string): Promise<R
     return { success: false, error: 'Error inesperado' }
   }
 }
+
+// ============================================
+// OBTENER TODOS LOS ALUMNOS (para el diálogo de asignación)
+// ============================================
+
+export async function obtenerTodosLosAlumnos(): Promise<Result<any[]>> {
+  try {
+    const supabase = await createServerSupabaseClient()
+
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { success: false, error: 'No autenticado' }
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single()
+
+    if (profile?.role !== 'directivo') {
+      return { success: false, error: 'No autorizado' }
+    }
+
+    const { data: alumnos, error } = await supabase
+      .from('alumnos')
+      .select('id, matricula, grado, grupo, user_id')
+      .order('grado')
+
+    if (error) return { success: false, error: error.message }
+    if (!alumnos || alumnos.length === 0) return { success: true, data: [] }
+
+    const alumnoUserIds = alumnos.map(a => a.user_id)
+    const { data: alumnoProfiles } = await supabase
+      .from('profiles')
+      .select('id, nombre, apellidos')
+      .in('id', alumnoUserIds)
+
+    const alumnosCompletos = alumnos.map(alumno => {
+      const profile = alumnoProfiles?.find(ap => ap.id === alumno.user_id)
+      return {
+        id: alumno.id,
+        matricula: alumno.matricula,
+        grado: alumno.grado,
+        grupo: alumno.grupo,
+        user_id: alumno.user_id,
+        profiles: profile || { nombre: 'Desconocido', apellidos: '' }
+      }
+    })
+
+    return { success: true, data: alumnosCompletos }
+  } catch (error) {
+    console.error('Error:', error)
+    return { success: false, error: 'Error inesperado' }
+  }
+}

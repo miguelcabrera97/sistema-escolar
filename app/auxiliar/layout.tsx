@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
+import Image from 'next/image'
 import { createClient } from '@/lib/supabase'
 import { FileText, ClipboardCheck, LogOut, Menu, X, ChevronRight, School, LayoutDashboard } from 'lucide-react'
 
@@ -55,8 +56,8 @@ export default function AuxiliarLayout({ children }: { children: React.ReactNode
             >
                 <div className="flex items-center justify-between p-5 border-b border-gray-100">
                     <div className="flex items-center gap-2">
-                        <div className="h-8 w-8 rounded-lg bg-teal-600 flex items-center justify-center">
-                            <School className="h-4 w-4 text-white" aria-hidden="true" />
+                        <div className="relative h-8 w-8 flex-shrink-0">
+                            <Image src="/logo.png" alt="Logo Sistema Escolar" fill className="object-contain" priority />
                         </div>
                         <span className="font-bold text-gray-900 text-sm leading-tight">Sistema<br />Escolar</span>
                     </div>
@@ -110,8 +111,8 @@ export default function AuxiliarLayout({ children }: { children: React.ReactNode
                         <Menu className="h-5 w-5" aria-hidden="true" />
                     </button>
                     <div className="flex items-center gap-2">
-                        <div className="h-6 w-6 rounded bg-teal-600 flex items-center justify-center">
-                            <School className="h-3.5 w-3.5 text-white" aria-hidden="true" />
+                        <div className="relative h-6 w-6 flex-shrink-0">
+                            <Image src="/logo.png" alt="Logo" fill className="object-contain" priority />
                         </div>
                         <span className="font-semibold text-gray-900 text-sm">Sistema Escolar</span>
                     </div>

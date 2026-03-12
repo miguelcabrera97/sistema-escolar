@@ -7,7 +7,8 @@ import { createClient } from '@/lib/supabase'
 const supabase = createClient()
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { BookOpen, FileText, ClipboardCheck, GraduationCap } from 'lucide-react'
+import { Input } from '@/components/ui/input'
+import { BookOpen, FileText, ClipboardCheck, GraduationCap, Search } from 'lucide-react'
 
 interface Profile {
   nombre: string
@@ -29,7 +30,7 @@ interface Curso {
 interface Tarea {
   id: string
   titulo: string
-  fecha_vencimiento: string
+  fecha_entrega: string
   puntos_maximos: number
   cursos: {
     nombre: string
@@ -55,6 +56,7 @@ export default function AuxiliarDashboard() {
     calificadas: 0
   })
   const [loading, setLoading] = useState(true)
+  const [busquedaCurso, setBusquedaCurso] = useState('')
 
   const obtenerDatos = useCallback(async () => {
     try {
@@ -119,12 +121,12 @@ export default function AuxiliarDashboard() {
       }
 
       // Obtener TODAS las tareas del sistema (sin filtrar por maestro)
-      const { data: tareasData } = await supabase
+      const { data: tareasData, error: tareasError } = await supabase
         .from('tareas')
         .select(`
           id,
           titulo,
-          fecha_vencimiento,
+          fecha_entrega,
           puntos_maximos,
           cursos (
             nombre,
@@ -132,8 +134,10 @@ export default function AuxiliarDashboard() {
             grupo
           )
         `)
-        .order('fecha_vencimiento', { ascending: false })
+        .order('fecha_entrega', { ascending: false })
         .limit(10)
+
+      if (tareasError) console.error('Error cargando tareas:', tareasError)
 
       if (tareasData) {
         const tareasProcesadas = tareasData.map((t: any) => ({
@@ -265,11 +269,32 @@ export default function AuxiliarDashboard() {
               <CardDescription>Acceso global a cursos del sistema</CardDescription>
             </CardHeader>
             <CardContent>
+              <div className="relative mb-4">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input
+                  placeholder="Buscar por curso, grado, grupo o maestro…"
+                  value={busquedaCurso}
+                  onChange={(e) => setBusquedaCurso(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
               <div className="space-y-4">
-                {cursos.length === 0 ? (
-                  <p className="text-gray-500 text-center py-4">No hay cursos asignados aún</p>
-                ) : (
-                  cursos.map((curso) => (
+                {(() => {
+                  const query = busquedaCurso.toLowerCase()
+                  const cursosFiltrados = query
+                    ? cursos.filter(c =>
+                        c.nombre.toLowerCase().includes(query) ||
+                        String(c.grado).includes(query) ||
+                        c.grupo.toLowerCase().includes(query) ||
+                        (c.maestro && `${c.maestro.nombre} ${c.maestro.apellidos}`.toLowerCase().includes(query))
+                      )
+                    : cursos
+                  return cursosFiltrados.length === 0 ? (
+                    <p className="text-gray-500 text-center py-4">
+                      {cursos.length === 0 ? 'No hay cursos asignados aún' : 'Sin resultados para tu búsqueda'}
+                    </p>
+                  ) : (
+                    cursosFiltrados.map((curso) => (
                     <div key={curso.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50">
                       <div>
                         <h3 className="font-semibold">{curso.nombre}</h3>
@@ -285,25 +310,14 @@ export default function AuxiliarDashboard() {
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => {
-                          // Filtrar tareas de este curso
-                          const tareasCurso = tareas.filter(t =>
-                            t.cursos.nombre === curso.nombre &&
-                            t.cursos.grado === curso.grado &&
-                            t.cursos.grupo === curso.grupo
-                          )
-                          if (tareasCurso.length > 0) {
-                            router.push(`/auxiliar/tarea/${tareasCurso[0].id}/entregas`)
-                          } else {
-                            alert('No hay tareas para este curso')
-                          }
-                        }}
+                        onClick={() => router.push(`/auxiliar/curso/${curso.id}`)}
                       >
                         Ver Tareas
                       </Button>
                     </div>
-                  ))
-                )}
+                    ))
+                  )
+                })()} 
               </div>
             </CardContent>
           </Card>
@@ -327,7 +341,7 @@ export default function AuxiliarDashboard() {
                           {tarea.cursos.nombre} - {tarea.cursos.grado}° {tarea.cursos.grupo}
                         </p>
                         <p className="text-xs text-gray-500">
-                          Vencimiento: {new Date(tarea.fecha_vencimiento).toLocaleDateString('es-MX')}
+                          Entrega: {new Date(tarea.fecha_entrega).toLocaleDateString('es-MX')}
                         </p>
                         <p className="text-xs text-gray-500">
                           Puntos: {tarea.puntos_maximos}

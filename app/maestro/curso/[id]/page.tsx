@@ -9,7 +9,19 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
-import { ArrowLeft, Users, FileText, Plus, Eye } from 'lucide-react'
+import { ArrowLeft, Users, FileText, Plus, Eye, Edit, Trash2 } from 'lucide-react'
+import { DialogoEditarTarea } from './DialogoEditarTarea'
+import { eliminarTarea } from '@/app/actions/tareas-actions'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 
 interface Curso {
   id: string
@@ -35,6 +47,7 @@ interface Tarea {
   descripcion: string | null
   fecha_entrega: string
   archivo_url: string | null
+  puntos_maximos?: number
 }
 
 export default function CursoDetalle() {
@@ -47,6 +60,30 @@ export default function CursoDetalle() {
   const [tareas, setTareas] = useState<Tarea[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  // Estado para modales
+  const [tareaAEditar, setTareaAEditar] = useState<Tarea | null>(null)
+  const [tareaAEliminar, setTareaAEliminar] = useState<Tarea | null>(null)
+  const [eliminando, setEliminando] = useState(false)
+
+  const handleEliminar = async () => {
+    if (!tareaAEliminar) return
+    try {
+      setEliminando(true)
+      const res = await eliminarTarea(tareaAEliminar.id)
+      if (res.success) {
+        setTareaAEliminar(null)
+        cargarDatos() // recargar la lista
+      } else {
+        alert(res.error || 'Error al eliminar')
+      }
+    } catch (err) {
+      console.error(err)
+      alert('Error inesperado')
+    } finally {
+      setEliminando(false)
+    }
+  }
 
   useEffect(() => {
     cargarDatos()
@@ -122,7 +159,7 @@ export default function CursoDetalle() {
       // Cargar tareas del curso
       const { data: tareasData, error: tareasError } = await supabase
         .from('tareas')
-        .select('id, titulo, descripcion, fecha_entrega, archivo_url')
+        .select('id, titulo, descripcion, fecha_entrega, archivo_url, puntos_maximos')
         .eq('curso_id', cursoId)
         .order('fecha_entrega', { ascending: false })
 
@@ -332,14 +369,33 @@ export default function CursoDetalle() {
                           )}
                         </div>
                       </div>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => router.push(`/maestro/tarea/${tarea.id}/entregas`)}
-                      >
-                        <Eye className="h-4 w-4 mr-2" />
-                        Ver Entregas
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          title="Editar tarea"
+                          onClick={() => setTareaAEditar(tarea)}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                          title="Eliminar tarea"
+                          onClick={() => setTareaAEliminar(tarea)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => router.push(`/maestro/tarea/${tarea.id}/entregas`)}
+                        >
+                          <Eye className="h-4 w-4 mr-2" />
+                          Entregas
+                        </Button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -348,6 +404,39 @@ export default function CursoDetalle() {
           </Card>
         </div>
       </main>
+
+      {/* Modales */}
+      {tareaAEditar && (
+        <DialogoEditarTarea
+          tarea={tareaAEditar}
+          open={!!tareaAEditar}
+          onOpenChange={(open) => !open && setTareaAEditar(null)}
+          onSuccess={cargarDatos}
+        />
+      )}
+
+      <AlertDialog open={!!tareaAEliminar} onOpenChange={(open: boolean) => !open && !eliminando && setTareaAEliminar(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Eliminar tarea definitivamente?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Apunto de eliminar la tarea "{tareaAEliminar?.titulo}". 
+              Esta acción no se puede deshacer y eliminará las notas de todos los alumnos
+              vinculadas a esta tarea.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={eliminando}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={(e: React.MouseEvent) => { e.preventDefault(); handleEliminar(); }}
+              className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+              disabled={eliminando}
+            >
+              {eliminando ? 'Eliminando...' : 'Sí, Eliminar Tarea'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

@@ -29,6 +29,7 @@
     "mercadopago": "^2.10.0",
     "next": "^16.1.4",
     "pg": "^8.16.3",
+    "radix-ui": "^1.4.3",
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "react-hook-form": "^7.65.0",

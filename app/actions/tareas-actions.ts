@@ -166,3 +166,101 @@ export async function subirArchivoTarea(
     return { success: false, error: (error instanceof Error ? error.message : String(error)) || 'Error al subir archivo' }
   }
 }
+
+/**
+ * Elimina una tarea. 
+ * Las entregas asociadas se eliminan en cascada desde la base de datos si ON DELETE CASCADE está activo.
+ */
+export async function eliminarTarea(tareaId: string): Promise<Result<void>> {
+  try {
+    const supabase = await createServerSupabaseClient()
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user) return { success: false, error: 'No autenticado' }
+
+    // 1. Verificar propiedad (el maestro debe ser dueño del curso de la tarea)
+    const { data: tarea, error: tareaError } = await supabase
+      .from('tareas')
+      .select('curso_id, cursos!inner(maestro_id)')
+      .eq('id', tareaId)
+      .single()
+
+    if (tareaError || !tarea) return { success: false, error: 'Tarea no encontrada' }
+    
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    if ((tarea.cursos as any).maestro_id !== user.id) {
+      return { success: false, error: 'No tienes permiso para eliminar esta tarea' }
+    }
+
+    // 2. Eliminar entregas por si acaso no hay ON DELETE CASCADE activo
+    await supabaseAdmin.from('entregas').delete().eq('tarea_id', tareaId)
+
+    // 3. Eliminar la tarea (usamos admin para ignorar RLS en delete si hiciera falta, pero ya verificamos dueño)
+    const { error: deleteError } = await supabaseAdmin
+      .from('tareas')
+      .delete()
+      .eq('id', tareaId)
+
+    if (deleteError) throw deleteError
+
+    revalidatePath('/maestro')
+    revalidatePath(`/maestro/curso/${tarea.curso_id}`)
+
+    return { success: true }
+  } catch (error) {
+    console.error('Error al eliminar tarea:', error)
+    return { success: false, error: 'Error inesperado al eliminar la tarea' }
+  }
+}
+
+/**
+ * Actualiza los datos de una tarea.
+ */
+export async function actualizarTarea(tareaId: string, data: {
+  titulo: string
+  descripcion: string
+  fecha_entrega: string
+  puntos_maximos: number
+}): Promise<Result<void>> {
+  try {
+    const supabase = await createServerSupabaseClient()
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user) return { success: false, error: 'No autenticado' }
+
+    // 1. Verificar propiedad
+    const { data: tarea, error: tareaError } = await supabase
+      .from('tareas')
+      .select('curso_id, cursos!inner(maestro_id)')
+      .eq('id', tareaId)
+      .single()
+
+    if (tareaError || !tarea) return { success: false, error: 'Tarea no encontrada' }
+    
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    if ((tarea.cursos as any).maestro_id !== user.id) {
+      return { success: false, error: 'No tienes permiso para editar esta tarea' }
+    }
+
+    // 2. Actualizar tarea
+    const { error: updateError } = await supabaseAdmin
+      .from('tareas')
+      .update({
+        titulo: data.titulo,
+        descripcion: data.descripcion,
+        fecha_entrega: data.fecha_entrega,
+        puntos_maximos: data.puntos_maximos,
+      })
+      .eq('id', tareaId)
+
+    if (updateError) throw updateError
+
+    revalidatePath('/maestro')
+    revalidatePath(`/maestro/curso/${tarea.curso_id}`)
+
+    return { success: true }
+  } catch (error) {
+    console.error('Error al actualizar tarea:', error)
+    return { success: false, error: 'Error inesperado al actualizar la tarea' }
+  }
+}

@@ -12,7 +12,7 @@ const supabase = createClient()
 const navItems = [
     { label: 'Panel Principal', href: '/auxiliar', icon: LayoutDashboard, exact: true },
     { label: 'Boletas', href: '/auxiliar/boletas', icon: FileText },
-    { label: 'Calificaciones', href: '/auxiliar/tarea', icon: ClipboardCheck },
+    { label: 'Calificaciones', href: '/auxiliar', icon: ClipboardCheck, activePrefixes: ['/auxiliar/tarea', '/auxiliar/curso'] },
 ]
 
 export default function AuxiliarLayout({ children }: { children: React.ReactNode }) {
@@ -38,8 +38,12 @@ export default function AuxiliarLayout({ children }: { children: React.ReactNode
         router.push('/login')
     }
 
-    const isActive = (item: typeof navItems[0]) =>
-        item.exact ? pathname === item.href : pathname.startsWith(item.href)
+    const isActive = (item: typeof navItems[0]) => {
+        if ('activePrefixes' in item && item.activePrefixes) {
+            return item.activePrefixes.some((prefix: string) => pathname.startsWith(prefix))
+        }
+        return item.exact ? pathname === item.href : pathname.startsWith(item.href)
+    }
 
     return (
         <div className="min-h-screen bg-gray-50 flex">

@@ -152,7 +152,7 @@ export default function AlumnoDashboard() {
         .from('tareas')
         .select(`
           *,
-          entregas!entregas_tarea_id_fkey(id, status, calificacion, fecha_entrega)
+          entregas!entregas_tarea_id_fkey(id, status, calificacion, fecha_entrega, alumno_id)
         `)
         .in('curso_id', cursoIds)
         .order('fecha_entrega', { ascending: true })
@@ -167,7 +167,7 @@ export default function AlumnoDashboard() {
       if (tareasData) {
         const tareasConEntregas = tareasData.map(tarea => ({
           ...tarea,
-          entregas: tarea.entregas?.filter((e: Entrega) => e.id) || []
+          entregas: tarea.entregas?.filter((e: Entrega & { alumno_id?: string }) => e.alumno_id === alumnoData.id) || []
         }))
         setTareas(tareasConEntregas)
       }

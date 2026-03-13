@@ -87,16 +87,71 @@ export default function EntregasTarea() {
 
       const { data: entregasData } = await supabase
         .from('entregas')
-        .select('id, status, calificacion, retroalimentacion, fecha_entrega, archivo_url, comentarios, alumnos (id, matricula, profiles (nombre, apellidos))')
+        .select('id, alumno_id, status, calificacion, retroalimentacion, fecha_entrega, archivo_url, comentarios, alumnos (id, matricula, profiles (nombre, apellidos))')
         .eq('tarea_id', tareaId)
         .order('fecha_entrega', { ascending: false })
 
-      const entregasProcesadas = (entregasData || []).map((e: any) => {
-        const alumnoObj = Array.isArray(e.alumnos) ? e.alumnos[0] : e.alumnos
-        if (alumnoObj && Array.isArray(alumnoObj.profiles)) {
-          alumnoObj.profiles = alumnoObj.profiles[0]
-        }
-        return { ...e, alumnos: alumnoObj }
+      const { data: inscripcionesData } = await supabase
+        .from('inscripciones')
+        .select(`
+          alumnos (
+            id,
+            matricula,
+            profiles (nombre, apellidos)
+          )
+        `)
+        .eq('curso_id', tareaData.cursos.id)
+
+      // Procesar entregas existentes
+      const entregasMap = new Map()
+      const entregasProcesadas: Entrega[] = []
+      
+      if (entregasData) {
+        entregasData.forEach((e: any) => {
+          const alumnoObj = Array.isArray(e.alumnos) ? e.alumnos[0] : e.alumnos
+          if (alumnoObj && Array.isArray(alumnoObj.profiles)) {
+            alumnoObj.profiles = alumnoObj.profiles[0]
+          }
+          const formattedEntrega = { ...e, alumnos: alumnoObj }
+          const alumnoId = e.alumno_id || alumnoObj?.id
+          if (alumnoId) {
+            entregasMap.set(alumnoId, formattedEntrega)
+          }
+        })
+      }
+
+      // Combinar con alumnos inscritos
+      if (inscripcionesData) {
+        inscripcionesData.forEach((inscripcion: any) => {
+          const alumno = Array.isArray(inscripcion.alumnos) ? inscripcion.alumnos[0] : inscripcion.alumnos
+          if (!alumno) return
+          if (Array.isArray(alumno.profiles)) {
+            alumno.profiles = alumno.profiles[0]
+          }
+
+          const entregaExistente = entregasMap.get(alumno.id)
+          if (entregaExistente) {
+            entregasProcesadas.push(entregaExistente)
+            entregasMap.delete(alumno.id) // Marcar como procesada
+          } else {
+            // Entrega pendiente (virtual)
+            entregasProcesadas.push({
+              id: `pendiente-${alumno.id}`,
+              status: 'pendiente',
+              calificacion: null,
+              retroalimentacion: null,
+              fecha_entrega: null,
+              archivo_url: null,
+              comentarios: null,
+              alumnos: alumno
+            } as any)
+          }
+        })
+      }
+
+      // Agregar cualquier entrega de alumnos no listados en inscripciones (ej. dados de baja)
+      entregasMap.forEach((entrega) => {
+        entregasProcesadas.push(entrega)
       })
       setEntregas(entregasProcesadas)
     } catch (error) {
@@ -161,7 +216,7 @@ export default function EntregasTarea() {
 
   const stats = {
     total: entregas.length,
-    entregadas: entregas.filter(e => e.status === 'entregada').length,
+    entregadas: entregas.filter(e => e.status === 'entregada' || e.status === 'calificada').length,
     pendientes: entregas.filter(e => e.status === 'pendiente').length,
   }
 

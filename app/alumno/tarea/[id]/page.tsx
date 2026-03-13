@@ -123,6 +123,13 @@ export default function TareaDetalle() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    const tareaVencida = tarea ? new Date(tarea.fecha_entrega) < new Date() : false
+    if (tareaVencida) {
+      alert('La fecha de entrega ha finalizado. No puedes modificar tu entrega.')
+      return
+    }
+
     setUploading(true)
 
     try {
@@ -338,16 +345,22 @@ export default function TareaDetalle() {
           <Card>
             <CardHeader>
               <CardTitle>
-                {entrega ? 'Actualizar Entrega' : 'Entregar Tarea'}
+                {vencida ? 'La entrega ha cerrado' : (entrega ? 'Actualizar Entrega' : 'Entregar Tarea')}
               </CardTitle>
               <CardDescription>
-                {entrega
-                  ? 'Puedes actualizar tu entrega hasta que el maestro la califique'
-                  : 'Sube tu trabajo y agrega comentarios si es necesario'
-                }
+                {vencida
+                  ? 'La fecha límite de entrega ha pasado y no se admiten nuevos envíos o modificaciones.'
+                  : (entrega
+                    ? 'Puedes actualizar tu entrega hasta que el maestro la califique'
+                    : 'Sube tu trabajo y agrega comentarios si es necesario')}
               </CardDescription>
             </CardHeader>
             <CardContent>
+              {vencida && (
+                <div className="bg-red-50 text-red-600 p-3 rounded-md mb-4 text-sm font-medium border border-red-100">
+                  El plazo para entregar esta tarea ha finalizado.
+                </div>
+              )}
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
                   <Label htmlFor="archivo">Archivo</Label>
@@ -355,13 +368,23 @@ export default function TareaDetalle() {
                     id="archivo"
                     type="file"
                     onChange={(e) => setArchivo(e.target.files?.[0] || null)}
-                    disabled={uploading}
+                    disabled={uploading || vencida}
                   />
-                  {entrega?.archivo_url && !archivo && (
-                    <p className="text-sm text-gray-600 mt-2">
-                      <FileText className="inline h-3 w-3 mr-1" />
-                      Ya has subido un archivo. Selecciona uno nuevo para reemplazarlo.
-                    </p>
+                  {entrega?.archivo_url && (
+                    <div className="mt-2 text-sm text-gray-600 flex flex-col items-start gap-1">
+                      <Button
+                        type="button"
+                        variant="link"
+                        onClick={() => window.open(entrega.archivo_url || '', '_blank')}
+                        className="inline-flex items-center gap-2 p-0 h-auto text-blue-600"
+                      >
+                        <FileText className="h-4 w-4" />
+                        Ver archivo entregado actualmente
+                      </Button>
+                      {!vencida && !archivo && (
+                        <p className="text-xs text-gray-500">Ya has subido un archivo. Selecciona uno nuevo para reemplazarlo.</p>
+                      )}
+                    </div>
                   )}
                 </div>
 
@@ -371,25 +394,27 @@ export default function TareaDetalle() {
                     id="comentarios"
                     value={comentarios}
                     onChange={(e) => setComentarios(e.target.value)}
-                    placeholder="Agrega comentarios sobre tu entrega..."
-                    className="w-full mt-1 px-3 py-2 border rounded-md min-h-[100px]"
-                    disabled={uploading}
+                    placeholder={vencida ? '' : "Agrega comentarios sobre tu entrega..."}
+                    className={`w-full mt-1 px-3 py-2 border rounded-md min-h-[100px] text-sm ${vencida ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`}
+                    disabled={uploading || vencida}
                   />
                 </div>
 
-                <Button type="submit" disabled={uploading || (!archivo && !comentarios && !entrega)}>
-                  {uploading ? (
-                    <>
-                      <Upload className="h-4 w-4 mr-2 animate-spin" />
-                      Subiendo...
-                    </>
-                  ) : (
-                    <>
-                      <Upload className="h-4 w-4 mr-2" />
-                      {entrega ? 'Actualizar Entrega' : 'Entregar Tarea'}
-                    </>
-                  )}
-                </Button>
+                {!vencida && (
+                  <Button type="submit" disabled={uploading || (!archivo && !comentarios && !entrega)}>
+                    {uploading ? (
+                      <>
+                        <Upload className="h-4 w-4 mr-2 animate-spin" />
+                        Subiendo...
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="h-4 w-4 mr-2" />
+                        {entrega ? 'Actualizar Entrega' : 'Entregar Tarea'}
+                      </>
+                    )}
+                  </Button>
+                )}
               </form>
             </CardContent>
           </Card>

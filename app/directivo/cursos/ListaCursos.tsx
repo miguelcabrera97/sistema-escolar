@@ -59,12 +59,12 @@ export function ListaCursos() {
 
   // Extraer valores únicos de grado y grupo para los filtros
   const gradosUnicos = useMemo(() => {
-    const grados = [...new Set(cursos.map(c => c.grado))].sort()
+    const grados = [...new Set(cursos.map(c => c.grado))].filter(Boolean).sort()
     return grados
   }, [cursos])
 
   const gruposUnicos = useMemo(() => {
-    const grupos = [...new Set(cursos.map(c => c.grupo))].sort()
+    const grupos = [...new Set(cursos.map(c => c.grupo))].filter(Boolean).sort()
     return grupos
   }, [cursos])
 

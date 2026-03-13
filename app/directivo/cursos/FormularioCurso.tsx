@@ -177,7 +177,7 @@ export function FormularioCurso() {
                     <SelectValue placeholder="Selecciona el grado" />
                   </SelectTrigger>
                   <SelectContent>
-                    {grados.map((grado) => (
+                    {grados.filter(g => g.nombre_completo).map((grado) => (
                       <SelectItem key={grado.id} value={grado.nombre_completo}>
                         {grado.nombre_completo}
                       </SelectItem>
@@ -198,7 +198,7 @@ export function FormularioCurso() {
                     <SelectValue placeholder="Selecciona el grupo" />
                   </SelectTrigger>
                   <SelectContent>
-                    {grupos.map((grupo) => (
+                    {grupos.filter(g => g.nombre).map((grupo) => (
                       <SelectItem key={grupo.id} value={grupo.nombre}>
                         {grupo.nombre}
                       </SelectItem>

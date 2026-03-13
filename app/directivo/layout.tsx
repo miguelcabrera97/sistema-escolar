@@ -110,7 +110,7 @@ export default function DirectivoLayout({ children }: { children: React.ReactNod
             {/* Skip to content link for keyboard users */}
             <a
                 href="#main-content"
-                className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:px-4 focus:py-2 focus:bg-blue-600 focus:text-white focus:rounded-md focus:text-sm focus:font-medium"
+                className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:px-4 focus:py-2 bg-[#29476b] text-white focus:rounded-md focus:text-sm focus:font-medium"
             >
                 Saltar al contenido principal
             </a>
@@ -148,7 +148,7 @@ export default function DirectivoLayout({ children }: { children: React.ReactNod
                     </div>
                     <button
                         onClick={() => setSidebarOpen(false)}
-                        className="lg:hidden p-1.5 rounded-md text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="lg:hidden p-1.5 rounded-md text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-[#29476b]"
                         aria-label="Cerrar menú"
                     >
                         <X className="h-5 w-5" aria-hidden="true" />
@@ -177,18 +177,18 @@ export default function DirectivoLayout({ children }: { children: React.ReactNod
                       flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium
                       transition-colors duration-150 group
                       ${active
-                                                ? 'bg-blue-50 text-blue-700'
+                                                ? 'bg-[#29476b]/10 text-[#29476b]'
                                                 : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
                                             }
-                      focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1
+                      focus:outline-none focus:ring-2 focus:ring-[#29476b] focus:ring-offset-1
                     `}
                                     >
                                         <item.icon
-                                            className={`h-4 w-4 flex-shrink-0 ${active ? 'text-blue-600' : 'text-gray-400 group-hover:text-gray-600'}`}
+                                            className={`h-4 w-4 flex-shrink-0 ${active ? 'text-[#29476b]' : 'text-gray-400 group-hover:text-gray-600'}`}
                                             aria-hidden="true"
                                         />
                                         <span className="flex-1">{item.label}</span>
-                                        {active && <ChevronRight className="h-3.5 w-3.5 text-blue-400" aria-hidden="true" />}
+                                        {active && <ChevronRight className="h-3.5 w-3.5 text-[#29476b]/60" aria-hidden="true" />}
                                     </Link>
                                 </li>
                             )
@@ -214,7 +214,7 @@ export default function DirectivoLayout({ children }: { children: React.ReactNod
                 <header className="lg:hidden sticky top-0 z-10 bg-white border-b border-gray-200 px-4 py-3 flex items-center gap-3">
                     <button
                         onClick={() => setSidebarOpen(true)}
-                        className="p-2 rounded-md text-gray-600 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="p-2 rounded-md text-gray-600 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-[#29476b]"
                         aria-label="Abrir menú de navegación"
                         aria-expanded={sidebarOpen}
                         aria-controls="sidebar"

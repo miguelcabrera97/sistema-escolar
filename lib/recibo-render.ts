@@ -185,10 +185,10 @@ export function renderizarCopia(
         'INSCRIPCIÓN:',
         'GASTOS ADMINISTRATIVOS:',
         'SEGURO ESCOLAR:',
+        'OTROS:',
         'LIBROS:',
         'COLEGIATURA:',
-        'COLEGIATURA:',
-        'OTROS:'
+        'COLEGIATURA:'
     ]
 
     const rowHeight = 7

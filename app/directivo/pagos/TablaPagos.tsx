@@ -142,6 +142,7 @@ export function TablaPagos({ pagos, onSuccess }: Props) {
       case 'pendiente': return 'outline'
       case 'vencido': return 'destructive'
       case 'cancelado': return 'secondary'
+      case 'pendiente_verificacion': return 'secondary'
       default: return 'outline'
     }
   }
@@ -152,6 +153,7 @@ export function TablaPagos({ pagos, onSuccess }: Props) {
       case 'pendiente': return 'Pendiente'
       case 'vencido': return 'Vencido'
       case 'cancelado': return 'Cancelado'
+      case 'pendiente_verificacion': return 'En Verificación'
       default: return estado
     }
   }
@@ -214,7 +216,7 @@ export function TablaPagos({ pagos, onSuccess }: Props) {
                 </TableCell>
                 <TableCell>
                   <div className="text-sm">
-                    {new Date(pago.fecha_vencimiento).toLocaleDateString('es-MX', {
+                    {new Date(pago.fecha_vencimiento + 'T12:00:00').toLocaleDateString('es-MX', {
                       year: 'numeric',
                       month: 'short',
                       day: 'numeric'
@@ -257,7 +259,7 @@ export function TablaPagos({ pagos, onSuccess }: Props) {
                       </Button>
                     )}
 
-                    {pago.estado === 'pagado' && pago.metodo_pago === 'manual' && !pago.pagado_verificado_por && (
+                    {pago.estado === 'pendiente_verificacion' && !pago.pagado_verificado_por && (
                       <>
                         <Button
                           variant="ghost"

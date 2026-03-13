@@ -8,7 +8,8 @@ import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { obtenerPagosDirectivo } from '@/app/actions/pagos-actions'
 import { migrarPadresExistentes, obtenerEstadisticasMigracion } from '@/app/actions/migrar-padres-actions'
-import { ArrowLeft, DollarSign, Plus, CheckCircle, Clock, XCircle, Users } from 'lucide-react'
+import { ArrowLeft, DollarSign, Plus, CheckCircle, Clock, XCircle, Users, Search } from 'lucide-react'
+import { Input } from '@/components/ui/input'
 import { DialogoCrearPago } from './DialogoCrearPago'
 import { TablaPagos } from './TablaPagos'
 
@@ -54,6 +55,7 @@ export default function DirectivoPagos() {
   const [necesitaMigracion, setNecesitaMigracion] = useState(false)
   const [migrandoPadres, setMigrandoPadres] = useState(false)
   const [mensaje, setMensaje] = useState<{ tipo: 'error' | 'success', texto: string } | null>(null)
+  const [busqueda, setBusqueda] = useState('')
 
   useEffect(() => {
     cargarPagos()
@@ -127,23 +129,49 @@ export default function DirectivoPagos() {
     cargarPagos()
   }
 
-  // Filtrar pagos según el tab activo
+  // Filtrar pagos según el tab activo y término de búsqueda
   const pagosFiltrados = pagos.filter(pago => {
-    if (tabActivo === 'todos') return true
-    if (tabActivo === 'pendientes') return pago.estado === 'pendiente'
-    if (tabActivo === 'pagados') return pago.estado === 'pagado'
-    if (tabActivo === 'vencidos') return pago.estado === 'vencido'
-    return true
+    // 1. Filtro por tab
+    let cumpleTab = true
+    if (tabActivo === 'pendientes') cumpleTab = (pago.estado === 'pendiente' || pago.estado === 'pendiente_verificacion')
+    else if (tabActivo === 'pagados') cumpleTab = pago.estado === 'pagado'
+    else if (tabActivo === 'vencidos') cumpleTab = pago.estado === 'vencido'
+
+    if (!cumpleTab) return false
+
+    // 2. Filtro por búsqueda
+    if (!busqueda.trim()) return true
+
+    const termino = busqueda.toLowerCase().trim()
+    
+    // Buscar en concepto
+    const conceptoStr = (pago.concepto_nombre || (pago as any).concepto || '').toLowerCase()
+    if (conceptoStr.includes(termino)) return true
+    
+    // Buscar en datos del alumno
+    if (pago.alumnos && pago.alumnos.profiles) {
+      if ((pago.alumnos.matricula || '').toLowerCase().includes(termino)) return true
+      const nombreAlumno = `${pago.alumnos.profiles.nombre || ''} ${pago.alumnos.profiles.apellidos || ''}`.toLowerCase()
+      if (nombreAlumno.includes(termino)) return true
+    }
+    
+    // Buscar en datos del padre
+    if (pago.padres && pago.padres.profiles) {
+      const nombrePadre = `${pago.padres.profiles.nombre || ''} ${pago.padres.profiles.apellidos || ''}`.toLowerCase()
+      if (nombrePadre.includes(termino)) return true
+    }
+
+    return false
   })
 
   // Estadísticas
   const estadisticas = {
     total: pagos.length,
-    pendientes: pagos.filter(p => p.estado === 'pendiente').length,
+    pendientes: pagos.filter(p => p.estado === 'pendiente' || p.estado === 'pendiente_verificacion').length,
     pagados: pagos.filter(p => p.estado === 'pagado').length,
     vencidos: pagos.filter(p => p.estado === 'vencido').length,
     montoTotal: pagos.reduce((sum, p) => sum + p.monto, 0),
-    montoPendiente: pagos.filter(p => p.estado === 'pendiente' || p.estado === 'vencido')
+    montoPendiente: pagos.filter(p => p.estado === 'pendiente' || p.estado === 'vencido' || p.estado === 'pendiente_verificacion')
       .reduce((sum, p) => sum + p.monto, 0),
     montoCobrado: pagos.filter(p => p.estado === 'pagado')
       .reduce((sum, p) => sum + p.monto, 0),
@@ -276,13 +304,27 @@ export default function DirectivoPagos() {
         {/* Tabla de pagos con tabs */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <DollarSign className="h-5 w-5" />
-              Listado de Pagos
-            </CardTitle>
-            <CardDescription>
-              Todos los pagos creados en el sistema
-            </CardDescription>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <DollarSign className="h-5 w-5" />
+                  Listado de Pagos
+                </CardTitle>
+                <CardDescription>
+                  Todos los pagos creados en el sistema
+                </CardDescription>
+              </div>
+              <div className="relative w-full sm:w-72">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
+                <Input
+                  type="text"
+                  placeholder="Buscar por concepto, alumno, matrícula o padre..."
+                  className="pl-9"
+                  value={busqueda}
+                  onChange={(e) => setBusqueda(e.target.value)}
+                />
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
             <Tabs value={tabActivo} onValueChange={setTabActivo}>

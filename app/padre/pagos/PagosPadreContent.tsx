@@ -289,7 +289,7 @@ export default function PagosPadreContent() {
                         <div className="flex items-center justify-between pt-4 border-t">
                           <div className="text-sm text-gray-600">
                             <Clock className="h-4 w-4 inline mr-1" />
-                            Vence: {new Date(pago.fecha_vencimiento).toLocaleDateString('es-MX', {
+                            Vence: {new Date(pago.fecha_vencimiento + 'T12:00:00').toLocaleDateString('es-MX', {
                               year: 'numeric',
                               month: 'long',
                               day: 'numeric'

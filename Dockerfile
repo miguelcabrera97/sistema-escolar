@@ -24,6 +24,12 @@ ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL \
     NEXT_TELEMETRY_DISABLED=1
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+# Falla temprano (sin imprimir valores) si faltan las variables de build.
+RUN for v in NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_ANON_KEY NEXT_PUBLIC_APP_URL NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY; do \
+      eval "val=\$$v"; \
+      if [ -n "$val" ]; then echo "$v: set"; else echo "$v: VACIA"; missing=1; fi; \
+    done; \
+    if [ -n "$missing" ]; then echo "ERROR: faltan variables de build. En Coolify márcalas como Build Variable."; exit 1; fi
 RUN npm run build
 
 # 3. Runtime

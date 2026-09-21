@@ -148,6 +148,7 @@ MERCADOPAGO_WEBHOOK_SECRET=tu-webhook-secret
 
 # Resend (Email)
 RESEND_API_KEY=re_tu-api-key
+EMAIL_FROM="Sistema Escolar <no-reply@tudominio.com>"
 
 # URL de la aplicación
 NEXT_PUBLIC_APP_URL=http://localhost:3000
@@ -245,18 +246,59 @@ npm run clean
 
 ---
 
-## ☁️ Despliegue
+## ☁️ Despliegue (VPS con Coolify)
 
-Este proyecto está preparado para desplegarse en **Vercel**.
+La app corre en un VPS con [Coolify](https://coolify.io) usando el `Dockerfile` del repo. Base de datos, Auth y Storage siguen en **Supabase Cloud**.
 
-### Pasos:
+Cada `push` a `master` despliega automáticamente. HTTPS lo gestiona Coolify.
 
-1. Haz push de tu repositorio a GitHub/GitLab/Bitbucket.
-2. Importa el proyecto desde el [Dashboard de Vercel](https://vercel.com/dashboard).
-3. Configura las mismas variables de entorno en la sección **Environment Variables** del proyecto en Vercel.
-4. Vercel detectará automáticamente que es un proyecto Next.js y lo desplegará.
+### Configuración de la aplicación en Coolify
 
-> 💡 Asegúrate de configurar la variable `NEXT_PUBLIC_APP_URL` con tu dominio de producción y de actualizar la URL del webhook de Mercado Pago con ese dominio.
+- **Build Pack:** Dockerfile
+- **Puerto:** 3000
+- **Health check:** `/api/health`
+- **Rama:** `master`
+
+### Variables de entorno
+
+En Coolify → aplicación → **Environment Variables**:
+
+| Variable | Build Variable | Descripción |
+|---|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | ✅ | URL del proyecto Supabase |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | ✅ | Anon key de Supabase |
+| `NEXT_PUBLIC_APP_URL` | ✅ | Dominio público de la app (`https://...`) |
+| `NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY` | ✅ | Public key de Mercado Pago |
+| `SUPABASE_SERVICE_ROLE_KEY` | ❌ | Service role key (solo servidor) |
+| `MERCADOPAGO_ACCESS_TOKEN` | ❌ | Access token de Mercado Pago |
+| `MERCADOPAGO_WEBHOOK_SECRET` | ❌ | Secreto de firma del webhook |
+| `RESEND_API_KEY` | ❌ | API key de Resend |
+| `EMAIL_FROM` | ❌ | Remitente de correos |
+
+> ⚠️ Las variables `NEXT_PUBLIC_*` se incrustan durante el build. Si cambias alguna, haz **Redeploy** (reiniciar no basta).
+
+### Operación diaria
+
+- **Ver logs:** aplicación → **Logs**.
+- **Reiniciar:** botón **Restart**.
+- **Volver a una versión anterior:** aplicación → **Deployments** → elegir un deploy previo → **Rollback**.
+
+### Al cambiar de dominio
+
+1. Actualiza `NEXT_PUBLIC_APP_URL` y el dominio de la app en Coolify → **Redeploy**.
+2. Supabase → Authentication → URL Configuration: actualiza **Site URL** y **Redirect URLs**.
+3. Mercado Pago: actualiza el webhook a `https://<dominio>/api/webhooks/mercadopago`.
+
+### Probar la imagen localmente
+
+```bash
+docker build -t sistema-escolar \
+  --build-arg NEXT_PUBLIC_SUPABASE_URL=... \
+  --build-arg NEXT_PUBLIC_SUPABASE_ANON_KEY=... \
+  --build-arg NEXT_PUBLIC_APP_URL=http://localhost:3000 \
+  --build-arg NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY=... .
+docker run --env-file .env.local -p 3000:3000 sistema-escolar
+```
 
 ---
 

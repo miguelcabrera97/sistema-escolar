@@ -1,5 +1,8 @@
-/** @type {import('next').NextConfig} */
-const nextConfig = {
+import type { NextConfig } from 'next'
+
+const nextConfig: NextConfig = {
+  // Genera .next/standalone con server.js mínimo para la imagen Docker (Coolify)
+  output: 'standalone',
 }
 
-module.exports = nextConfig
+export default nextConfig

@@ -1,0 +1,15 @@
+node_modules
+.next
+.git
+.github
+.claude
+.vercel
+.env*
+docs
+supabase
+scripts
+build-output.log
+LIMPIAR_PROYECTO.bat
+README.md
+Dockerfile
+.dockerignore

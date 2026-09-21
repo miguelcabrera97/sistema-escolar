@@ -254,16 +254,26 @@ Cada `push` a `master` despliega automáticamente. HTTPS lo gestiona Coolify.
 
 ### Configuración de la aplicación en Coolify
 
+- **Origen:** Public Repository (`https://github.com/miguelcabrera97/sistema-escolar`)
 - **Build Pack:** Dockerfile
 - **Puerto:** 3000
-- **Health check:** `/api/health`
+- **Health check:** `/api/health` (definido en el `Dockerfile`)
 - **Rama:** `master`
+
+### Auto-deploy
+
+Webhook en GitHub → repo → **Settings → Webhooks**:
+
+- **Payload URL:** `https://panel.<dominio>/webhooks/source/github/events/manual` (sin dominio: `http://<IP>:8000/webhooks/source/github/events/manual`)
+- **Content type:** `application/json`
+- **Secret:** el de Coolify → aplicación → **Webhooks → Manual Git webhooks → GitHub**
+- **Events:** solo `push`
 
 ### Variables de entorno
 
 En Coolify → aplicación → **Environment Variables**:
 
-| Variable | Build Variable | Descripción |
+| Variable | Buildtime | Descripción |
 |---|---|---|
 | `NEXT_PUBLIC_SUPABASE_URL` | ✅ | URL del proyecto Supabase |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | ✅ | Anon key de Supabase |
@@ -275,7 +285,9 @@ En Coolify → aplicación → **Environment Variables**:
 | `RESEND_API_KEY` | ❌ | API key de Resend |
 | `EMAIL_FROM` | ❌ | Remitente de correos |
 
-> ⚠️ Las variables `NEXT_PUBLIC_*` se incrustan durante el build. Si cambias alguna, haz **Redeploy** (reiniciar no basta).
+> ⚠️ Las variables `NEXT_PUBLIC_*` se incrustan durante el build. Si cambias alguna, haz **Redeploy** (reiniciar no basta). Si alguna llega vacía, el build se detiene mostrando `NEXT_PUBLIC_...: VACIA`.
+>
+> Los secretos (❌) van solo con **Runtime**: el build no los necesita y así no quedan en la imagen.
 
 ### Operación diaria
 

@@ -378,7 +378,7 @@ export async function crearAlumno(prevState: Result | null | undefined, formData
 
     if (profileError) {
       // Intentar eliminar el usuario de auth
-      await supabase.auth.admin.deleteUser(authData.user.id)
+      await supabaseAdmin.auth.admin.deleteUser(authData.user.id)
       return {
         success: false,
         errors: { _form: [profileError.message] },
@@ -397,6 +397,8 @@ export async function crearAlumno(prevState: Result | null | undefined, formData
     ])
 
     if (alumnoError) {
+      // Revertir para que se pueda reintentar con el mismo email
+      await supabaseAdmin.auth.admin.deleteUser(authData.user.id)
       return {
         success: false,
         errors: { _form: [alumnoError.message] },
@@ -428,10 +430,13 @@ export async function crearAlumno(prevState: Result | null | undefined, formData
       message: 'Alumno creado exitosamente',
     }
   } catch (error) {
-    console.error('Error:', error)
+    console.error('Error al crear alumno:', error)
+    const detalle = error instanceof Error && error.message.startsWith('Missing')
+      ? `Error de configuración del servidor: ${error.message}`
+      : 'Error inesperado al crear alumno'
     return {
       success: false,
-      errors: { _form: ['Error inesperado al crear alumno'] },
+      errors: { _form: [detalle] },
     }
   }
 }
@@ -702,7 +707,7 @@ export async function crearMaestro(data: CrearMaestroData): Promise<Result> {
     ])
 
     if (profileError) {
-      await supabase.auth.admin.deleteUser(authData.user.id)
+      await supabaseAdmin.auth.admin.deleteUser(authData.user.id)
       return { success: false, error: profileError.message }
     }
 
@@ -818,7 +823,7 @@ export async function crearAuxiliar(data: CrearAuxiliarData): Promise<Result> {
     ])
 
     if (profileError) {
-      await supabase.auth.admin.deleteUser(authData.user.id)
+      await supabaseAdmin.auth.admin.deleteUser(authData.user.id)
       return { success: false, error: profileError.message }
     }
 
@@ -914,7 +919,7 @@ export async function crearPadreODirectivo(prevState: Result | null | undefined,
     ])
 
     if (profileError) {
-      await supabase.auth.admin.deleteUser(authData.user.id)
+      await supabaseAdmin.auth.admin.deleteUser(authData.user.id)
       return {
         success: false,
         errors: { _form: [profileError.message] },
